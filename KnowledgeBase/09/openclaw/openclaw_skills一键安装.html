@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClawHub 编程技能排行榜</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #05080f;
+      --bg-card: #0c1220;
+      --fg: #e8edf5;
+      --muted: #5a6b85;
+      --accent: #00d4aa;
+      --accent-dim: rgba(0, 212, 170, 0.15);
+      --gold: #ffd700;
+      --silver: #c0c8d4;
+      --bronze: #cd7f32;
+      --border: rgba(90, 107, 133, 0.25);
+    }
+
+    * { box-sizing: border-box; }
+    
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+    }
+
+    .font-display { font-family: 'Space Grotesk', sans-serif; }
+
+    .bg-pattern {
+      position: fixed;
+      inset: 0;
+      background: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 212, 170, 0.08), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(0, 150, 255, 0.05), transparent);
+      pointer-events: none;
+    }
+
+    .grid-lines {
+      position: fixed;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(0, 212, 170, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 212, 170, 0.03) 1px, transparent 1px);
+      background-size: 80px 80px;
+      mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+      pointer-events: none;
+    }
+
+    .rank-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px 24px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .rank-item::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .rank-item:hover {
+      border-color: var(--accent);
+      transform: translateX(8px);
+      box-shadow: 0 0 40px rgba(0, 212, 170, 0.1);
+    }
+
+    .rank-item:hover::before { opacity: 1; }
+    .rank-item.top-1 { border-color: rgba(255, 215, 0, 0.4); }
+    .rank-item.top-1::before { background: var(--gold); }
+    .rank-item.top-2 { border-color: rgba(192, 200, 212, 0.4); }
+    .rank-item.top-2::before { background: var(--silver); }
+    .rank-item.top-3 { border-color: rgba(205, 127, 50, 0.4); }
+    .rank-item.top-3::before { background: var(--bronze); }
+
+    .rank-badge {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.25rem;
+      background: rgba(90, 107, 133, 0.2);
+      border: 1px solid var(--border);
+    }
+
+    .rank-badge.gold {
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 180, 0, 0.1));
+      border-color: rgba(255, 215, 0, 0.5);
+      color: var(--gold);
+    }
+
+    .rank-badge.silver {
+      background: linear-gradient(135deg, rgba(192, 200, 212, 0.2), rgba(160, 170, 185, 0.1));
+      border-color: rgba(192, 200, 212, 0.5);
+      color: var(--silver);
+    }
+
+    .rank-badge.bronze {
+      background: linear-gradient(135deg, rgba(205, 127, 50, 0.2), rgba(180, 100, 30, 0.1));
+      border-color: rgba(205, 127, 50, 0.5);
+      color: var(--bronze);
+    }
+
+    .progress-bar {
+      height: 6px;
+      background: rgba(90, 107, 133, 0.2);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--accent), #00ffc8);
+      transform-origin: left;
+      animation: progressGrow 1s ease-out forwards;
+    }
+
+    @keyframes progressGrow {
+      from { transform: scaleX(0); }
+      to { transform: scaleX(1); }
+    }
+
+    .skill-tag {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tag-fundamental { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+    .tag-advanced { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+    .tag-practice { background: rgba(0, 212, 170, 0.15); color: var(--accent); }
+    .tag-tool { background: rgba(251, 146, 60, 0.15); color: #fb923c; }
+
+    .filter-btn {
+      padding: 10px 20px;
+      border-radius: 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: 500;
+    }
+
+    .filter-btn:hover {
+      border-color: var(--accent);
+      color: var(--fg);
+    }
+
+    .filter-btn.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .search-input {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 20px 14px 48px;
+      color: var(--fg);
+      width: 100%;
+      transition: all 0.3s ease;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(0, 212, 170, 0.1);
+    }
+
+    .search-input::placeholder { color: var(--muted); }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 100px;
+      height: 100px;
+      background: radial-gradient(circle at top right, var(--accent-dim), transparent 70%);
+      pointer-events: none;
+    }
+
+    .rank-item {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    .rank-item.visible {
+      animation: slideUp 0.5s ease forwards;
+    }
+
+    @keyframes slideUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .difficulty-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+
+    .difficulty-dot.filled { background: var(--accent); }
+
+    /* 安装命令样式 */
+    .install-command {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(90, 107, 133, 0.3);
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .install-command code {
+      font-family: 'Space Grotesk', monospace;
+      color: var(--accent);
+      font-size: 13px;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(0, 212, 170, 0.3);
+      border-radius: 8px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .copy-btn:hover {
+      background: rgba(0, 212, 170, 0.25);
+      border-color: var(--accent);
+    }
+
+    .copy-btn:active {
+      transform: scale(0.96);
+    }
+
+    .copy-btn.copied {
+      background: rgba(34, 197, 94, 0.2);
+      border-color: rgba(34, 197, 94, 0.5);
+      color: #22c55e;
+    }
+
+    /* 提示框 */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--bg-card);
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      opacity: 0;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1000;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    .toast-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(34, 197, 94, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    @media (max-width: 640px) {
+      .rank-item { padding: 16px; }
+      .rank-badge { width: 40px; height: 40px; font-size: 1rem; }
+      .install-command { flex-direction: column; align-items: stretch; }
+      .install-command code { font-size: 11px; }
+      .copy-btn { justify-content: center; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-pattern"></div>
+  <div class="grid-lines"></div>
+
+  <div class="relative z-10 max-w-5xl mx-auto px-4 py-12">
+    <!-- 头部 -->
+    <header class="text-center mb-12">
+      <div class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-emerald-400 text-sm mb-6">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+        <span>ClawHub Skills Leaderboard</span>
+      </div>
+      <h1 class="font-display text-4xl md:text-5xl font-bold mb-4 tracking-tight">
+        编程能力提升<span class="text-emerald-400">技能排行榜</span>
+      </h1>
+      <p class="text-lg text-slate-400 max-w-2xl mx-auto">
+        基于学习效果、实用性和社区反馈的综合评分，一键复制安装命令即可开始学习
+      </p>
+    </header>
+
+    <!-- 统计概览 -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+      <div class="stat-card">
+        <div class="text-3xl font-display font-bold text-emerald-400 mb-1">42</div>
+        <div class="text-sm text-slate-400">技能总数</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-3xl font-display font-bold mb-1">8.6k</div>
+        <div class="text-sm text-slate-400">学习者</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-3xl font-display font-bold mb-1">94%</div>
+        <div class="text-sm text-slate-400">好评率</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-3xl font-display font-bold text-amber-400 mb-1">12</div>
+        <div class="text-sm text-slate-400">新增技能</div>
+      </div>
+    </div>
+
+    <!-- 搜索和筛选 -->
+    <div class="flex flex-col md:flex-row gap-4 mb-8">
+      <div class="relative flex-1">
+        <svg class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input type="text" id="search-input" class="search-input" placeholder="搜索技能...">
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <button class="filter-btn active" data-filter="all">全部</button>
+        <button class="filter-btn" data-filter="fundamental">基础</button>
+        <button class="filter-btn" data-filter="advanced">进阶</button>
+        <button class="filter-btn" data-filter="practice">实践</button>
+        <button class="filter-btn" data-filter="tool">工具</button>
+      </div>
+    </div>
+
+    <!-- 排序选项 -->
+    <div class="flex items-center gap-4 mb-6 text-sm">
+      <span class="text-slate-500">排序：</span>
+      <button class="sort-btn text-emerald-400 font-medium" data-sort="score">综合评分</button>
+      <button class="sort-btn text-slate-500 hover:text-slate-300 transition-colors" data-sort="learners">学习人数</button>
+      <button class="sort-btn text-slate-500 hover:text-slate-300 transition-colors" data-sort="growth">增长趋势</button>
+    </div>
+
+    <!-- 排行榜列表 -->
+    <div class="space-y-4" id="rank-list"></div>
+
+    <!-- 加载更多 -->
+    <div class="text-center mt-8">
+      <button id="load-more" class="px-8 py-3 border border-slate-600 rounded-xl text-slate-300 hover:border-emerald-500 hover:text-emerald-400 transition-all">
+        加载更多技能
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast 提示 -->
+  <div class="toast" id="toast">
+    <div class="toast-icon">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </div>
+    <span class="text-sm">安装命令已复制到剪贴板</span>
+  </div>
+
+  <script>
+    // 技能数据 - 添加安装命令
+    const skillsData = [
+      {
+        id: 1,
+        name: "代码审查能力",
+        description: "学会发现代码中的问题，提升代码质量意识",
+        category: "practice",
+        score: 98,
+        learners: 2456,
+        growth: 23,
+        difficulty: 2,
+        tags: ["实践", "团队协作"],
+        installCommand: "clawhub install code-review-master"
+      },
+      {
+        id: 2,
+        name: "算法思维训练",
+        description: "掌握常见算法模式，培养解决问题的思维方式",
+        category: "fundamental",
+        score: 96,
+        learners: 3124,
+        growth: 18,
+        difficulty: 3,
+        tags: ["基础", "核心"],
+        installCommand: "clawhub install algorithm-thinking"
+      },
+      {
+        id: 3,
+        name: "调试与故障排查",
+        description: "系统化的问题定位和解决方法论",
+        category: "practice",
+        score: 95,
+        learners: 1876,
+        growth: 31,
+        difficulty: 2,
+        tags: ["实践", "必备"],
+        installCommand: "clawhub install debug-expert"
+      },
+      {
+        id: 4,
+        name: "Git 版本控制精通",
+        description: "从基础到高级的版本控制工作流",
+        category: "tool",
+        score: 94,
+        learners: 4521,
+        growth: 12,
+        difficulty: 1,
+        tags: ["工具", "协作"],
+        installCommand: "clawhub install git-mastery"
+      },
+      {
+        id: 5,
+        name: "设计模式应用",
+        description: "理解并正确应用常见设计模式",
+        category: "advanced",
+        score: 92,
+        learners: 1543,
+        growth: 15,
+        difficulty: 4,
+        tags: ["进阶", "架构"],
+        installCommand: "clawhub install design-patterns"
+      },
+      {
+        id: 6,
+        name: "测试驱动开发",
+        description: "TDD 思维与实践，写出可测试的代码",
+        category: "practice",
+        score: 91,
+        learners: 1234,
+        growth: 28,
+        difficulty: 3,
+        tags: ["实践", "质量"],
+        installCommand: "clawhub install tdd-practice"
+      },
+      {
+        id: 7,
+        name: "系统设计基础",
+        description: "可扩展系统设计的关键原则",
+        category: "advanced",
+        score: 90,
+        learners: 987,
+        growth: 35,
+        difficulty: 4,
+        tags: ["进阶", "架构"],
+        installCommand: "clawhub install system-design"
+      },
+      {
+        id: 8,
+        name: "数据结构深入",
+        description: "理解数据结构的选择对性能的影响",
+        category: "fundamental",
+        score: 89,
+        learners: 2876,
+        growth: 8,
+        difficulty: 2,
+        tags: ["基础", "核心"],
+        installCommand: "clawhub install data-structures"
+      },
+      {
+        id: 9,
+        name: "CI/CD 流水线构建",
+        description: "自动化构建、测试和部署流程",
+        category: "tool",
+        score: 88,
+        learners: 1123,
+        growth: 42,
+        difficulty: 3,
+        tags: ["工具", "DevOps"],
+        installCommand: "clawhub install cicd-pipeline"
+      },
+      {
+        id: 10,
+        name: "API 设计原则",
+        description: "设计清晰、一致、易用的 API 接口",
+        category: "advanced",
+        score: 87,
+        learners: 876,
+        growth: 19,
+        difficulty: 3,
+        tags: ["进阶", "后端"],
+        installCommand: "clawhub install api-design"
+      },
+      {
+        id: 11,
+        name: "代码重构技巧",
+        description: "安全地改善现有代码结构",
+        category: "practice",
+        score: 86,
+        learners: 1432,
+        growth: 16,
+        difficulty: 2,
+        tags: ["实践", "维护"],
+        installCommand: "clawhub install refactoring-skills"
+      },
+      {
+        id: 12,
+        name: "性能优化方法",
+        description: "识别瓶颈并系统化地优化性能",
+        category: "advanced",
+        score: 85,
+        learners: 765,
+        growth: 24,
+        difficulty: 4,
+        tags: ["进阶", "优化"],
+        installCommand: "clawhub install performance-optimization"
+      }
+    ];
+
+    // 状态管理
+    const state = {
+      currentFilter: 'all',
+      currentSort: 'score',
+      searchTerm: '',
+      displayedCount: 12
+    };
+
+    // DOM 元素
+    const rankList = document.getElementById('rank-list');
+    const searchInput = document.getElementById('search-input');
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    const sortBtns = document.querySelectorAll('.sort-btn');
+    const loadMoreBtn = document.getElementById('load-more');
+    const toast = document.getElementById('toast');
+
+    // 获取分类标签类名
+    function getCategoryClass(category) {
+      const map = {
+        fundamental: 'tag-fundamental',
+        advanced: 'tag-advanced',
+        practice: 'tag-practice',
+        tool: 'tag-tool'
+      };
+      return map[category] || 'tag-fundamental';
+    }
+
+    // 获取分类名称
+    function getCategoryName(category) {
+      const map = {
+        fundamental: '基础',
+        advanced: '进阶',
+        practice: '实践',
+        tool: '工具'
+      };
+      return map[category] || category;
+    }
+
+    // 获取排名样式
+    function getTopClass(rank) {
+      if (rank === 1) return 'top-1';
+      if (rank === 2) return 'top-2';
+      if (rank === 3) return 'top-3';
+      return '';
+    }
+
+    // 获取徽章样式
+    function getBadgeClass(rank) {
+      if (rank === 1) return 'gold';
+      if (rank === 2) return 'silver';
+      if (rank === 3) return 'bronze';
+      return '';
+    }
+
+    // 渲染难度指示器
+    function renderDifficulty(level) {
+      let html = '<div class="flex gap-1">';
+      for (let i = 1; i <= 5; i++) {
+        html += `<div class="difficulty-dot ${i <= level ? 'filled' : ''}"></div>`;
+      }
+      html += '</div>';
+      return html;
+    }
+
+    // 渲染单个项目
+    function renderSkillItem(skill, rank) {
+      const topClass = getTopClass(rank);
+      const badgeClass = getBadgeClass(rank);
+      
+      return `
+        <div class="rank-item ${topClass}" data-id="${skill.id}">
+          <div class="flex flex-col md:flex-row md:items-center gap-4">
+            <div class="rank-badge ${badgeClass} shrink-0">${rank}</div>
+            
+            <div class="flex-1 min-w-0">
+              <div class="flex items-start justify-between gap-4 mb-2">
+                <div>
+                  <h3 class="font-bold text-lg mb-1">${skill.name}</h3>
+                  <p class="text-sm text-slate-400">${skill.description}</p>
+                </div>
+                <div class="shrink-0 text-right hidden md:block">
+                  <div class="text-2xl font-display font-bold text-emerald-400">${skill.score}</div>
+                  <div class="text-xs text-slate-500">综合评分</div>
+                </div>
+              </div>
+              
+              <div class="progress-bar mb-3">
+                <div class="progress-fill" style="width: ${skill.score}%"></div>
+              </div>
+              
+              <div class="flex flex-wrap items-center gap-4 text-sm mb-3">
+                <span class="skill-tag ${getCategoryClass(skill.category)}">${getCategoryName(skill.category)}</span>
+                
+                <div class="flex items-center gap-1 text-slate-400">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                  <span>${skill.learners.toLocaleString()}</span>
+                </div>
+                
+                <div class="flex items-center gap-1 text-emerald-400">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                    <polyline points="17 6 23 6 23 12"/>
+                  </svg>
+                  <span>+${skill.growth}%</span>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-500">难度</span>
+                  ${renderDifficulty(skill.difficulty)}
+                </div>
+              </div>
+              
+              <!-- 安装命令 -->
+              <div class="install-command">
+                <code>$ ${skill.installCommand}</code>
+                <button class="copy-btn" data-command="${skill.installCommand}" aria-label="复制安装命令">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  <span>复制</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 过滤和排序数据
+    function getFilteredData() {
+      let data = [...skillsData];
+      
+      if (state.searchTerm) {
+        const term = state.searchTerm.toLowerCase();
+        data = data.filter(s => 
+          s.name.toLowerCase().includes(term) || 
+          s.description.toLowerCase().includes(term) ||
+          s.tags.some(t => t.toLowerCase().includes(term))
+        );
+      }
+      
+      if (state.currentFilter !== 'all') {
+        data = data.filter(s => s.category === state.currentFilter);
+      }
+      
+      if (state.currentSort === 'score') {
+        data.sort((a, b) => b.score - a.score);
+      } else if (state.currentSort === 'learners') {
+        data.sort((a, b) => b.learners - a.learners);
+      } else if (state.currentSort === 'growth') {
+        data.sort((a, b) => b.growth - a.growth);
+      }
+      
+      return data;
+    }
+
+    // 显示 Toast
+    function showToast() {
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    }
+
+    // 复制到剪贴板
+    async function copyToClipboard(text, btn) {
+      try {
+        await navigator.clipboard.writeText(text);
+        
+        // 更新按钮状态
+        btn.classList.add('copied');
+        btn.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <span>已复制</span>
+        `;
+        
+        showToast();
+        
+        // 恢复按钮状态
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            <span>复制</span>
+          `;
+        }, 2000);
+      } catch (err) {
+        console.error('复制失败:', err);
+      }
+    }
+
+    // 渲染列表
+    function renderList() {
+      const data = getFilteredData();
+      const toDisplay = data.slice(0, state.displayedCount);
+      
+      rankList.innerHTML = toDisplay.map((skill, index) => 
+        renderSkillItem(skill, index + 1)
+      ).join('');
+      
+      // 触发入场动画
+      requestAnimationFrame(() => {
+        const items = rankList.querySelectorAll('.rank-item');
+        items.forEach((item, i) => {
+          setTimeout(() => {
+            item.classList.add('visible');
+          }, i * 80);
+        });
+      });
+      
+      // 绑定复制按钮事件
+      const copyBtns = rankList.querySelectorAll('.copy-btn');
+      copyBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const command = btn.dataset.command;
+          copyToClipboard(command, btn);
+        });
+      });
+      
+      loadMoreBtn.style.display = data.length > state.displayedCount ? 'inline-block' : 'none';
+    }
+
+    // 设置筛选
+    function setupFilters() {
+      filterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          filterBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.currentFilter = btn.dataset.filter;
+          state.displayedCount = 12;
+          renderList();
+        });
+      });
+    }
+
+    // 设置排序
+    function setupSorting() {
+      sortBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          sortBtns.forEach(b => {
+            b.classList.remove('text-emerald-400', 'font-medium');
+            b.classList.add('text-slate-500');
+          });
+          btn.classList.remove('text-slate-500');
+          btn.classList.add('text-emerald-400', 'font-medium');
+          state.currentSort = btn.dataset.sort;
+          renderList();
+        });
+      });
+    }
+
+    // 设置搜索
+    function setupSearch() {
+      let timeout;
+      searchInput.addEventListener('input', (e) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+          state.searchTerm = e.target.value;
+          state.displayedCount = 12;
+          renderList();
+        }, 300);
+      });
+    }
+
+    // 设置加载更多
+    function setupLoadMore() {
+      loadMoreBtn.addEventListener('click', () => {
+        state.displayedCount += 6;
+        renderList();
+      });
+    }
+
+    // 初始化
+    function init() {
+      renderList();
+      setupFilters();
+      setupSorting();
+      setupSearch();
+      setupLoadMore();
+    }
+
+    init();
+  </script>
+</body>
+</html>

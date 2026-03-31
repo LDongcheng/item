@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>网关 - OpenClaw 学术词</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #060b14; --bg-card: #0c1420; --fg: #e2e8f0; --muted: #64748b; --accent: #00d4aa; --border: rgba(0, 212, 170, 0.15); }
+    * { box-sizing: border-box; }
+    body { font-family: 'Noto Sans SC', sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; line-height: 1.7; }
+    .font-display { font-family: 'Space Grotesk', sans-serif; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 1rem; }
+    .card:hover { border-color: var(--accent); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .tag { display: inline-block; padding: 4px 12px; background: rgba(0, 212, 170, 0.15); border-radius: 999px; margin: 4px; font-size: 0.875rem; }
+    
+    .gateway-demo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 24px;
+      background: rgba(0, 212, 170, 0.05);
+      border-radius: 12px;
+    }
+    
+    .request-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 20px;
+      background: rgba(255, 193, 7, 0.1);
+      border: 1px solid rgba(255, 193, 7, 0.3);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .request-box:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 20px rgba(255, 193, 7, 0.3);
+    }
+    
+    .gateway-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 40px;
+      background: linear-gradient(135deg, rgba(0, 212, 170, 0.2), rgba(0, 212, 170, 0.05));
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      position: relative;
+    }
+    
+    .gateway-box::before {
+      content: '🚪';
+      font-size: 2rem;
+      margin-bottom: 8px;
+    }
+    
+    .service-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    .service-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 16px;
+      background: rgba(100, 116, 139, 0.1);
+      border: 1px solid rgba(100, 116, 139, 0.3);
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      min-width: 100px;
+    }
+    
+    .service-box.active {
+      background: rgba(0, 212, 170, 0.2);
+      border-color: var(--accent);
+      transform: scale(1.1);
+    }
+    
+    .arrow {
+      font-size: 1.5rem;
+      color: var(--accent);
+      animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+    
+    .flow-line {
+      width: 2px;
+      height: 30px;
+      background: linear-gradient(to bottom, var(--accent), transparent);
+    }
+    
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    
+    .feature-item {
+      padding: 16px;
+      background: rgba(0, 212, 170, 0.05);
+      border-radius: 8px;
+      border-left: 3px solid var(--accent);
+    }
+    
+    .code-block {
+      background: #0d1117;
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+    
+    .code-block .keyword { color: #ff7b72; }
+    .code-block .string { color: #a5d6ff; }
+    .code-block .comment { color: #8b949e; }
+    .code-block .function { color: #d2a8ff; }
+  </style>
+</head>
+<body class="p-8">
+  <div class="max-w-3xl mx-auto">
+    <a href="index.html" class="text-sm text-[var(--muted)] hover:text-[var(--accent)]">← 返回学术词索引</a>
+    <h1 class="font-display text-3xl font-bold mt-6 mb-2" style="background: linear-gradient(135deg, var(--fg), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">网关 (Gateway)</h1>
+    <p class="text-[var(--muted)] text-sm mb-8">架构相关 · 架构阶段</p>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-2 text-[var(--accent)]">🎯 一句话理解</h2>
+      <p class="text-lg">网关就像是一个<strong class="text-[var(--accent)]">智能前台</strong>，所有来访的请求都要先经过它，它负责把请求引导到正确的服务那里去。</p>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-2 text-[var(--accent)]">💡 形象比喻</h2>
+      <div class="space-y-4">
+        <div class="p-4 bg-gradient-to-r from-amber-500/10 to-transparent rounded-lg">
+          <p class="font-semibold mb-2">🏨 酒店前台</p>
+          <p class="text-[var(--muted)]">想象你走进一家大酒店，前台接待员就是"网关"。你告诉前台你要去哪里（餐厅、健身房、客房），前台会指引你正确的方向，还会检查你的身份、安排电梯等等。</p>
+        </div>
+        <div class="p-4 bg-gradient-to-r from-blue-500/10 to-transparent rounded-lg">
+          <p class="font-semibold mb-2">🚦 交通枢纽</p>
+          <p class="text-[var(--muted)]">网关就像一个交通枢纽，所有车辆（请求）都要先到这里，然后被分配到不同的道路（服务）上去。它还能在高峰期分流车辆，避免某条路太堵。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card mb-8">
+      <h2 class="font-display text-lg font-semibold mb-4 text-[var(--accent)] flex items-center gap-2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+        交互演示：网关工作流程
+      </h2>
+      <p class="text-[var(--muted)] mb-4">点击下方的请求，观察网关如何将它路由到正确的服务：</p>
+      
+      <div class="gateway-demo">
+        <div class="request-box" onclick="sendRequest('用户服务')">
+          <span>📨</span>
+          <span>请求：获取用户信息</span>
+        </div>
+        <div class="request-box" onclick="sendRequest('订单服务')">
+          <span>📦</span>
+          <span>请求：查询订单状态</span>
+        </div>
+        <div class="request-box" onclick="sendRequest('支付服务')">
+          <span>💳</span>
+          <span>请求：处理支付</span>
+        </div>
+        
+        <div class="arrow">⬇️</div>
+        
+        <div class="gateway-box">
+          <span class="font-display font-semibold">API 网关</span>
+          <span class="text-sm text-[var(--muted)]" id="gateway-status">等待请求...</span>
+        </div>
+        
+        <div class="arrow">⬇️</div>
+        
+        <div class="service-row">
+          <div class="service-box" id="service-user">
+            <span>👤</span>
+            <span class="text-sm">用户服务</span>
+          </div>
+          <div class="service-box" id="service-order">
+            <span>📋</span>
+            <span class="text-sm">订单服务</span>
+          </div>
+          <div class="service-box" id="service-payment">
+            <span>💰</span>
+            <span class="text-sm">支付服务</span>
+          </div>
+        </div>
+      </div>
+      
+      <p class="text-sm text-[var(--muted)] text-center mt-4">
+        💡 网关根据请求类型，智能路由到对应的服务
+      </p>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">🔧 核心功能</h2>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <p class="font-semibold mb-1">🔀 路由转发</p>
+          <p class="text-sm text-[var(--muted)]">把请求引导到正确的服务</p>
+        </div>
+        <div class="feature-item">
+          <p class="font-semibold mb-1">⚖️ 负载均衡</p>
+          <p class="text-sm text-[var(--muted)]">均匀分配请求，避免服务过载</p>
+        </div>
+        <div class="feature-item">
+          <p class="font-semibold mb-1">🔐 安全控制</p>
+          <p class="text-sm text-[var(--muted)]">身份验证、权限检查</p>
+        </div>
+        <div class="feature-item">
+          <p class="font-semibold mb-1">🔄 协议转换</p>
+          <p class="text-sm text-[var(--muted)]">HTTP转gRPC等协议适配</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">📝 代码示例</h2>
+      <p class="text-[var(--muted)] mb-3">一个简单的网关路由配置：</p>
+      <div class="code-block">
+        <span class="comment">// 网关路由配置示例</span><br>
+        <span class="keyword">const</span> routes = {<br>
+        &nbsp;&nbsp;<span class="string">'/api/users'</span>: <span class="string">'user-service:8001'</span>,<br>
+        &nbsp;&nbsp;<span class="string">'/api/orders'</span>: <span class="string">'order-service:8002'</span>,<br>
+        &nbsp;&nbsp;<span class="string">'/api/payments'</span>: <span class="string">'payment-service:8003'</span><br>
+        };<br><br>
+        <span class="keyword">function</span> <span class="function">handleRequest</span>(request) {<br>
+        &nbsp;&nbsp;<span class="keyword">const</span> targetService = routes[request.path];<br>
+        &nbsp;&nbsp;<span class="keyword">return</span> forwardTo(targetService, request);<br>
+        }
+      </div>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-2 text-[var(--accent)]">🎓 学习提示词</h2>
+      <p class="text-[var(--muted)] italic">我想学习关于openclaw关于网关的知识，之所以用html是因为可读性和可拓展性关联性等，让我更好地理解其学术词和学术词有关地其他学术词</p>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">🔗 相关学术词</h2>
+      <div><span class="tag"><a href="路由.html">路由</a></span><span class="tag"><a href="负载均衡.html">负载均衡</a></span><span class="tag"><a href="协议转换.html">协议转换</a></span><span class="tag"><a href="智能体.html">智能体</a></span><span class="tag"><a href="API设计.html">API设计</a></span></div>
+    </section>
+
+    <section class="card">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">📚 学习要点</h2>
+      <ul class="list-disc list-inside space-y-2">
+        <li>网关是系统的<strong class="text-[var(--accent)]">统一入口</strong>，所有请求都先经过它</li>
+        <li>核心功能：路由转发、负载均衡、安全控制、协议转换</li>
+        <li>常见网关：Nginx、Kong、Spring Cloud Gateway</li>
+        <li>理解网关在微服务架构中的关键作用</li>
+        <li>学会配置网关路由规则和负载均衡策略</li>
+      </ul>
+    </section>
+  </div>
+
+  <script>
+    function sendRequest(serviceName) {
+      const gatewayStatus = document.getElementById('gateway-status');
+      const services = {
+        '用户服务': 'service-user',
+        '订单服务': 'service-order',
+        '支付服务': 'service-payment'
+      };
+      
+      Object.values(services).forEach(id => {
+        document.getElementById(id).classList.remove('active');
+      });
+      
+      gatewayStatus.textContent = '🔄 正在路由到 ' + serviceName + '...';
+      gatewayStatus.style.color = '#ffc107';
+      
+      setTimeout(() => {
+        gatewayStatus.textContent = '✅ 已路由到 ' + serviceName;
+        gatewayStatus.style.color = '#00d4aa';
+        document.getElementById(services[serviceName]).classList.add('active');
+      }, 500);
+    }
+  </script>
+</body>
+</html>

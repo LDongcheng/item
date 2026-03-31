@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw System-Prompt 技术解析</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;600;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg-primary: #0a0f14;
+      --bg-secondary: #111920;
+      --bg-card: #161f29;
+      --fg-primary: #e8eff6;
+      --fg-secondary: #8b9caa;
+      --fg-muted: #4a5d6e;
+      --accent-cyan: #00d4aa;
+      --accent-orange: #ff8a54;
+      --accent-gold: #ffc857;
+      --border: #253240;
+      --glow-cyan: rgba(0, 212, 170, 0.15);
+      --glow-orange: rgba(255, 138, 84, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg-primary);
+      color: var(--fg-primary);
+      overflow-x: hidden;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* 背景网格 */
+    .bg-grid {
+      background-image: 
+        linear-gradient(rgba(0, 212, 170, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 212, 170, 0.03) 1px, transparent 1px);
+      background-size: 50px 50px;
+    }
+
+    /* 渐变光晕 */
+    .glow-blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    /* 入场动画 */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes slideInLeft {
+      from {
+        opacity: 0;
+        transform: translateX(-50px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes scaleIn {
+      from {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.7; }
+    }
+
+    @keyframes flowLine {
+      0% { stroke-dashoffset: 1000; }
+      100% { stroke-dashoffset: 0; }
+    }
+
+    @keyframes typing {
+      from { width: 0; }
+      to { width: 100%; }
+    }
+
+    .animate-fade-in-up {
+      animation: fadeInUp 0.8s ease-out forwards;
+      opacity: 0;
+    }
+
+    .animate-slide-in-left {
+      animation: slideInLeft 0.8s ease-out forwards;
+      opacity: 0;
+    }
+
+    .animate-scale-in {
+      animation: scaleIn 0.6s ease-out forwards;
+      opacity: 0;
+    }
+
+    .delay-100 { animation-delay: 0.1s; }
+    .delay-200 { animation-delay: 0.2s; }
+    .delay-300 { animation-delay: 0.3s; }
+    .delay-400 { animation-delay: 0.4s; }
+    .delay-500 { animation-delay: 0.5s; }
+    .delay-600 { animation-delay: 0.6s; }
+    .delay-700 { animation-delay: 0.7s; }
+    .delay-800 { animation-delay: 0.8s; }
+
+    /* 卡片悬停效果 */
+    .card-hover {
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid var(--border);
+    }
+
+    .card-hover:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 20px 40px -15px var(--glow-cyan);
+    }
+
+    /* 代码块样式 */
+    .code-block {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .code-line {
+      transition: background 0.2s ease;
+    }
+
+    .code-line:hover {
+      background: rgba(0, 212, 170, 0.08);
+    }
+
+    /* 连接线动画 */
+    .flow-line {
+      stroke-dasharray: 1000;
+      animation: flowLine 2s ease-out forwards;
+    }
+
+    /* 标签样式 */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .tag:hover {
+      transform: scale(1.05);
+    }
+
+    /* 滚动条 */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-secondary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--fg-muted);
+    }
+
+    /* 交互式按钮 */
+    .btn-interactive {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .btn-interactive::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: width 0.6s ease, height 0.6s ease;
+    }
+
+    .btn-interactive:hover::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    /* 函数节点 */
+    .function-node {
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .function-node:hover .node-glow {
+      opacity: 1;
+    }
+
+    .node-glow {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    /* 参数高亮 */
+    .param-highlight {
+      background: linear-gradient(120deg, var(--glow-cyan) 0%, transparent 100%);
+      border-left: 3px solid var(--accent-cyan);
+      padding-left: 12px;
+      margin-left: -15px;
+    }
+
+    /* 浮动提示 */
+    .tooltip {
+      position: absolute;
+      background: var(--bg-card);
+      border: 1px solid var(--accent-cyan);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 14px;
+      max-width: 280px;
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+      pointer-events: none;
+    }
+
+    .tooltip-trigger:hover .tooltip {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* 流程箭头 */
+    .arrow-animated {
+      animation: arrowPulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes arrowPulse {
+      0%, 100% { transform: translateX(0); opacity: 1; }
+      50% { transform: translateX(5px); opacity: 0.6; }
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .desktop-only {
+        display: none;
+      }
+    }
+
+    /* prefers-reduced-motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-grid min-h-screen">
+  <!-- 背景光晕 -->
+  <div class="glow-blob w-96 h-96 bg-[#00d4aa]" style="top: 10%; left: -10%; animation: pulseGlow 4s ease-in-out infinite;"></div>
+  <div class="glow-blob w-80 h-80 bg-[#ff8a54]" style="top: 60%; right: -5%; animation: pulseGlow 5s ease-in-out infinite 1s;"></div>
+
+  <!-- 主容器 -->
+  <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    
+    <!-- 头部标题 -->
+    <header class="text-center mb-16">
+      <div class="animate-fade-in-up">
+        <span class="tag bg-[#00d4aa]/20 text-[#00d4aa] mb-4">TypeScript Module</span>
+      </div>
+      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black mt-4 mb-6 animate-fade-in-up delay-100" style="line-height: 1.1;">
+        <span style="color: var(--fg-primary);">system-prompt</span><span style="color: var(--accent-cyan);">.ts</span>
+      </h1>
+      <p class="text-lg sm:text-xl max-w-2xl mx-auto animate-fade-in-up delay-200" style="color: var(--fg-secondary);">
+        OpenClaw 的「大脑配置中心」—— 把零散参数组装成 AI Agent 能理解的完整系统指令
+      </p>
+    </header>
+
+    <!-- 核心概念比喻 -->
+    <section class="mb-20 animate-scale-in delay-300">
+      <div class="bg-gradient-to-br from-[#161f29] to-[#111920] rounded-2xl p-8 border border-[#253240]">
+        <h2 class="text-2xl font-bold mb-6 flex items-center gap-3">
+          <span class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: var(--glow-cyan);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4M12 8h.01"/>
+            </svg>
+          </span>
+          一句话理解它是什么
+        </h2>
+        <div class="grid md:grid-cols-3 gap-6">
+          <div class="card-hover rounded-xl p-6" style="background: var(--bg-card);">
+            <div class="text-4xl mb-4">🍳</div>
+            <h3 class="font-semibold mb-2" style="color: var(--accent-gold);">像做菜前的「备料」</h3>
+            <p style="color: var(--fg-secondary);">所有食材（参数）都先准备好，然后按食谱（函数）组合成一道完整的菜（系统提示词）</p>
+          </div>
+          <div class="card-hover rounded-xl p-6" style="background: var(--bg-card);">
+            <div class="text-4xl mb-4">🎭</div>
+            <h3 class="font-semibold mb-2" style="color: var(--accent-orange);">像给演员的「角色卡」</h3>
+            <p style="color: var(--fg-secondary);">告诉 AI 「你是谁」「你能做什么」「你要怎么说话」——所有这些信息打包成一张角色卡</p>
+          </div>
+          <div class="card-hover rounded-xl p-6" style="background: var(--bg-card);">
+            <div class="text-4xl mb-4">🔧</div>
+            <h3 class="font-semibold mb-2" style="color: var(--accent-cyan);">像工具箱的「说明书」</h3>
+            <p style="color: var(--fg-secondary);">告诉 AI 有哪些工具可用、每个工具做什么、在什么情况下使用哪个工具</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 文件结构全景图 -->
+    <section class="mb-20 animate-fade-in-up delay-400">
+      <h2 class="text-2xl font-bold mb-8 flex items-center gap-3">
+        <span class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff8a54" stroke-width="2">
+            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+            <polyline points="14,2 14,8 20,8"/>
+          </svg>
+        </span>
+        文件结构全景
+      </h2>
+      
+      <!-- SVG 流程图 -->
+      <div class="bg-[#111920] rounded-2xl p-6 border border-[#253240] overflow-x-auto">
+        <svg id="structure-svg" viewBox="0 0 1000 500" class="w-full min-w-[800px]" style="max-height: 500px;">
+          <!-- 背景装饰 -->
+          <defs>
+            <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#00d4aa;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#00a88a;stop-opacity:1" />
+            </linearGradient>
+            <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#ff8a54;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#ff6b35;stop-opacity:1" />
+            </linearGradient>
+            <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#ffc857;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#e5a835;stop-opacity:1" />
+            </linearGradient>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+          
+          <!-- 导入模块（左上） -->
+          <g class="function-node" data-id="imports" onclick="showDetail('imports')">
+            <rect x="30" y="30" width="200" height="140" rx="12" fill="#161f29" stroke="#253240" stroke-width="2"/>
+            <rect x="30" y="30" width="200" height="40" rx="12" fill="url(#cyanGrad)" opacity="0.2"/>
+            <text x="130" y="58" text-anchor="middle" fill="#00d4aa" font-weight="bold" font-size="14">导入模块</text>
+            <text x="45" y="90" fill="#8b9caa" font-size="11">AgentTool</text>
+            <text x="45" y="108" fill="#8b9caa" font-size="11">AgentSession</text>
+            <text x="45" y="126" fill="#8b9caa" font-size="11">MemoryCitationsMode</text>
+            <text x="45" y="144" fill="#8b9caa" font-size="11">buildAgentSystemPrompt</text>
+          </g>
+          
+          <!-- 主函数（中间） -->
+          <g class="function-node" data-id="main" onclick="showDetail('main')">
+            <rect x="400" y="100" width="220" height="180" rx="16" fill="#161f29" stroke="#00d4aa" stroke-width="2" filter="url(#glow)"/>
+            <rect x="400" y="100" width="220" height="50" rx="16" fill="url(#cyanGrad)" opacity="0.3"/>
+            <text x="510" y="133" text-anchor="middle" fill="#00d4aa" font-weight="bold" font-size="16">buildEmbeddedSystemPrompt</text>
+            <text x="420" y="170" fill="#e8eff6" font-size="12">主函数：构建嵌入式</text>
+            <text x="420" y="188" fill="#e8eff6" font-size="12">系统提示词</text>
+            <line x1="420" y1="205" x2="600" y2="205" stroke="#253240" stroke-width="1"/>
+            <text x="420" y="225" fill="#8b9caa" font-size="11">接收 20+ 个配置参数</text>
+            <text x="420" y="245" fill="#8b9caa" font-size="11">调用核心构建函数</text>
+            <text x="420" y="265" fill="#8b9caa" font-size="11">返回完整提示词字符串</text>
+          </g>
+          
+          <!-- 辅助函数1（下方左） -->
+          <g class="function-node" data-id="override" onclick="showDetail('override')">
+            <rect x="150" y="350" width="200" height="120" rx="12" fill="#161f29" stroke="#ff8a54" stroke-width="2"/>
+            <rect x="150" y="350" width="200" height="35" rx="12" fill="url(#orangeGrad)" opacity="0.2"/>
+            <text x="250" y="375" text-anchor="middle" fill="#ff8a54" font-weight="bold" font-size="13">createSystemPromptOverride</text>
+            <text x="165" y="405" fill="#8b9caa" font-size="11">创建提示词覆盖函数</text>
+            <text x="165" y="425" fill="#8b9caa" font-size="11">返回一个闭包函数</text>
+            <text x="165" y="445" fill="#8b9caa" font-size="11">用于替换默认提示词</text>
+          </g>
+          
+          <!-- 辅助函数2（下方右） -->
+          <g class="function-node" data-id="apply" onclick="showDetail('apply')">
+            <rect x="650" y="350" width="220" height="120" rx="12" fill="#161f29" stroke="#ffc857" stroke-width="2"/>
+            <rect x="650" y="350" width="220" height="35" rx="12" fill="url(#goldGrad)" opacity="0.2"/>
+            <text x="760" y="375" text-anchor="middle" fill="#ffc857" font-weight="bold" font-size="13">applySystemPromptOverrideToSession</text>
+            <text x="665" y="405" fill="#8b9caa" font-size="11">应用到 Agent 会话</text>
+            <text x="665" y="425" fill="#8b9caa" font-size="11">修改 session 的系统提示词</text>
+            <text x="665" y="445" fill="#8b9caa" font-size="11">重建内部提示词缓存</text>
+          </g>
+          
+          <!-- 连接线 -->
+          <g stroke="#253240" stroke-width="2" fill="none">
+            <!-- 导入 -> 主函数 -->
+            <path d="M230 100 Q 315 100, 400 150" class="flow-line" stroke="#00d4aa" stroke-dasharray="5,5"/>
+            <polygon points="395,147 405,155 398,158" fill="#00d4aa"/>
+            
+            <!-- 主函数 -> 输出 -->
+            <path d="M510 280 L 510 340" class="flow-line" stroke="#00d4aa"/>
+            <polygon points="505,335 515,335 510,350" fill="#00d4aa"/>
+            
+            <!-- 输出到两个辅助函数 -->
+            <path d="M510 350 Q 510 380, 350 380" stroke="#ff8a54" stroke-dasharray="5,5"/>
+            <path d="M510 350 Q 510 380, 650 380" stroke="#ffc857" stroke-dasharray="5,5"/>
+          </g>
+          
+          <!-- 输出节点 -->
+          <g>
+            <rect x="430" y="340" width="160" height="40" rx="8" fill="#0a0f14" stroke="#00d4aa" stroke-width="1"/>
+            <text x="510" y="365" text-anchor="middle" fill="#00d4aa" font-size="12">string (系统提示词)</text>
+          </g>
+        </svg>
+      </div>
+      
+      <p class="text-center mt-4" style="color: var(--fg-muted);">点击各个模块查看详细说明</p>
+    </section>
+
+    <!-- 参数可视化面板 -->
+    <section class="mb-20 animate-fade-in-up delay-500">
+      <h2 class="text-2xl font-bold mb-8 flex items-center gap-3">
+        <span class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: var(--glow-cyan);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2">
+            <path d="M12 3v18M3 12h18"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </span>
+        参数全景图（点击展开）
+      </h2>
+      
+      <div class="grid md:grid-cols-2 gap-4" id="params-container">
+        <!-- 参数卡片由 JS 动态生成 -->
+      </div>
+    </section>
+
+    <!-- 核心函数深度解析 -->
+    <section class="mb-20 animate-fade-in-up delay-600">
+      <h2 class="text-2xl font-bold mb-8 flex items-center gap-3">
+        <span class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff8a54" stroke-width="2">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+          </svg>
+        </span>
+        核心函数深度解析
+      </h2>
+      
+      <!-- Tab 导航 -->
+      <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+        <button class="tab-btn active px-5 py-3 rounded-xl font-semibold whitespace-nowrap transition-all" data-tab="main-fn" style="background: var(--bg-card); border: 1px solid var(--border);">
+          buildEmbeddedSystemPrompt
+        </button>
+        <button class="tab-btn px-5 py-3 rounded-xl font-semibold whitespace-nowrap transition-all" data-tab="override-fn" style="background: var(--bg-card); border: 1px solid var(--border);">
+          createSystemPromptOverride
+        </button>
+        <button class="tab-btn px-5 py-3 rounded-xl font-semibold whitespace-nowrap transition-all" data-tab="apply-fn" style="background: var(--bg-card); border: 1px solid var(--border);">
+          applySystemPromptOverrideToSession
+        </button>
+      </div>
+      
+      <!-- Tab 内容 -->
+      <div id="tab-content" class="bg-[#161f29] rounded-2xl border border-[#253240] overflow-hidden">
+        <!--内容由 JS 动态渲染 -->
+      </div>
+    </section>
+
+    <!-- 交互式演示 -->
+    <section class="mb-20 animate-fade-in-up delay-700">
+      <h2 class="text-2xl font-bold mb-8 flex items-center gap-3">
+        <span class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: var(--glow-cyan);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2">
+            <polygon points="5,3 19,12 5,21 5,3"/>
+          </svg>
+        </span>
+        交互式演示：模拟提示词生成
+      </h2>
+      
+      <div class="grid lg:grid-cols-2 gap-6">
+        <!-- 输入面板 -->
+        <div class="bg-[#161f29] rounded-2xl border border-[#253240] p-6">
+          <h3 class="font-semibold mb-4" style="color: var(--accent-cyan);">配置参数</h3>
+          
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm mb-2" style="color: var(--fg-secondary);">工作目录</label>
+              <input type="text" id="demo-workspace" value="/home/user/projects/my-app" class="w-full px-4 py-3 rounded-xl font-mono text-sm" style="background: var(--bg-secondary); border: 1px solid var(--border); color: var(--fg-primary);">
+            </div>
+            
+            <div>
+              <label class="block text-sm mb-2" style="color: var(--fg-secondary);">AI 模型</label>
+              <select id="demo-model" class="w-full px-4 py-3 rounded-xl text-sm" style="background: var(--bg-secondary); border: 1px solid var(--border); color: var(--fg-primary);">
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                <option value="gemini-pro">Gemini Pro</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="block text-sm mb-2" style="color: var(--fg-secondary);">推理级别</label>
+              <div class="flex gap-2">
+                <button class="demo-btn reasoning-btn active px-4 py-2 rounded-lg text-sm" data-value="minimal">简洁</button>
+                <button class="demo-btn reasoning-btn px-4 py-2 rounded-lg text-sm" data-value="normal">标准</button>
+                <button class="demo-btn reasoning-btn px-4 py-2 rounded-lg text-sm" data-value="extensive">详细</button>
+              </div>
+            </div>
+            
+            <div>
+              <label class="block text-sm mb-2" style="color: var(--fg-secondary);">启用工具</label>
+              <div class="flex flex-wrap gap-2">
+                <label class="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer" style="background: var(--bg-secondary);">
+                  <input type="checkbox" class="tool-checkbox" value="fileRead" checked> <span class="text-sm">文件读取</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer" style="background: var(--bg-secondary);">
+                  <input type="checkbox" class="tool-checkbox" value="terminal" checked> <span class="text-sm">终端执行</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer" style="background: var(--bg-secondary);">
+                  <input type="checkbox" class="tool-checkbox" value="webSearch"> <span class="text-sm">网络搜索</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer" style="background: var(--bg-secondary);">
+                  <input type="checkbox" class="tool-checkbox" value="memory"> <span class="text-sm">记忆管理</span>
+                </label>
+              </div>
+            </div>
+            
+            <button id="generate-btn" class="btn-interactive w-full py-4 rounded-xl font-semibold text-lg mt-4" style="background: linear-gradient(135deg, #00d4aa, #00a88a); color: #0a0f14;">
+              生成系统提示词
+            </button>
+          </div>
+        </div>
+        
+        <!-- 输出面板 -->
+        <div class="bg-[#161f29] rounded-2xl border border-[#253240] p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="font-semibold" style="color: var(--accent-gold);">生成的提示词预览</h3>
+            <span id="prompt-stats" class="text-sm" style="color: var(--fg-muted);">等待生成...</span>
+          </div>
+          <div id="prompt-output" class="code-block h-80 overflow-auto p-4">
+            <pre class="font-mono text-sm" style="color: var(--fg-secondary);"><code id="prompt-code">点击「生成系统提示词」按钮查看结果...</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 术语词汇表 -->
+    <section class="mb-12 animate-fade-in-up delay-800">
+      <h2 class="text-2xl font-bold mb-8 flex items-center gap-3">
+        <span class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff8a54" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+        </span>
+        核心术语词汇表
+      </h2>
+      
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4" id="glossary-container">
+        <!-- 由 JS 动态生成 -->
+      </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="text-center py-8" style="color: var(--fg-muted);">
+      <p>OpenClaw System-Prompt 技术解析 | 可视化学习工具</p>
+    </footer>
+  </div>
+
+  <!-- 详情弹窗 -->
+  <div id="detail-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(10, 15, 20, 0.9); display: none;">
+    <div class="bg-[#161f29] rounded-2xl border border-[#253240] max-w-lg w-full max-h-[80vh] overflow-auto p-6 relative">
+      <button id="close-modal" class="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--bg-secondary);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+      <div id="modal-content"></div>
+    </div>
+  </div>
+
+  <script>
+    // ========== 数据定义 ==========
+    const paramsData = [
+      {
+        name: 'workspaceDir',
+        type: 'string',
+        category: '基础配置',
+        desc: 'AI 工作的项目根目录路径',
+        example: '/home/user/projects/my-app',
+        importance: 'critical'
+      },
+      {
+        name: 'tools',
+        type: 'AgentTool[]',
+        category: '工具配置',
+        desc: 'AI 可以使用的工具列表（如文件操作、终端执行等）',
+        example: '[fileReadTool, terminalTool, webSearchTool]',
+        importance: 'critical'
+      },
+      {
+        name: 'runtimeInfo',
+        type: 'object',
+        category: '运行时信息',
+        desc: '运行环境信息：操作系统、架构、Node版本、模型名称等',
+        example: '{ os: "linux", arch: "x64", model: "gpt-4o" }',
+        importance: 'high'
+      },
+      {
+        name: 'reasoningLevel',
+        type: 'ReasoningLevel',
+        category: '推理配置',
+        desc: '控制 AI 推理深度：minimal(简洁)、normal(标准)、extensive(详细)',
+        example: 'normal',
+        importance: 'medium'
+      },
+      {
+        name: 'sandboxInfo',
+        type: 'EmbeddedSandboxInfo',
+        category: '沙盒配置',
+        desc: '沙盒环境的安全限制和权限配置',
+        example: '{ allowedPaths: ["/src"], networkEnabled: true }',
+        importance: 'high'
+      },
+      {
+        name: 'userTimezone',
+        type: 'string',
+        category: '用户信息',
+        desc: '用户的时区设置，影响时间相关操作',
+        example: 'Asia/Shanghai',
+        importance: 'low'
+      },
+      {
+        name: 'contextFiles',
+        type: 'EmbeddedContextFile[]',
+        category: '上下文',
+        desc: '预加载的上下文文件，帮助 AI 理解项目结构',
+        example: '[{ path: "README.md", content: "..." }]',
+        importance: 'high'
+      },
+      {
+        name: 'memoryCitationsMode',
+        type: 'MemoryCitationsMode',
+        category: '记忆配置',
+        desc: '控制 AI 如何引用记忆中的信息',
+        example: 'inline',
+        importance: 'medium'
+      },
+      {
+        name: 'modelAliasLines',
+        type: 'string[]',
+        category: '模型配置',
+        desc: '模型别名映射，用于模型切换提示',
+        example: '["gpt-4o → 最新最强", "claude → 擅长代码"]',
+        importance: 'low'
+      },
+      {
+        name: 'extraSystemPrompt',
+        type: 'string',
+        category: '扩展配置',
+        desc: '额外的系统提示词，追加到默认提示词后面',
+        example: '你是一个专注于 React 开发的助手',
+        importance: 'medium'
+      }
+    ];
+
+    const glossaryData = [
+      {
+        term: 'System Prompt',
+        definition: '系统提示词，是告诉 AI「你是谁、你该怎么做」的基础指令，相当于 AI 的「人设设定」',
+        color: '#00d4aa'
+      },
+      {
+        term: 'AgentTool',
+        definition: 'Agent 工具，是 AI 可以调用的能力单元，比如读取文件、执行命令、搜索网络等',
+        color: '#ff8a54'
+      },
+      {
+        term: 'AgentSession',
+        definition: 'Agent 会话，维护一次完整的对话上下文，包括历史消息、系统提示词、工具状态等',
+        color: '#ffc857'
+      },
+      {
+        term: 'Sandbox',
+        definition: '沙盒，是一个安全隔离的执行环境，限制 AI 只能访问特定文件和网络资源',
+        color: '#00d4aa'
+      },
+      {
+        term: 'Closure',
+        definition: '闭包，是一个函数「记住」它创建时环境的能力，用于创建可复用的提示词覆盖函数',
+        color: '#ff8a54'
+      },
+      {
+        term: 'Reasoning Level',
+        definition: '推理级别，控制 AI 思考的详细程度，从简洁到详细影响回复的深度',
+        color: '#ffc857'
+      }
+    ];
+
+    const tabContents = {
+      'main-fn': {
+        title: 'buildEmbeddedSystemPrompt',
+        desc: '这是整个模块的核心函数，负责将所有零散的配置参数组装成一个完整的系统提示词字符串。',
+        code: `export function buildEmbeddedSystemPrompt(params: {
+  workspaceDir: string;        // 工作目录
+  tools: AgentTool[];          // 可用工具列表
+  runtimeInfo: {...};          // 运行时环境信息
+  // ... 20+ 个其他参数
+}): string {
+  // 核心逻辑：调用主构建函数
+  return buildAgentSystemPrompt({
+    workspaceDir: params.workspaceDir,
+    toolNames: params.tools.map(t => t.name),
+    toolSummaries: buildToolSummaryMap(params.tools),
+    // ... 传递其他参数
+  });
+}`,
+        keyPoints: [
+          '接收一个大的配置对象作为参数',
+          '内部将 tools 数组转换为 toolNames 和 toolSummaries',
+          '最终调用 buildAgentSystemPrompt 完成实际构建',
+          '返回的是字符串类型的系统提示词'
+        ]
+      },
+      'override-fn': {
+        title: 'createSystemPromptOverride',
+        desc: '创建一个「覆盖函数」，用于强制替换默认的系统提示词。',
+        code: `export function createSystemPromptOverride(
+  systemPrompt: string,
+): (defaultPrompt?: string) => string {
+  const override = systemPrompt.trim();
+  
+  // 返回一个闭包函数
+  // 无论传入什么默认提示词，都返回 override
+  return (_defaultPrompt?: string) => override;
+}`,
+        keyPoints: [
+          '这是一个高阶函数：返回另一个函数',
+          '利用闭包「记住」传入的 systemPrompt',
+          '忽略默认提示词，始终返回自定义内容',
+          '适用于需要完全自定义 AI 行为的场景'
+        ]
+      },
+      'apply-fn': {
+        title: 'applySystemPromptOverrideToSession',
+        desc: '将覆盖的系统提示词应用到实际的 Agent 会话中。',
+        code: `export function applySystemPromptOverrideToSession(
+  session: AgentSession,
+  override: string | ((defaultPrompt?: string) => string),
+) {
+  // 支持字符串或函数两种形式
+  const prompt = typeof override === 'function' 
+    ? override() 
+    : override.trim();
+  
+  // 应用到 session
+  session.agent.setSystemPrompt(prompt);
+  
+  // 修改内部缓存（使用了类型断言访问私有属性）
+  const mutableSession = session as unknown as {
+    _baseSystemPrompt?: string;
+    _rebuildSystemPrompt?: (toolNames: string[]) => string;
+  };
+  mutableSession._baseSystemPrompt = prompt;
+  mutableSession._rebuildSystemPrompt = () => prompt;
+}`,
+        keyPoints: [
+          '支持字符串或函数作为 override 参数',
+          '调用 session.agent.setSystemPrompt 应用提示词',
+          '使用类型断言修改 session 的内部属性',
+          '_rebuildSystemPrompt 被重写为始终返回覆盖的提示词'
+        ]
+      }
+    };
+
+    // ========== 初始化变量 ==========
+    let currentTab = 'main-fn';
+    let generatedPrompt = '';
+
+    // ========== DOM 元素获取 ==========
+    const paramsContainer = document.getElementById('params-container');
+    const glossaryContainer = document.getElementById('glossary-container');
+    const tabContent = document.getElementById('tab-content');
+    const detailModal = document.getElementById('detail-modal');
+    const modalContent = document.getElementById('modal-content');
+    const closeModal = document.getElementById('close-modal');
+    const generateBtn = document.getElementById('generate-btn');
+    const promptCode = document.getElementById('prompt-code');
+    const promptStats = document.getElementById('prompt-stats');
+
+    // ========== 渲染函数 ==========
+    function renderParams() {
+      if (!paramsContainer) return;
+      
+      const categories = [...new Set(paramsData.map(p => p.category))];
+      
+      paramsContainer.innerHTML = categories.map(cat => `
+        <div class="col-span-full mt-4 first:mt-0">
+          <h3 class="text-sm font-semibold mb-3" style="color: var(--accent-gold);">${cat}</h3>
+        </div>
+        ${paramsData.filter(p => p.category === cat).map((param, idx) => `
+          <div class="card-hover bg-[#161f29] rounded-xl p-4 cursor-pointer" onclick="showParamDetail('${param.name}')" style="animation-delay: ${idx * 50}ms;">
+            <div class="flex items-start justify-between mb-2">
+              <code class="font-mono text-sm" style="color: var(--accent-cyan);">${param.name}</code>
+              <span class="text-xs px-2 py-1 rounded" style="background: ${getImportanceColor(param.importance)}; color: var(--bg-primary);">${param.importance}</span>
+            </div>
+            <p class="text-sm mb-2" style="color: var(--fg-secondary);">${param.desc}</p>
+            <code class="text-xs font-mono block p-2 rounded" style="background: var(--bg-secondary); color: var(--fg-muted);">${param.type}</code>
+          </div>
+        `).join('')}
+      `).join('');
+    }
+
+    function renderGlossary() {
+      if (!glossaryContainer) return;
+      
+      glossaryContainer.innerHTML = glossaryData.map(item => `
+        <div class="card-hover bg-[#161f29] rounded-xl p-5">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-3 h-3 rounded-full" style="background: ${item.color};"></span>
+            <h3 class="font-semibold" style="color: ${item.color};">${item.term}</h3>
+          </div>
+          <p class="text-sm leading-relaxed" style="color: var(--fg-secondary);">${item.definition}</p>
+        </div>
+      `).join('');
+    }
+
+    function renderTabContent(tabId) {
+      if (!tabContent) return;
+      
+      const content = tabContents[tabId];
+      if (!content) return;
+      
+      tabContent.innerHTML = `
+        <div class="p-6">
+          <h3 class="text-xl font-bold mb-4" style="color: var(--accent-cyan);">${content.title}</h3>
+          <p class="mb-6" style="color: var(--fg-secondary);">${content.desc}</p>
+          
+          <div class="code-block mb-6">
+            <div class="px-4 py-2 border-b" style="border-color: var(--border); background: var(--bg-secondary);">
+              <span class="text-xs font-semibold" style="color: var(--fg-muted);">TypeScript</span>
+            </div>
+            <pre class="p-4 overflow-x-auto"><code class="font-mono text-sm" style="color: var(--fg-primary);">${escapeHtml(content.code)}</code></pre>
+          </div>
+          
+          <h4 class="font-semibold mb-3" style="color: var(--accent-gold);">关键要点</h4>
+          <ul class="space-y-2">
+            ${content.keyPoints.map(point => `
+              <li class="flex items-start gap-3">
+                <span class="w-2 h-2 rounded-full mt-2 flex-shrink-0" style="background: var(--accent-cyan);"></span>
+                <span class="text-sm" style="color: var(--fg-secondary);">${point}</span>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    // ========== 工具函数 ==========
+    function getImportanceColor(importance) {
+      const colors = {
+        critical: '#ff6b6b',
+        high: '#ff8a54',
+        medium: '#ffc857',
+        low: '#00d4aa'
+      };
+      return colors[importance] || colors.low;
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // ========== 交互函数 ==========
+    function showDetail(id) {
+      const details = {
+        imports: {
+          title: '导入模块',
+          content: '这些是从其他模块导入的类型和函数，构成了本模块的基础依赖。包括：<br><br><ul><li><b>AgentTool</b>: 定义工具的类型接口</li><li><b>AgentSession</b>: 会话管理类型</li><li><b>buildAgentSystemPrompt</b>: 核心构建函数</li></ul>'
+        },
+        main: {
+          title: 'buildEmbeddedSystemPrompt',
+          content: '主函数，接收 20+ 个配置参数，内部调用 buildAgentSystemPrompt，返回完整的系统提示词字符串。'
+        },
+        override: {
+          title: 'createSystemPromptOverride',
+          content: '创建一个闭包函数，用于覆盖默认的系统提示词。无论默认提示词是什么，都返回自定义内容。'
+        },
+        apply: {
+          title: 'applySystemPromptOverrideToSession',
+          content: '将覆盖的提示词应用到 Agent 会话中，修改 session 的内部状态。使用了类型断言来访问私有属性。'
+        }
+      };
+      
+      const detail = details[id];
+      if (!detail || !detailModal || !modalContent) return;
+      
+      modalContent.innerHTML = `
+        <h3 class="text-xl font-bold mb-4" style="color: var(--accent-cyan);">${detail.title}</h3>
+        <p style="color: var(--fg-secondary);">${detail.content}</p>
+      `;
+      
+      detailModal.style.display = 'flex';
+    }
+
+    function showParamDetail(name) {
+      const param = paramsData.find(p => p.name === name);
+      if (!param || !detailModal || !modalContent) return;
+      
+      modalContent.innerHTML = `
+        <h3 class="text-xl font-bold mb-2" style="color: var(--accent-cyan);">${param.name}</h3>
+        <code class="text-sm mb-4 block" style="color: var(--fg-muted);">${param.type}</code>
+        <p class="mb-4" style="color: var(--fg-secondary);">${param.desc}</p>
+        <div class="p-3 rounded-lg" style="background: var(--bg-secondary);">
+          <span class="text-xs" style="color: var(--fg-muted);">示例值：</span>
+          <code class="text-sm block mt-1" style="color: var(--accent-gold);">${param.example}</code>
+        </div>
+      `;
+      
+      detailModal.style.display = 'flex';
+    }
+
+    function generatePromptPreview() {
+      const workspace = document.getElementById('demo-workspace')?.value || '/default/path';
+      const model = document.getElementById('demo-model')?.value || 'gpt-4o';
+      const reasoningBtns = document.querySelectorAll('.reasoning-btn');
+      const toolCheckboxes = document.querySelectorAll('.tool-checkbox');
+      
+      let reasoningLevel = 'normal';
+      reasoningBtns.forEach(btn => {
+        if (btn.classList.contains('active')) {
+          reasoningLevel = btn.dataset.value || 'normal';
+        }
+      });
+      
+      const enabledTools = [];
+      toolCheckboxes.forEach(cb => {
+        if (cb.checked) {
+          enabledTools.push(cb.value);
+        }
+      });
+      
+      const reasoningDesc = {
+        minimal: '简洁推理，快速响应',
+        normal: '标准推理，平衡质量与速度',
+        extensive: '详细推理，深度思考每一步'
+      };
+      
+      const toolDescs = {
+        fileRead: 'file_read - 读取文件内容',
+        terminal: 'terminal_execute - 执行终端命令',
+        webSearch: 'web_search - 搜索网络信息',
+        memory: 'memory_manage - 管理长期记忆'
+      };
+      
+      generatedPrompt = `# System Prompt
+
+## 基础信息
+- 工作目录: ${workspace}
+- 当前模型: ${model}
+- 推理模式: ${reasoningDesc[reasoningLevel]}
+
+## 可用工具
+${enabledTools.map(t => `- ${toolDescs[t] || t}`).join('\n')}
+
+## 行为指导
+1. 你是一个专业的 AI 编程助手
+2. 在执行任何操作前，请先思考并解释你的计划
+3. 使用工具时遵循最小权限原则
+4. 保持回复简洁但信息丰富
+
+## 当前环境
+- 操作系统: Linux (x64)
+- Node 版本: v20.10.0
+- 时区: Asia/Shanghai
+
+---
+*此提示词由 buildEmbeddedSystemPrompt 动态生成*`;
+
+      if (promptCode) {
+        promptCode.textContent = generatedPrompt;
+      }
+      
+      if (promptStats) {
+        const lines = generatedPrompt.split('\n').length;
+        const chars = generatedPrompt.length;
+        promptStats.textContent = `${lines} 行 | ${chars} 字符`;
+      }
+    }
+
+    // ========== 事件绑定 ==========
+    function initEventListeners() {
+      // Tab 切换
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.remove('active');
+            b.style.borderColor = 'var(--border)';
+            b.style.background = 'var(--bg-card)';
+          });
+          btn.classList.add('active');
+          btn.style.borderColor = 'var(--accent-cyan)';
+          btn.style.background = 'var(--glow-cyan)';
+          
+          const tabId = btn.dataset.tab;
+          if (tabId) {
+            currentTab = tabId;
+            renderTabContent(tabId);
+          }
+        });
+      });
+      
+      // 推理级别按钮
+      document.querySelectorAll('.reasoning-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.reasoning-btn').forEach(b => {
+            b.classList.remove('active');
+            b.style.background = 'var(--bg-secondary)';
+            b.style.color = 'var(--fg-secondary)';
+          });
+          btn.classList.add('active');
+          btn.style.background = 'var(--accent-cyan)';
+          btn.style.color = 'var(--bg-primary)';
+        });
+      });
+      
+      // 关闭弹窗
+      if (closeModal) {
+        closeModal.addEventListener('click', () => {
+          if (detailModal) {
+            detailModal.style.display = 'none';
+          }
+        });
+      }
+      
+      // 点击弹窗外部关闭
+      if (detailModal) {
+        detailModal.addEventListener('click', (e) => {
+          if (e.target === detailModal) {
+            detailModal.style.display = 'none';
+          }
+        });
+      }
+      
+      // 生成按钮
+      if (generateBtn) {
+        generateBtn.addEventListener('click', () => {
+          generateBtn.textContent = '生成中...';
+          generateBtn.disabled = true;
+          
+          setTimeout(() => {
+            generatePromptPreview();
+            generateBtn.textContent = '生成系统提示词';
+            generateBtn.disabled = false;
+          }, 500);
+        });
+      }
+      
+      // 工具复选框初始化样式
+      document.querySelectorAll('.tool-checkbox').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const label = cb.closest('label');
+          if (label) {
+            if (cb.checked) {
+              label.style.borderColor = 'var(--accent-cyan)';
+            } else {
+              label.style.borderColor = 'var(--border)';
+            }
+          }
+        });
+      });
+      
+      // 初始化推理按钮样式
+      document.querySelectorAll('.reasoning-btn').forEach(btn => {
+        if (btn.classList.contains('active')) {
+          btn.style.background = 'var(--accent-cyan)';
+          btn.style.color = 'var(--bg-primary)';
+        } else {
+          btn.style.background = 'var(--bg-secondary)';
+          btn.style.color = 'var(--fg-secondary)';
+        }
+      });
+      
+      // 初始化第一个 tab 样式
+      const firstTab = document.querySelector('.tab-btn.active');
+      if (firstTab) {
+        firstTab.style.borderColor = 'var(--accent-cyan)';
+        firstTab.style.background = 'var(--glow-cyan)';
+      }
+    }
+
+    // ========== 入口函数 ==========
+    function init() {
+      renderParams();
+      renderGlossary();
+      renderTabContent(currentTab);
+      initEventListeners();
+      
+      // 初始化演示面板中的复选框样式
+      document.querySelectorAll('.tool-checkbox:checked').forEach(cb => {
+        const label = cb.closest('label');
+        if (label) {
+          label.style.borderColor = 'var(--accent-cyan)';
+        }
+      });
+    }
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

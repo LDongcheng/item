@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>路由 - OpenClaw 学术词</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #060b14; --bg-card: #0c1420; --fg: #e2e8f0; --muted: #64748b; --accent: #00d4aa; --border: rgba(0, 212, 170, 0.15); }
+    * { box-sizing: border-box; }
+    body { font-family: 'Noto Sans SC', sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; line-height: 1.7; }
+    .font-display { font-family: 'Space Grotesk', sans-serif; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 1rem; }
+    .card:hover { border-color: var(--accent); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .tag { display: inline-block; padding: 4px 12px; background: rgba(0, 212, 170, 0.15); border-radius: 999px; margin: 4px; font-size: 0.875rem; }
+    
+    .routing-demo {
+      padding: 24px;
+      background: rgba(0, 212, 170, 0.05);
+      border-radius: 12px;
+    }
+    
+    .route-input {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .route-btn {
+      padding: 10px 16px;
+      background: rgba(100, 116, 139, 0.1);
+      border: 1px solid rgba(100, 116, 139, 0.3);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.875rem;
+    }
+    
+    .route-btn:hover {
+      background: rgba(0, 212, 170, 0.1);
+      border-color: var(--accent);
+    }
+    
+    .route-btn.active {
+      background: rgba(0, 212, 170, 0.2);
+      border-color: var(--accent);
+    }
+    
+    .route-flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 20px;
+    }
+    
+    .route-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 24px;
+      background: rgba(100, 116, 139, 0.1);
+      border: 1px solid rgba(100, 116, 139, 0.3);
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      min-width: 100px;
+    }
+    
+    .route-node.active {
+      background: rgba(0, 212, 170, 0.2);
+      border-color: var(--accent);
+      transform: scale(1.05);
+    }
+    
+    .route-node.highlight {
+      background: rgba(255, 193, 7, 0.2);
+      border-color: #ffc107;
+    }
+    
+    .route-arrow {
+      font-size: 1.5rem;
+      color: var(--accent);
+    }
+    
+    .strategy-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    
+    .strategy-card {
+      padding: 16px;
+      background: rgba(0, 212, 170, 0.05);
+      border-radius: 8px;
+      border-left: 3px solid var(--accent);
+      transition: all 0.3s ease;
+    }
+    
+    .strategy-card:hover {
+      transform: translateX(4px);
+      background: rgba(0, 212, 170, 0.1);
+    }
+    
+    .code-block {
+      background: #0d1117;
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+    
+    .code-block .keyword { color: #ff7b72; }
+    .code-block .string { color: #a5d6ff; }
+    .code-block .comment { color: #8b949e; }
+    .code-block .function { color: #d2a8ff; }
+  </style>
+</head>
+<body class="p-8">
+  <div class="max-w-3xl mx-auto">
+    <a href="index.html" class="text-sm text-[var(--muted)] hover:text-[var(--accent)]">← 返回学术词索引</a>
+    <h1 class="font-display text-3xl font-bold mt-6 mb-2" style="background: linear-gradient(135deg, var(--fg), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">路由 (Routing)</h1>
+    <p class="text-[var(--muted)] text-sm mb-8">架构相关 · 架构阶段</p>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-2 text-[var(--accent)]">🎯 一句话理解</h2>
+      <p class="text-lg">路由就像<strong class="text-[var(--accent)]">快递分拣中心</strong>，根据包裹上的地址标签，把每个请求送到正确的目的地。</p>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-2 text-[var(--accent)]">💡 形象比喻</h2>
+      <div class="space-y-4">
+        <div class="p-4 bg-gradient-to-r from-orange-500/10 to-transparent rounded-lg">
+          <p class="font-semibold mb-2">📦 快递分拣中心</p>
+          <p class="text-[var(--muted)]">想象一个快递分拣中心，每件包裹都有地址标签。路由系统就像分拣员，看到"北京"就放到北京的车上，看到"上海"就放到上海的车上，确保每件包裹都能准确送达。</p>
+        </div>
+        <div class="p-4 bg-gradient-to-r from-blue-500/10 to-transparent rounded-lg">
+          <p class="font-semibold mb-2">🚦 交通导航</p>
+          <p class="text-[var(--muted)]">路由就像导航软件，根据你的目的地（URL路径），为你规划最佳路线，把你引导到正确的服务那里。不同的目的地走不同的路线。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card mb-8">
+      <h2 class="font-display text-lg font-semibold mb-4 text-[var(--accent)] flex items-center gap-2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+        交互演示：路由匹配过程
+      </h2>
+      <p class="text-[var(--muted)] mb-4">点击不同的URL路径，观察路由如何匹配到对应的服务：</p>
+      
+      <div class="routing-demo">
+        <div class="route-input">
+          <button class="route-btn active" onclick="showRoute('/api/users')">/api/users</button>
+          <button class="route-btn" onclick="showRoute('/api/orders')">/api/orders</button>
+          <button class="route-btn" onclick="showRoute('/api/products')">/api/products</button>
+          <button class="route-btn" onclick="showRoute('/api/payments')">/api/payments</button>
+        </div>
+        
+        <div class="route-flow">
+          <div class="route-node highlight" id="request-node">
+            <span>📨</span>
+            <span class="text-sm mt-1">请求</span>
+            <span class="text-xs text-[var(--muted)]" id="request-path">/api/users</span>
+          </div>
+          
+          <span class="route-arrow">→</span>
+          
+          <div class="route-node active" id="router-node">
+            <span>🔀</span>
+            <span class="text-sm mt-1">路由器</span>
+            <span class="text-xs text-[var(--muted)]" id="route-match">匹配: /users/*</span>
+          </div>
+          
+          <span class="route-arrow">→</span>
+          
+          <div class="route-node" id="service-node">
+            <span>🖥️</span>
+            <span class="text-sm mt-1">目标服务</span>
+            <span class="text-xs text-[var(--muted)]" id="target-service">用户服务</span>
+          </div>
+        </div>
+      </div>
+      
+      <p class="text-sm text-[var(--muted)] text-center mt-4">
+        💡 路由根据URL路径模式，将请求分发到正确的后端服务
+      </p>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">🔧 路由策略</h2>
+      <div class="strategy-grid">
+        <div class="strategy-card">
+          <p class="font-semibold mb-1">📍 路径匹配</p>
+          <p class="text-sm text-[var(--muted)]">根据URL路径进行匹配</p>
+        </div>
+        <div class="strategy-card">
+          <p class="font-semibold mb-1">🏷️ 标签路由</p>
+          <p class="text-sm text-[var(--muted)]">根据请求头或标签路由</p>
+        </div>
+        <div class="strategy-card">
+          <p class="font-semibold mb-1">⚖️ 权重路由</p>
+          <p class="text-sm text-[var(--muted)]">按比例分配流量</p>
+        </div>
+        <div class="strategy-card">
+          <p class="font-semibold mb-1">🔄 动态路由</p>
+          <p class="text-sm text-[var(--muted)]">运行时动态更新规则</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">📝 代码示例</h2>
+      <p class="text-[var(--muted)] mb-3">一个简单的路由配置：</p>
+      <div class="code-block">
+        <span class="comment">// 路由规则配置</span><br>
+        <span class="keyword">const</span> routes = {<br>
+        &nbsp;&nbsp;<span class="string">'/api/users'</span>: {<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;service: <span class="string">'user-service'</span>,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;methods: [<span class="string">'GET'</span>, <span class="string">'POST'</span>]<br>
+        &nbsp;&nbsp;},<br>
+        &nbsp;&nbsp;<span class="string">'/api/orders'</span>: {<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;service: <span class="string">'order-service'</span>,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;methods: [<span class="string">'GET'</span>, <span class="string">'POST'</span>, <span class="string">'PUT'</span>]<br>
+        &nbsp;&nbsp;}<br>
+        };
+      </div>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-2 text-[var(--accent)]">🎓 学习提示词</h2>
+      <p class="text-[var(--muted)] italic">我想学习关于openclaw关于路由的知识，之所以用html是因为可读性和可拓展性关联性等，让我更好地理解其学术词和学术词有关地其他学术词</p>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">🔗 相关学术词</h2>
+      <div><span class="tag"><a href="网关.html">网关</a></span><span class="tag"><a href="负载均衡.html">负载均衡</a></span><span class="tag"><a href="API设计.html">API设计</a></span><span class="tag"><a href="协议转换.html">协议转换</a></span><span class="tag"><a href="智能体.html">智能体</a></span></div>
+    </section>
+
+    <section class="card">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">📚 学习要点</h2>
+      <ul class="list-disc list-inside space-y-2">
+        <li>路由是根据<strong class="text-[var(--accent)]">URL路径</strong>将请求分发到不同服务的机制</li>
+        <li>常见策略：路径匹配、标签路由、权重路由、动态路由</li>
+        <li>路由是网关的核心功能之一</li>
+        <li>理解路由规则的设计和配置方法</li>
+        <li>掌握正则表达式和通配符匹配</li>
+      </ul>
+    </section>
+  </div>
+
+  <script>
+    const routeMap = {
+      '/api/users': { match: '/users/*', service: '用户服务' },
+      '/api/orders': { match: '/orders/*', service: '订单服务' },
+      '/api/products': { match: '/products/*', service: '商品服务' },
+      '/api/payments': { match: '/payments/*', service: '支付服务' }
+    };
+    
+    function showRoute(path) {
+      document.querySelectorAll('.route-btn').forEach(btn => btn.classList.remove('active'));
+      event.currentTarget.classList.add('active');
+      
+      const route = routeMap[path];
+      document.getElementById('request-path').textContent = path;
+      document.getElementById('route-match').textContent = '匹配: ' + route.match;
+      document.getElementById('target-service').textContent = route.service;
+      
+      const serviceNode = document.getElementById('service-node');
+      serviceNode.classList.remove('active');
+      setTimeout(() => serviceNode.classList.add('active'), 200);
+    }
+  </script>
+</body>
+</html>

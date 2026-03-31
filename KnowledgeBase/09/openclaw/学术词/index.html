@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw 学术词学习中心</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #060b14;
+      --bg-card: #0c1420;
+      --fg: #e2e8f0;
+      --muted: #64748b;
+      --accent: #00d4aa;
+      --accent-dim: rgba(0, 212, 170, 0.15);
+      --border: rgba(0, 212, 170, 0.15);
+    }
+    * { box-sizing: border-box; }
+    body { font-family: 'Noto Sans SC', sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; }
+    .font-display { font-family: 'Space Grotesk', sans-serif; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 20px 24px; transition: all 0.3s ease; }
+    .card:hover { border-color: var(--accent); transform: translateY(-4px); box-shadow: 0 0 40px rgba(0, 212, 170, 0.1); }
+    .card a { color: var(--accent); text-decoration: none; }
+    .card a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body class="p-8">
+  <div class="max-w-6xl mx-auto">
+    <header class="mb-12">
+      <a href="../OpenClaw学术词学习指南.md" class="text-sm text-[var(--muted)] hover:text-[var(--accent)]">← 返回学习指南</a>
+      <h1 class="font-display text-4xl font-bold mt-4 mb-2" style="background: linear-gradient(135deg, var(--fg), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">OpenClaw 学术词学习中心</h1>
+      <p class="text-[var(--muted)]">基于提示词生成的 HTML 学习资料，可读性、可拓展性、关联性</p>
+    </header>
+
+    <section class="mb-12">
+      <h2 class="font-display text-xl font-semibold mb-4 text-[var(--accent)]">一、编程技能相关</h2>
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div class="card"><a href="代码审查能力.html">1. 代码审查能力</a></div>
+        <div class="card"><a href="算法思维训练.html">2. 算法思维训练</a></div>
+        <div class="card"><a href="调试与故障排查.html">3. 调试与故障排查</a></div>
+        <div class="card"><a href="Git版本控制.html">4. Git 版本控制精通</a></div>
+        <div class="card"><a href="设计模式.html">5. 设计模式应用</a></div>
+        <div class="card"><a href="测试驱动开发.html">6. 测试驱动开发</a></div>
+        <div class="card"><a href="系统设计.html">7. 系统设计基础</a></div>
+        <div class="card"><a href="数据结构.html">8. 数据结构深入</a></div>
+        <div class="card"><a href="CICD流水线.html">9. CI/CD 流水线构建</a></div>
+        <div class="card"><a href="API设计.html">10. API 设计原则</a></div>
+        <div class="card"><a href="代码重构.html">11. 代码重构技巧</a></div>
+        <div class="card"><a href="性能优化.html">12. 性能优化方法</a></div>
+      </div>
+    </section>
+
+    <section class="mb-12">
+      <h2 class="font-display text-xl font-semibold mb-4 text-[var(--accent)]">二、Hooks 系统相关</h2>
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div class="card"><a href="Hooks系统.html">13. Hooks 系统</a></div>
+        <div class="card"><a href="before_train.html">14. before_train</a></div>
+        <div class="card"><a href="before_epoch.html">15. before_epoch</a></div>
+        <div class="card"><a href="before_iter.html">16. before_iter</a></div>
+        <div class="card"><a href="after_iter.html">17. after_iter</a></div>
+        <div class="card"><a href="after_epoch.html">18. after_epoch</a></div>
+        <div class="card"><a href="after_train.html">19. after_train</a></div>
+        <div class="card"><a href="生命周期管理.html">20. 生命周期管理</a></div>
+        <div class="card"><a href="可扩展性.html">21. 可扩展性</a></div>
+        <div class="card"><a href="关注点分离.html">22. 关注点分离</a></div>
+      </div>
+    </section>
+
+    <section class="mb-12">
+      <h2 class="font-display text-xl font-semibold mb-4 text-[var(--accent)]">三、架构相关</h2>
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div class="card"><a href="网关.html">23. 网关</a></div>
+        <div class="card"><a href="进程.html">24. 进程</a></div>
+        <div class="card"><a href="智能体.html">25. 智能体</a></div>
+        <div class="card"><a href="路由.html">26. 路由</a></div>
+        <div class="card"><a href="负载均衡.html">27. 负载均衡</a></div>
+        <div class="card"><a href="协议转换.html">28. 协议转换</a></div>
+        <div class="card"><a href="代码生成.html">29. 代码生成</a></div>
+        <div class="card"><a href="问题诊断.html">30. 问题诊断</a></div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

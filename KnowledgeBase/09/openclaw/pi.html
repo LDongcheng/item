@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenCLaw PI 技术原理可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@300;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0f14;
+            --bg-secondary: #111921;
+            --bg-card: #151d27;
+            --fg-primary: #e8eef4;
+            --fg-secondary: #8899aa;
+            --accent-cyan: #00d4aa;
+            --accent-orange: #ff7b42;
+            --accent-gold: #ffc857;
+            --border-color: #2a3a4a;
+            --glow-cyan: rgba(0, 212, 170, 0.3);
+            --glow-orange: rgba(255, 123, 66, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: var(--bg-primary);
+            color: var(--fg-primary);
+            overflow-x: hidden;
+            line-height: 1.7;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* 背景网格 */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image: 
+                linear-gradient(var(--border-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
+            background-size: 60px 60px;
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* 背景光晕 */
+        .bg-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.4;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .glow-1 {
+            top: -200px;
+            right: -100px;
+            background: radial-gradient(circle, var(--accent-cyan), transparent 70%);
+            animation: floatGlow 15s ease-in-out infinite;
+        }
+
+        .glow-2 {
+            bottom: -200px;
+            left: -100px;
+            background: radial-gradient(circle, var(--accent-orange), transparent 70%);
+            animation: floatGlow 18s ease-in-out infinite reverse;
+        }
+
+        @keyframes floatGlow {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(30px, -30px) scale(1.1); }
+        }
+
+        /* 入场动画 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.8s ease-out forwards;
+            opacity: 0;
+        }
+
+        .animate-in-scale {
+            animation: fadeInScale 0.6s ease-out forwards;
+            opacity: 0;
+        }
+
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.3s; }
+        .delay-4 { animation-delay: 0.4s; }
+        .delay-5 { animation-delay: 0.5s; }
+        .delay-6 { animation-delay: 0.6s; }
+
+        /* 导航栏 */
+        .nav-item {
+            position: relative;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .nav-item::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: var(--accent-cyan);
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+
+        .nav-item:hover::before,
+        .nav-item.active::before {
+            width: 80%;
+        }
+
+        .nav-item:hover {
+            color: var(--accent-cyan);
+        }
+
+        .nav-item.active {
+            color: var(--accent-cyan);
+            background: rgba(0, 212, 170, 0.1);
+        }
+
+        /* 卡片 */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card:hover {
+            border-color: var(--accent-cyan);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 30px var(--glow-cyan);
+        }
+
+        /* 概念节点 */
+        .concept-node {
+            position: relative;
+            padding: 20px 28px;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .concept-node:hover {
+            border-color: var(--accent-orange);
+            background: rgba(255, 123, 66, 0.1);
+            transform: scale(1.05);
+        }
+
+        .concept-node.selected {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 212, 170, 0.15);
+            box-shadow: 0 0 30px var(--glow-cyan);
+        }
+
+        /* 代码块 */
+        .code-block {
+            background: #0d1117;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .code-content {
+            padding: 20px;
+            overflow-x: auto;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .code-keyword { color: var(--accent-orange); }
+        .code-function { color: var(--accent-cyan); }
+        .code-string { color: var(--accent-gold); }
+        .code-comment { color: #6a7a8a; font-style: italic; }
+        .code-type { color: #b4a0ff; }
+        .code-number { color: #79c0ff; }
+
+        /* 流程图连线 */
+        .flow-connector {
+            stroke: var(--accent-cyan);
+            stroke-width: 2;
+            fill: none;
+            stroke-dasharray: 8 4;
+            animation: flowDash 1s linear infinite;
+        }
+
+        @keyframes flowDash {
+            to { stroke-dashoffset: -12; }
+        }
+
+        /* 交互按钮 */
+        .btn-primary {
+            padding: 12px 28px;
+            background: linear-gradient(135deg, var(--accent-cyan), #00a88a);
+            color: var(--bg-primary);
+            font-weight: 700;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px var(--glow-cyan);
+        }
+
+        .btn-secondary {
+            padding: 10px 24px;
+            background: transparent;
+            color: var(--accent-orange);
+            font-weight: 500;
+            border-radius: 10px;
+            border: 2px solid var(--accent-orange);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 123, 66, 0.15);
+            transform: translateY(-2px);
+        }
+
+        /* 滑块 */
+        .custom-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            outline: none;
+        }
+
+        .custom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 15px var(--glow-cyan);
+            transition: all 0.2s ease;
+        }
+
+        .custom-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* 标签 */
+        .tag {
+            display: inline-block;
+            padding: 4px 12px;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 20px;
+            background: rgba(0, 212, 170, 0.15);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(0, 212, 170, 0.3);
+        }
+
+        .tag-orange {
+            background: rgba(255, 123, 66, 0.15);
+            color: var(--accent-orange);
+            border-color: rgba(255, 123, 66, 0.3);
+        }
+
+        /* 可视化画布容器 */
+        #visualization-canvas {
+            border-radius: 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        /* 提示框 */
+        .tooltip {
+            position: absolute;
+            padding: 12px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--accent-cyan);
+            border-radius: 8px;
+            font-size: 14px;
+            max-width: 300px;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+        }
+
+        /* 分隔线 */
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+            margin: 40px 0;
+        }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-cyan);
+        }
+
+        /* 数据流动画 */
+        @keyframes dataFlow {
+            0% { transform: translateX(-100%); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateX(100%); opacity: 0; }
+        }
+
+        .data-particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-cyan);
+            animation: dataFlow 2s linear infinite;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .concept-grid {
+                grid-template-columns: 1fr !important;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景效果 -->
+    <div class="bg-grid"></div>
+    <div class="bg-glow glow-1"></div>
+    <div class="bg-glow glow-2"></div>
+
+    <!-- 主内容 -->
+    <div class="relative z-10">
+        <!-- 导航 -->
+        <nav class="fixed top-0 left-0 right-0 z-50 px-6 py-4 bg-opacity-80 backdrop-blur-xl" style="background: rgba(10, 15, 20, 0.8);">
+            <div class="max-w-7xl mx-auto flex items-center justify-between">
+                <div class="flex items-center gap-3 animate-in">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-400 to-orange-400 flex items-center justify-center font-bold text-black">
+                        PI
+                    </div>
+                    <span class="font-bold text-lg">OpenCLaw PI</span>
+                </div>
+                <div class="hidden md:flex items-center gap-2 animate-in delay-1">
+                    <div class="nav-item active" data-section="overview">概述</div>
+                    <div class="nav-item" data-section="architecture">架构</div>
+                    <div class="nav-item" data-section="concepts">核心概念</div>
+                    <div class="nav-item" data-section="code">代码结构</div>
+                    <div class="nav-item" data-section="playground">交互演示</div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Hero区域 -->
+        <section id="overview" class="min-h-screen flex items-center px-6 pt-20">
+            <div class="max-w-7xl mx-auto w-full">
+                <div class="grid lg:grid-cols-2 gap-12 items-center">
+                    <div>
+                        <div class="animate-in">
+                            <span class="tag mb-4 inline-block">去中心化AI训练协议</span>
+                        </div>
+                        <h1 class="text-5xl lg:text-6xl font-black leading-tight mb-6 animate-in delay-1">
+                            <span style="color: var(--accent-cyan);">OpenCLaw</span>
+                            <br>
+                            <span style="color: var(--fg-primary);">PI 技术</span>
+                        </h1>
+                        <p class="text-xl leading-relaxed mb-8 animate-in delay-2" style="color: var(--fg-secondary);">
+                            让全球算力协作训练大模型成为可能。通过创新的<strong style="color: var(--accent-orange);">知识蒸馏</strong>和<strong style="color: var(--accent-cyan);">模型聚合</strong>技术，
+                            实现去中心化的分布式AI训练。
+                        </p>
+                        <div class="flex flex-wrap gap-4 animate-in delay-3">
+                            <button class="btn-primary" onclick="scrollToSection('concepts')">深入理解</button>
+                            <button class="btn-secondary" onclick="scrollToSection('playground')">交互演示</button>
+                        </div>
+                    </div>
+                    <div class="animate-in-scale delay-4">
+                        <canvas id="hero-canvas" width="500" height="400"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 核心流程可视化 -->
+        <section id="architecture" class="py-20 px-6">
+            <div class="max-w-7xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-black mb-4 animate-in" style="color: var(--fg-primary);">技术架构全景</h2>
+                    <p class="text-lg animate-in delay-1" style="color: var(--fg-secondary);">从数据输入到模型输出的完整流程</p>
+                </div>
+                
+                <div class="card animate-in delay-2">
+                    <svg id="flow-diagram" viewBox="0 0 1000 300" class="w-full h-auto">
+                        <!-- 动态生成 -->
+                    </svg>
+                </div>
+            </div>
+        </section>
+
+        <!-- 核心概念 -->
+        <section id="concepts" class="py-20 px-6">
+            <div class="max-w-7xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-black mb-4" style="color: var(--fg-primary);">核心概念图谱</h2>
+                    <p class="text-lg" style="color: var(--fg-secondary);">点击节点深入了解每个概念</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 concept-grid" id="concepts-grid">
+                    <!-- 动态生成 -->
+                </div>
+
+                <!-- 概念详情面板 -->
+                <div id="concept-detail" class="card mt-8 hidden">
+                    <div class="flex items-start justify-between mb-6">
+                        <div>
+                            <h3 id="detail-title" class="text-2xl font-bold mb-2" style="color: var(--accent-cyan);"></h3>
+                            <p id="detail-subtitle" style="color: var(--fg-secondary);"></p>
+                        </div>
+                        <button onclick="closeConceptDetail()" class="text-2xl" style="color: var(--fg-secondary);">&times;</button>
+                    </div>
+                    <div id="detail-content" class="space-y-4"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 代码结构 -->
+        <section id="code" class="py-20 px-6">
+            <div class="max-w-7xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-black mb-4" style="color: var(--fg-primary);">代码结构解析</h2>
+                    <p class="text-lg" style="color: var(--fg-secondary);">分层架构，模块化设计</p>
+                </div>
+
+                <div class="grid lg:grid-cols-2 gap-8">
+                    <!-- 项目结构树 -->
+                    <div class="card animate-in">
+                        <h3 class="text-xl font-bold mb-6" style="color: var(--accent-orange);">项目目录结构</h3>
+                        <div class="font-mono text-sm space-y-2" id="file-tree">
+                            <!-- 动态生成 -->
+                        </div>
+                    </div>
+
+                    <!-- 核心代码示例 -->
+                    <div class="code-block animate-in delay-1">
+                        <div class="code-header">
+                            <div class="code-dot" style="background: #ff5f56;"></div>
+                            <div class="code-dot" style="background: #ffbd2e;"></div>
+                            <div class="code-dot" style="background: #27ca40;"></div>
+                            <span class="ml-4 text-sm" style="color: var(--fg-secondary);">primeintellect/training.py</span>
+                        </div>
+                        <pre class="code-content font-mono" id="code-example">
+                        </pre>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- 代码模块交互 -->
+                <div class="grid md:grid-cols-4 gap-4" id="code-modules">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 交互演示区 -->
+        <section id="playground" class="py-20 px-6">
+            <div class="max-w-7xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-black mb-4" style="color: var(--fg-primary);">交互演示</h2>
+                    <p class="text-lg" style="color: var(--fg-secondary);">调整参数，观察去中心化训练效果</p>
+                </div>
+
+                <div class="grid lg:grid-cols-3 gap-8">
+                    <!-- 控制面板 -->
+                    <div class="card">
+                        <h3 class="text-xl font-bold mb-6" style="color: var(--accent-cyan);">训练参数</h3>
+                        
+                        <div class="space-y-6">
+                            <div>
+                                <label class="flex justify-between mb-2">
+                                    <span>节点数量</span>
+                                    <span id="nodes-value" class="font-mono" style="color: var(--accent-orange);">8</span>
+                                </label>
+                                <input type="range" class="custom-slider" id="nodes-slider" min="2" max="32" value="8">
+                            </div>
+
+                            <div>
+                                <label class="flex justify-between mb-2">
+                                    <span>学习率</span>
+                                    <span id="lr-value" class="font-mono" style="color: var(--accent-orange);">0.001</span>
+                                </label>
+                                <input type="range" class="custom-slider" id="lr-slider" min="1" max="100" value="10">
+                            </div>
+
+                            <div>
+                                <label class="flex justify-between mb-2">
+                                    <span>聚合周期</span>
+                                    <span id="agg-value" class="font-mono" style="color: var(--accent-orange);">100 步</span>
+                                </label>
+                                <input type="range" class="custom-slider" id="agg-slider" min="10" max="500" value="100">
+                            </div>
+
+                            <div>
+                                <label class="flex justify-between mb-2">
+                                    <span>蒸馏温度</span>
+                                    <span id="temp-value" class="font-mono" style="color: var(--accent-orange);">4.0</span>
+                                </label>
+                                <input type="range" class="custom-slider" id="temp-slider" min="1" max="20" value="8">
+                            </div>
+
+                            <button class="btn-primary w-full mt-4" onclick="startSimulation()">启动模拟训练</button>
+                        </div>
+                    </div>
+
+                    <!-- 可视化画布 -->
+                    <div class="lg:col-span-2">
+                        <canvas id="simulation-canvas" class="w-full rounded-2xl" style="background: var(--bg-secondary); border: 1px solid var(--border-color); height: 500px;"></canvas>
+                        
+                        <!-- 实时指标 -->
+                        <div class="grid grid-cols-4 gap-4 mt-6">
+                            <div class="card text-center py-4">
+                                <div class="text-2xl font-bold font-mono" style="color: var(--accent-cyan);" id="metric-loss">0.000</div>
+                                <div class="text-sm" style="color: var(--fg-secondary);">损失值</div>
+                            </div>
+                            <div class="card text-center py-4">
+                                <div class="text-2xl font-bold font-mono" style="color: var(--accent-orange);" id="metric-acc">0.0%</div>
+                                <div class="text-sm" style="color: var(--fg-secondary);">准确率</div>
+                            </div>
+                            <div class="card text-center py-4">
+                                <div class="text-2xl font-bold font-mono" style="color: var(--accent-gold);" id="metric-step">0</div>
+                                <div class="text-sm" style="color: var(--fg-secondary);">训练步数</div>
+                            </div>
+                            <div class="card text-center py-4">
+                                <div class="text-2xl font-bold font-mono" style="color: #79c0ff;" id="metric-agg">0</div>
+                                <div class="text-sm" style="color: var(--fg-secondary);">聚合次数</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 底部 -->
+        <footer class="py-12 px-6 border-t" style="border-color: var(--border-color);">
+            <div class="max-w-7xl mx-auto text-center">
+                <p style="color: var(--fg-secondary);">
+                    OpenCLaw PI 技术可视化学习 | 
+                    <span style="color: var(--accent-cyan);">去中心化AI</span>的未来
+                </p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- 提示框 -->
+    <div id="tooltip" class="tooltip"></div>
+
+    <script>
+        // ==================== 数据定义 ====================
+        
+        // 核心概念数据
+        const conceptsData = [
+            {
+                id: 'distributed-training',
+                title: '分布式训练',
+                subtitle: 'Distributed Training',
+                shortDesc: '多个计算节点协同训练一个模型',
+                fullDesc: '分布式训练是将机器学习模型的训练过程分散到多个计算节点上的技术。在OpenCLaw PI中，这意味着全球各地的GPU可以共同参与训练一个大语言模型。',
+                keyPoints: [
+                    '数据并行：每个节点处理不同的数据子集',
+                    '模型并行：模型本身被分割到不同节点',
+                    '流水线并行：按层分配计算任务',
+                    '参数服务器架构：集中式参数同步'
+                ],
+                relatedConcepts: ['model-aggregation', 'gradient-sync'],
+                color: 'cyan'
+            },
+            {
+                id: 'knowledge-distillation',
+                title: '知识蒸馏',
+                subtitle: 'Knowledge Distillation',
+                shortDesc: '让小模型学习大模型的"软知识"',
+                fullDesc: '知识蒸馏是一种模型压缩技术，通过让小模型（学生）模仿大模型（教师）的输出概率分布来学习。在PI中，这用于在不同算力节点间传递知识。',
+                keyPoints: [
+                    '软标签：教师模型的概率分布作为监督信号',
+                    '温度参数：控制分布的平滑程度',
+                    'KL散度损失：衡量师生分布差异',
+                    '无需原始数据即可迁移知识'
+                ],
+                relatedConcepts: ['model-aggregation'],
+                color: 'orange'
+            },
+            {
+                id: 'model-aggregation',
+                title: '模型聚合',
+                subtitle: 'Model Aggregation',
+                shortDesc: '合并多个节点的模型更新',
+                fullDesc: '模型聚合是将来自不同训练节点的模型参数或更新合并成一个统一模型的过程。这是分布式训练中最关键的同步步骤。',
+                keyPoints: [
+                    'FedAvg：联邦平均算法',
+                    '加权聚合：根据数据量分配权重',
+                    '梯度裁剪：防止恶意更新',
+                    '异步聚合：提高容错性'
+                ],
+                relatedConcepts: ['distributed-training', 'knowledge-distillation'],
+                color: 'gold'
+            },
+            {
+                id: 'gradient-sync',
+                title: '梯度同步',
+                subtitle: 'Gradient Synchronization',
+                shortDesc: '协调各节点的梯度计算结果',
+                fullDesc: '梯度同步确保所有训练节点在更新模型时使用一致的梯度信息。在PI协议中，这通过去中心化的通信协议实现。',
+                keyPoints: [
+                    '同步SGD：等待所有节点完成',
+                    '异步SGD：先到先更新',
+                    'AllReduce：高效梯度汇总',
+                    '稀疏通信：只传输重要梯度'
+                ],
+                relatedConcepts: ['distributed-training'],
+                color: 'cyan'
+            },
+            {
+                id: 'incentive-mechanism',
+                title: '激励机制',
+                subtitle: 'Incentive Mechanism',
+                shortDesc: '代币奖励贡献算力的参与者',
+                fullDesc: 'PI协议通过区块链技术实现算力贡献的激励。参与者根据其贡献的算力和训练质量获得代币奖励。',
+                keyPoints: [
+                    '贡献证明：验证有效训练工作量',
+                    '质押机制：防止恶意行为',
+                    '动态定价：根据市场供需调整',
+                    '声誉系统：长期激励高质量贡献'
+                ],
+                relatedConcepts: ['model-aggregation'],
+                color: 'orange'
+            },
+            {
+                id: 'sharding',
+                title: '数据分片',
+                subtitle: 'Data Sharding',
+                shortDesc: '将训练数据分割分配给各节点',
+                fullDesc: '数据分片是将大规模训练数据集分割成多个部分，分配给不同节点进行训练。合理的分片策略能提高训练效率和模型质量。',
+                keyPoints: [
+                    '随机分片：避免数据偏差',
+                    '分层采样：保持类别分布',
+                    '动态重分配：负载均衡',
+                    '数据隐私：本地保留原始数据'
+                ],
+                relatedConcepts: ['distributed-training'],
+                color: 'gold'
+            }
+        ];
+
+        // 文件树数据
+        const fileTreeData = [
+            { name: 'primeintellect/', type: 'folder', level: 0 },
+            { name: 'core/', type: 'folder', level: 1 },
+            { name: 'training.py', type: 'file', level: 2, desc: '核心训练逻辑' },
+            { name: 'aggregator.py', type: 'file', level: 2, desc: '模型聚合器' },
+            { name: 'distillation.py', type: 'file', level: 2, desc: '知识蒸馏模块' },
+            { name: 'p2p/', type: 'folder', level: 1 },
+            { name: 'network.py', type: 'file', level: 2, desc: 'P2P网络通信' },
+            { name: 'protocol.py', type: 'file', level: 2, desc: '通信协议定义' },
+            { name: 'blockchain/', type: 'folder', level: 1 },
+            { name: 'rewards.py', type: 'file', level: 2, desc: '激励结算' },
+            { name: 'consensus.py', type: 'file', level: 2, desc: '贡献验证' },
+            { name: 'models/', type: 'folder', level: 1 },
+            { name: 'transformer.py', type: 'file', level: 2, desc: '模型架构' },
+            { name: 'utils/', type: 'folder', level: 1 },
+            { name: 'config.py', type: 'file', level: 2, desc: '配置管理' }
+        ];
+
+        // 代码模块数据
+        const codeModules = [
+            { name: '训练引擎', icon: '⚡', desc: '管理训练循环、优化器配置', color: 'cyan' },
+            { name: '聚合器', icon: '🔗', desc: '实现FedAvg等聚合算法', color: 'orange' },
+            { name: 'P2P网络', icon: '🌐', desc: '节点发现、消息广播', color: 'gold' },
+            { name: '激励机制', icon: '💎', desc: '贡献验证、奖励分配', color: 'cyan' }
+        ];
+
+        // 示例代码
+        const exampleCode = `<span class="code-keyword">class</span> <span class="code-function">DistributedTrainer</span>:
+    <span class="code-comment">"""PI协议核心训练器"""</span>
+    
+    <span class="code-keyword">def</span> <span class="code-function">__init__</span>(self, config):
+        self.nodes = []          <span class="code-comment"># 训练节点列表</span>
+        self.aggregator = <span class="code-function">ModelAggregator</span>()
+        self.ckpt_manager = <span class="code-function">CheckpointManager</span>()
+        
+    <span class="code-keyword">def</span> <span class="code-function">train_step</span>(self, batch):
+        <span class="code-comment"># 1. 分发数据到各节点</span>
+        shards = self.<span class="code-function">shard_data</span>(batch)
+        
+        <span class="code-comment"># 2. 并行计算梯度</span>
+        gradients = []
+        <span class="code-keyword">for</span> node, shard <span class="code-keyword">in</span> <span class="code-function">zip</span>(self.nodes, shards):
+            grad = node.<span class="code-function">compute_gradient</span>(shard)
+            gradients.<span class="code-function">append</span>(grad)
+        
+        <span class="code-comment"># 3. 聚合梯度并更新模型</span>
+        avg_grad = self.aggregator.<span class="code-function">aggregate</span>(gradients)
+        self.optimizer.<span class="code-function">apply_gradients</span>(avg_grad)
+        
+        <span class="code-keyword">return</span> loss, metrics`;
+
+        // ==================== 初始化 ====================
+        
+        let heroCanvas = null;
+        let heroCtx = null;
+        let simCanvas = null;
+        let simCtx = null;
+        let simulationRunning = false;
+        let simAnimationId = null;
+        
+        // 模拟状态
+        let simState = {
+            nodes: [],
+            centralModel: { x: 0, y: 0, radius: 40 },
+            loss: 2.5,
+            accuracy: 10,
+            step: 0,
+            aggregations: 0,
+            particles: []
+        };
+
+        // 训练参数
+        let trainParams = {
+            nodeCount: 8,
+            learningRate: 0.001,
+            aggInterval: 100,
+            temperature: 4.0
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initHeroCanvas();
+            initConceptsGrid();
+            initFileTree();
+            initCodeExample();
+            initCodeModules();
+            initFlowDiagram();
+            initSliderListeners();
+            initNavigation();
+            initSimCanvas();
+        });
+
+        // ==================== Hero Canvas 动画 ====================
+        
+        function initHeroCanvas() {
+            heroCanvas = document.getElementById('hero-canvas');
+            if (!heroCanvas) return;
+            
+            heroCtx = heroCanvas.getContext('2d');
+            animateHero();
+        }
+
+        function animateHero() {
+            if (!heroCtx || !heroCanvas) return;
+            
+            const width = heroCanvas.width;
+            const height = heroCanvas.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const time = Date.now() * 0.001;
+
+            // 清空
+            heroCtx.fillStyle = '#111921';
+            heroCtx.fillRect(0, 0, width, height);
+
+            // 绘制连接线
+            heroCtx.strokeStyle = 'rgba(0, 212, 170, 0.2)';
+            heroCtx.lineWidth = 1;
+            
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2 + time * 0.3;
+                const radius = 120;
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                
+                heroCtx.beginPath();
+                heroCtx.moveTo(centerX, centerY);
+                heroCtx.lineTo(x, y);
+                heroCtx.stroke();
+            }
+
+            // 绘制中心节点
+            const gradient = heroCtx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 50);
+            gradient.addColorStop(0, '#00d4aa');
+            gradient.addColorStop(1, 'rgba(0, 212, 170, 0)');
+            
+            heroCtx.fillStyle = gradient;
+            heroCtx.beginPath();
+            heroCtx.arc(centerX, centerY, 50, 0, Math.PI * 2);
+            heroCtx.fill();
+
+            // 绘制外围节点
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2 + time * 0.3;
+                const radius = 120;
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                
+                const nodeGradient = heroCtx.createRadialGradient(x, y, 0, x, y, 25);
+                nodeGradient.addColorStop(0, '#ff7b42');
+                nodeGradient.addColorStop(1, 'rgba(255, 123, 66, 0)');
+                
+                heroCtx.fillStyle = nodeGradient;
+                heroCtx.beginPath();
+                heroCtx.arc(x, y, 25, 0, Math.PI * 2);
+                heroCtx.fill();
+                
+                // 节点标签
+                heroCtx.fillStyle = '#e8eef4';
+                heroCtx.font = '12px JetBrains Mono';
+                heroCtx.textAlign = 'center';
+                heroCtx.fillText(`N${i + 1}`, x, y + 4);
+            }
+
+            // 绘制数据粒子
+            for (let i = 0; i < 12; i++) {
+                const progress = ((time * 0.5 + i * 0.15) % 1);
+                const nodeIndex = i % 6;
+                const angle = (nodeIndex / 6) * Math.PI * 2 + time * 0.3;
+                const radius = 120;
+                
+                const startX = centerX + Math.cos(angle) * radius;
+                const startY = centerY + Math.sin(angle) * radius;
+                
+                const px = startX + (centerX - startX) * progress;
+                const py = startY + (centerY - startY) * progress;
+                
+                heroCtx.fillStyle = progress < 0.5 ? '#00d4aa' : '#ff7b42';
+                heroCtx.beginPath();
+                heroCtx.arc(px, py, 4, 0, Math.PI * 2);
+                heroCtx.fill();
+            }
+
+            requestAnimationFrame(animateHero);
+        }
+
+        // ==================== 概念网格 ====================
+        
+        function initConceptsGrid() {
+            const grid = document.getElementById('concepts-grid');
+            if (!grid) return;
+
+            grid.innerHTML = conceptsData.map((concept, index) => `
+                <div class="concept-node animate-in delay-${index % 6 + 1}" 
+                     data-id="${concept.id}" 
+                     onclick="showConceptDetail('${concept.id}')"
+                     style="animation-delay: ${index * 0.1}s">
+                    <h3 class="text-lg font-bold mb-2" style="color: var(--accent-${concept.color});">${concept.title}</h3>
+                    <p class="text-sm font-mono mb-2" style="color: var(--fg-secondary);">${concept.subtitle}</p>
+                    <p class="text-sm" style="color: var(--fg-secondary);">${concept.shortDesc}</p>
+                </div>
+            `).join('');
+        }
+
+        function showConceptDetail(id) {
+            const concept = conceptsData.find(c => c.id === id);
+            if (!concept) return;
+
+            // 高亮选中节点
+            document.querySelectorAll('.concept-node').forEach(node => {
+                node.classList.remove('selected');
+                if (node.dataset.id === id) {
+                    node.classList.add('selected');
+                }
+            });
+
+            const detailPanel = document.getElementById('concept-detail');
+            document.getElementById('detail-title').textContent = concept.title;
+            document.getElementById('detail-subtitle').textContent = concept.subtitle;
+            
+            document.getElementById('detail-content').innerHTML = `
+                <p style="color: var(--fg-primary);">${concept.fullDesc}</p>
+                <div class="mt-6">
+                    <h4 class="font-bold mb-3" style="color: var(--accent-orange);">核心要点</h4>
+                    <ul class="space-y-2">
+                        ${concept.keyPoints.map(point => `
+                            <li class="flex items-start gap-2">
+                                <span style="color: var(--accent-cyan);">▸</span>
+                                <span>${point}</span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+                <div class="mt-6">
+                    <h4 class="font-bold mb-3" style="color: var(--accent-gold);">相关概念</h4>
+                    <div class="flex flex-wrap gap-2">
+                        ${concept.relatedConcepts.map(rid => {
+                            const related = conceptsData.find(c => c.id === rid);
+                            return related ? `<span class="tag cursor-pointer" onclick="showConceptDetail('${rid}')">${related.title}</span>` : '';
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+
+            detailPanel.classList.remove('hidden');
+            detailPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function closeConceptDetail() {
+            document.getElementById('concept-detail').classList.add('hidden');
+            document.querySelectorAll('.concept-node').forEach(node => node.classList.remove('selected'));
+        }
+
+        // ==================== 文件树 ====================
+        
+        function initFileTree() {
+            const tree = document.getElementById('file-tree');
+            if (!tree) return;
+
+            tree.innerHTML = fileTreeData.map(item => {
+                const indent = item.level * 20;
+                const icon = item.type === 'folder' ? '📁' : '📄';
+                const color = item.type === 'folder' ? 'var(--accent-orange)' : 'var(--fg-secondary)';
+                
+                return `
+                    <div class="flex items-center gap-2 py-1 px-2 rounded hover:bg-white hover:bg-opacity-5 transition-colors cursor-pointer" 
+                         style="padding-left: ${indent}px;"
+                         ${item.desc ? `title="${item.desc}"` : ''}>
+                        <span>${icon}</span>
+                        <span style="color: ${color};">${item.name}</span>
+                        ${item.desc ? `<span class="text-xs" style="color: var(--fg-secondary);">— ${item.desc}</span>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ==================== 代码示例 ====================
+        
+        function initCodeExample() {
+            const codeEl = document.getElementById('code-example');
+            if (codeEl) {
+                codeEl.innerHTML = exampleCode;
+            }
+        }
+
+        // ==================== 代码模块 ====================
+        
+        function initCodeModules() {
+            const container = document.getElementById('code-modules');
+            if (!container) return;
+
+            container.innerHTML = codeModules.map((mod, i) => `
+                <div class="card text-center cursor-pointer hover:scale-105 transition-transform animate-in delay-${i + 1}">
+                    <div class="text-3xl mb-3">${mod.icon}</div>
+                    <h4 class="font-bold mb-2" style="color: var(--accent-${mod.color});">${mod.name}</h4>
+                    <p class="text-sm" style="color: var(--fg-secondary);">${mod.desc}</p>
+                </div>
+            `).join('');
+        }
+
+        // ==================== 流程图 ====================
+        
+        function initFlowDiagram() {
+            const svg = document.getElementById('flow-diagram');
+            if (!svg) return;
+
+            const nodes = [
+                { x: 80, y: 150, label: '数据分片', sub: 'Sharding', color: '#ff7b42' },
+                { x: 250, y: 80, label: '节点A', sub: '训练', color: '#00d4aa' },
+                { x: 250, y: 220, label: '节点B', sub: '训练', color: '#00d4aa' },
+                { x: 450, y: 150, label: '梯度聚合', sub: 'Aggregation', color: '#ffc857' },
+                { x: 650, y: 150, label: '模型更新', sub: 'Update', color: '#00d4aa' },
+                { x: 850, y: 150, label: '知识蒸馏', sub: 'Distillation', color: '#ff7b42' }
+            ];
+
+            const connections = [
+                [0, 1], [0, 2], [1, 3], [2, 3], [3, 4], [4, 5]
+            ];
+
+            let svgContent = `
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#00d4aa"/>
+                    </marker>
+                </defs>
+            `;
+
+            // 连接线
+            connections.forEach(([from, to]) => {
+                const n1 = nodes[from];
+                const n2 = nodes[to];
+                svgContent += `
+                    <path d="M${n1.x + 50},${n1.y} Q${(n1.x + n2.x) / 2},${n1.y} ${n2.x - 50},${n2.y}" 
+                          class="flow-connector" marker-end="url(#arrowhead)"/>
+                `;
+            });
+
+            // 节点
+            nodes.forEach(node => {
+                svgContent += `
+                    <g transform="translate(${node.x}, ${node.y})">
+                        <rect x="-50" y="-35" width="100" height="70" rx="12" 
+                              fill="#151d27" stroke="${node.color}" stroke-width="2"/>
+                        <text x="0" y="-5" text-anchor="middle" fill="#e8eef4" font-size="14" font-weight="bold">${node.label}</text>
+                        <text x="0" y="15" text-anchor="middle" fill="#8899aa" font-size="11">${node.sub}</text>
+                    </g>
+                `;
+            });
+
+            svg.innerHTML = svgContent;
+        }
+
+        // ==================== 滑块监听 ====================
+        
+        function initSliderListeners() {
+            const nodesSlider = document.getElementById('nodes-slider');
+            const lrSlider = document.getElementById('lr-slider');
+            const aggSlider = document.getElementById('agg-slider');
+            const tempSlider = document.getElementById('temp-slider');
+
+            if (nodesSlider) {
+                nodesSlider.addEventListener('input', function() {
+                    document.getElementById('nodes-value').textContent = this.value;
+                    trainParams.nodeCount = parseInt(this.value);
+                });
+            }
+
+            if (lrSlider) {
+                lrSlider.addEventListener('input', function() {
+                    const val = (parseInt(this.value) / 10000).toFixed(4);
+                    document.getElementById('lr-value').textContent = val;
+                    trainParams.learningRate = parseFloat(val);
+                });
+            }
+
+            if (aggSlider) {
+                aggSlider.addEventListener('input', function() {
+                    document.getElementById('agg-value').textContent = this.value + ' 步';
+                    trainParams.aggInterval = parseInt(this.value);
+                });
+            }
+
+            if (tempSlider) {
+                tempSlider.addEventListener('input', function() {
+                    const val = (parseInt(this.value) / 2).toFixed(1);
+                    document.getElementById('temp-value').textContent = val;
+                    trainParams.temperature = parseFloat(val);
+                });
+            }
+        }
+
+        // ==================== 导航 ====================
+        
+        function initNavigation() {
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                    this.classList.add('active');
+                    const section = this.dataset.section;
+                    scrollToSection(section);
+                });
+            });
+        }
+
+        function scrollToSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            if (section) {
+                section.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // ==================== 模拟画布 ====================
+        
+        function initSimCanvas() {
+            simCanvas = document.getElementById('simulation-canvas');
+            if (!simCanvas) return;
+            
+            // 设置画布尺寸
+            const rect = simCanvas.getBoundingClientRect();
+            simCanvas.width = rect.width;
+            simCanvas.height = rect.height;
+            
+            simCtx = simCanvas.getContext('2d');
+            resetSimulation();
+        }
+
+        function resetSimulation() {
+            if (!simCanvas) return;
+            
+            const width = simCanvas.width;
+            const height = simCanvas.height;
+            
+            simState = {
+                nodes: [],
+                centralModel: { 
+                    x: width / 2, 
+                    y: height / 2, 
+                    radius: 50 
+                },
+                loss: 2.5,
+                accuracy: 10,
+                step: 0,
+                aggregations: 0,
+                particles: []
+            };
+
+            // 初始化节点
+            const nodeCount = trainParams.nodeCount;
+            for (let i = 0; i < nodeCount; i++) {
+                const angle = (i / nodeCount) * Math.PI * 2 - Math.PI / 2;
+                const radius = Math.min(width, height) * 0.35;
+                simState.nodes.push({
+                    x: width / 2 + Math.cos(angle) * radius,
+                    y: height / 2 + Math.sin(angle) * radius,
+                    angle: angle,
+                    progress: Math.random(),
+                    data: Math.random() * 100
+                });
+            }
+
+            drawSimulation();
+        }
+
+        function startSimulation() {
+            if (simulationRunning) {
+                simulationRunning = false;
+                if (simAnimationId) {
+                    cancelAnimationFrame(simAnimationId);
+                }
+                return;
+            }
+
+            resetSimulation();
+            simulationRunning = true;
+            runSimulation();
+        }
+
+        function runSimulation() {
+            if (!simulationRunning || !simCtx || !simCanvas) return;
+
+            const width = simCanvas.width;
+            const height = simCanvas.height;
+            const time = Date.now() * 0.001;
+
+            // 更新状态
+            simState.step++;
+            
+            // 节点进度更新
+            simState.nodes.forEach((node, i) => {
+                node.progress += 0.02 * (1 + Math.sin(time + i) * 0.3);
+                if (node.progress >= 1) {
+                    node.progress = 0;
+                    // 发送粒子
+                    simState.particles.push({
+                        x: node.x,
+                        y: node.y,
+                        targetX: simState.centralModel.x,
+                        targetY: simState.centralModel.y,
+                        progress: 0,
+                        type: 'gradient'
+                    });
+                }
+
+                // 生成数据粒子
+                if (Math.random() < 0.02) {
+                    simState.particles.push({
+                        x: node.x,
+                        y: node.y,
+                        targetX: simState.centralModel.x,
+                        targetY: simState.centralModel.y,
+                        progress: 0,
+                        type: 'data'
+                    });
+                }
+            });
+
+            // 更新粒子
+            simState.particles = simState.particles.filter(p => {
+                p.progress += 0.03;
+                p.x = p.x + (p.targetX - p.x) * 0.05;
+                p.y = p.y + (p.targetY - p.y) * 0.05;
+                return p.progress < 1;
+            });
+
+            // 聚合检测
+            if (simState.step % trainParams.aggInterval === 0) {
+                simState.aggregations++;
+                // 损失下降
+                simState.loss = Math.max(0.1, simState.loss * (0.85 + Math.random() * 0.1));
+                simState.accuracy = Math.min(99, simState.accuracy + 5 + Math.random() * 10);
+                
+                // 聚合爆发效果
+                for (let i = 0; i < 20; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    simState.particles.push({
+                        x: simState.centralModel.x,
+                        y: simState.centralModel.y,
+                        targetX: simState.centralModel.x + Math.cos(angle) * 200,
+                        targetY: simState.centralModel.y + Math.sin(angle) * 200,
+                        progress: 0,
+                        type: 'broadcast'
+                    });
+                }
+            }
+
+            // 更新指标显示
+            document.getElementById('metric-loss').textContent = simState.loss.toFixed(3);
+            document.getElementById('metric-acc').textContent = simState.accuracy.toFixed(1) + '%';
+            document.getElementById('metric-step').textContent = simState.step;
+            document.getElementById('metric-agg').textContent = simState.aggregations;
+
+            drawSimulation();
+            simAnimationId = requestAnimationFrame(runSimulation);
+        }
+
+        function drawSimulation() {
+            if (!simCtx || !simCanvas) return;
+            
+            const width = simCanvas.width;
+            const height = simCanvas.height;
+            const time = Date.now() * 0.001;
+
+            // 清空
+            simCtx.fillStyle = '#111921';
+            simCtx.fillRect(0, 0, width, height);
+
+            // 绘制连接线
+            simCtx.strokeStyle = 'rgba(0, 212, 170, 0.15)';
+            simCtx.lineWidth = 1;
+            
+            simState.nodes.forEach(node => {
+                simCtx.beginPath();
+                simCtx.moveTo(node.x, node.y);
+                simCtx.lineTo(simState.centralModel.x, simState.centralModel.y);
+                simCtx.stroke();
+            });
+
+            // 绘制中心模型
+            const centerGrad = simCtx.createRadialGradient(
+                simState.centralModel.x, simState.centralModel.y, 0,
+                simState.centralModel.x, simState.centralModel.y, simState.centralModel.radius * 2
+            );
+            centerGrad.addColorStop(0, 'rgba(0, 212, 170, 0.8)');
+            centerGrad.addColorStop(0.5, 'rgba(0, 212, 170, 0.2)');
+            centerGrad.addColorStop(1, 'rgba(0, 212, 170, 0)');
+            
+            simCtx.fillStyle = centerGrad;
+            simCtx.beginPath();
+            simCtx.arc(simState.centralModel.x, simState.centralModel.y, simState.centralModel.radius * 2, 0, Math.PI * 2);
+            simCtx.fill();
+
+            simCtx.fillStyle = '#0a0f14';
+            simCtx.beginPath();
+            simCtx.arc(simState.centralModel.x, simState.centralModel.y, simState.centralModel.radius, 0, Math.PI * 2);
+            simCtx.fill();
+
+            simCtx.strokeStyle = '#00d4aa';
+            simCtx.lineWidth = 3;
+            simCtx.stroke();
+
+            // 中心标签
+            simCtx.fillStyle = '#e8eef4';
+            simCtx.font = 'bold 14px Noto Sans SC';
+            simCtx.textAlign = 'center';
+            simCtx.fillText('全局模型', simState.centralModel.x, simState.centralModel.y + 5);
+
+            // 绘制节点
+            simState.nodes.forEach((node, i) => {
+                const nodeGrad = simCtx.createRadialGradient(node.x, node.y, 0, node.x, node.y, 35);
+                nodeGrad.addColorStop(0, 'rgba(255, 123, 66, 0.6)');
+                nodeGrad.addColorStop(1, 'rgba(255, 123, 66, 0)');
+                
+                simCtx.fillStyle = nodeGrad;
+                simCtx.beginPath();
+                simCtx.arc(node.x, node.y, 35, 0, Math.PI * 2);
+                simCtx.fill();
+
+                simCtx.fillStyle = '#151d27';
+                simCtx.beginPath();
+                simCtx.arc(node.x, node.y, 25, 0, Math.PI * 2);
+                simCtx.fill();
+
+                simCtx.strokeStyle = '#ff7b42';
+                simCtx.lineWidth = 2;
+                simCtx.stroke();
+
+                // 节点进度环
+                simCtx.strokeStyle = '#00d4aa';
+                simCtx.lineWidth = 3;
+                simCtx.beginPath();
+                simCtx.arc(node.x, node.y, 28, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * node.progress);
+                simCtx.stroke();
+
+                // 节点标签
+                simCtx.fillStyle = '#e8eef4';
+                simCtx.font = '12px JetBrains Mono';
+                simCtx.fillText(`N${i + 1}`, node.x, node.y + 4);
+            });
+
+            // 绘制粒子
+            simState.particles.forEach(p => {
+                let color = '#00d4aa';
+                if (p.type === 'data') color = '#ffc857';
+                if (p.type === 'broadcast') color = '#ff7b42';
+                
+                simCtx.fillStyle = color;
+                simCtx.beginPath();
+                simCtx.arc(p.x, p.y, p.type === 'broadcast' ? 3 : 4, 0, Math.PI * 2);
+                simCtx.fill();
+                
+                // 发光效果
+                simCtx.shadowColor = color;
+                simCtx.shadowBlur = 10;
+                simCtx.fill();
+                simCtx.shadowBlur = 0;
+            });
+        }
+
+        // 窗口大小调整
+        window.addEventListener('resize', function() {
+            if (simCanvas) {
+                const rect = simCanvas.getBoundingClientRect();
+                simCanvas.width = rect.width;
+                simCanvas.height = rect.height;
+                resetSimulation();
+            }
+        });
+    </script>
+</body>
+</html>

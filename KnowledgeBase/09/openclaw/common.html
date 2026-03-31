@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw common.ts 技术解析</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;600;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg-primary: #040709;
+      --bg-secondary: #0a0f14;
+      --bg-card: #0f161d;
+      --bg-elevated: #161f28;
+      --fg-primary: #e2eaf2;
+      --fg-secondary: #6a7c8c;
+      --fg-muted: #364555;
+      --accent-cyan: #00ddc0;
+      --accent-orange: #ff7540;
+      --accent-amber: #ffc020;
+      --accent-rose: #ff5070;
+      --border: #162030;
+      --glow-cyan: rgba(0, 221, 192, 0.1);
+      --glow-orange: rgba(255, 117, 64, 0.1);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg-primary);
+      color: var(--fg-primary);
+      overflow-x: hidden;
+      line-height: 1.7;
+    }
+
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* 背景 */
+    .bg-atmosphere {
+      background:
+        radial-gradient(ellipse 150% 100% at 100% 0%, rgba(0, 221, 192, 0.035) 0%, transparent 50%),
+        radial-gradient(ellipse 120% 90% at 0% 100%, rgba(255, 117, 64, 0.03) 0%, transparent 50%),
+        var(--bg-primary);
+    }
+
+    .grid-dots {
+      background-image: radial-gradient(circle, rgba(0, 221, 192, 0.04) 1px, transparent 1px);
+      background-size: 30px 30px;
+    }
+
+    /* 动画 */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(25px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes slideRight {
+      from { opacity: 0; transform: translateX(-30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes pulseBorder {
+      0%, 100% { border-color: var(--accent-cyan); }
+      50% { border-color: var(--accent-amber); }
+    }
+
+    @keyframes typeIn {
+      from { width: 0; }
+      to { width: 100%; }
+    }
+
+    .anim-fade-up { animation: fadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+    .anim-scale-in { animation: scaleIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+    .anim-slide-right { animation: slideRight 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+
+    .delay-1 { animation-delay: 0.07s; }
+    .delay-2 { animation-delay: 0.14s; }
+    .delay-3 { animation-delay: 0.21s; }
+    .delay-4 { animation-delay: 0.28s; }
+    .delay-5 { animation-delay: 0.35s; }
+    .delay-6 { animation-delay: 0.42s; }
+    .delay-7 { animation-delay: 0.49s; }
+    .delay-8 { animation-delay: 0.56s; }
+
+    /* 卡片 */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: all 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .card:hover {
+      border-color: var(--accent-cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px -6px var(--glow-cyan);
+    }
+
+    .card-orange:hover {
+      border-color: var(--accent-orange);
+      box-shadow: 0 12px 24px -6px var(--glow-orange);
+    }
+
+    /* 输入框 */
+    .input-field {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--fg-primary);
+      font-size: 13px;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 3px var(--glow-cyan);
+    }
+
+    .input-field::placeholder {
+      color: var(--fg-muted);
+    }
+
+    /* 按钮 */
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-cyan), #00c0a8);
+      color: var(--bg-primary);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px -4px var(--glow-cyan);
+    }
+
+    .btn-secondary {
+      background: var(--bg-elevated);
+      color: var(--fg-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    /* 标签 */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    /* 结果块 */
+    .result-block {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 12px;
+      transition: all 0.2s ease;
+    }
+
+    .result-block.success {
+      border-color: var(--accent-cyan);
+      background: rgba(0, 221, 192, 0.05);
+    }
+
+    .result-block.error {
+      border-color: var(--accent-rose);
+      background: rgba(255, 80, 112, 0.05);
+    }
+
+    /* 错误层级节点 */
+    .error-node {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      transition: all 0.25s ease;
+      cursor: pointer;
+    }
+
+    .error-node:hover {
+      transform: scale(1.02);
+    }
+
+    .error-node.selected {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 16px var(--glow-cyan);
+    }
+
+    /* 代码块 */
+    .code-window {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .code-content {
+      padding: 12px;
+      font-size: 11px;
+      line-height: 1.6;
+      overflow-x: auto;
+    }
+
+    .code-line {
+      padding: 2px 5px;
+      margin: 0 -5px;
+      border-radius: 3px;
+      transition: background 0.15s ease;
+    }
+
+    .code-line:hover { background: rgba(0, 221, 192, 0.03); }
+
+    /* 流程步骤 */
+    .flow-step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .flow-step.active {
+      border-color: var(--accent-cyan);
+      background: var(--glow-cyan);
+    }
+
+    .flow-step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--bg-elevated);
+      color: var(--fg-muted);
+    }
+
+    .flow-step.active .flow-step-num {
+      background: var(--accent-cyan);
+      color: var(--bg-primary);
+    }
+
+    /* 滚动条 */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-atmosphere grid-dots min-h-screen">
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative">
+
+    <!-- 头部 -->
+    <header class="text-center mb-12">
+      <div class="anim-fade-up">
+        <span class="tag" style="background: var(--glow-orange); color: var(--accent-orange);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+          Tool Utilities
+        </span>
+      </div>
+      <h1 class="text-4xl sm:text-5xl lg:text-5xl font-black mt-5 mb-3 anim-fade-up delay-1">
+        <span style="color: var(--fg-primary);">common</span><span style="color: var(--accent-cyan);">.ts</span>
+      </h1>
+      <p class="text-lg sm:text-xl max-w-3xl mx-auto anim-fade-up delay-2" style="color: var(--fg-secondary);">
+        OpenClaw 的「工具百宝箱」—— 提供参数解析、错误处理、结果构建等通用工具函数
+      </p>
+    </header>
+
+    <!-- 核心比喻 -->
+    <section class="mb-12 anim-scale-in delay-3">
+      <div class="card p-6">
+        <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+          <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--glow-cyan);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00ddc0" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4M12 8h.01"/>
+            </svg>
+          </span>
+          用生活场景理解它
+        </h2>
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="card card-orange p-4">
+            <div class="text-xl mb-2">📦</div>
+            <h3 class="font-semibold mb-1" style="color: var(--accent-cyan);">像快递分拣中心</h3>
+            <p class="text-sm" style="color: var(--fg-secondary);">
+              参数读取函数就像分拣员，把各种格式的包裹（参数）分类处理——字符串放左边，数字放右边，数组单独堆
+            </p>
+          </div>
+          <div class="card card-orange p-4">
+            <div class="text-xl mb-2">🚦</div>
+            <h3 class="font-semibold mb-1" style="color: var(--accent-orange);">像交通信号灯</h3>
+            <p class="text-sm" style="color: var(--fg-secondary);">
+              ActionGate 就像信号灯控制——绿灯允许通行，红灯禁止通行，没有灯时按默认规则走
+            </p>
+          </div>
+          <div class="card card-orange p-4">
+            <div class="text-xl mb-2">🎁</div>
+            <h3 class="font-semibold mb-1" style="color: var(--accent-amber);">像礼物包装站</h3>
+            <p class="text-sm" style="color: var(--fg-secondary);">
+              结果构建函数就像包装站——把原始数据（内容）包成漂亮的礼盒（标准格式），贴上标签
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 参数读取演示 -->
+    <section class="mb-12 anim-fade-up delay-4">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff7540" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+        </span>
+        参数读取演示
+      </h2>
+
+      <div class="card p-5">
+        <div class="grid lg:grid-cols-2 gap-5">
+          <!-- 输入面板 -->
+          <div>
+            <h3 class="font-semibold mb-3 text-sm" style="color: var(--fg-secondary);">模拟输入参数</h3>
+            
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs mb-1" style="color: var(--fg-muted);">参数对象 (JSON)</label>
+                <textarea id="params-input" class="input-field font-mono text-xs h-28" placeholder='{"fileName": "test.txt", "file_name": "alt.txt", "count": 42}'></textarea>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs mb-1" style="color: var(--fg-muted);">要读取的键</label>
+                  <input id="param-key" type="text" class="input-field font-mono text-xs" value="fileName" placeholder="参数键名">
+                </div>
+                <div>
+                  <label class="block text-xs mb-1" style="color: var(--fg-muted);">读取函数</label>
+                  <select id="read-func" class="input-field text-xs">
+                    <option value="string">readStringParam</option>
+                    <option value="number">readNumberParam</option>
+                    <option value="array">readStringArrayParam</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="flex gap-3">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="required-check" class="w-4 h-4 accent-cyan-500">
+                  <span class="text-xs" style="color: var(--fg-secondary);">required</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="trim-check" checked class="w-4 h-4 accent-cyan-500">
+                  <span class="text-xs" style="color: var(--fg-secondary);">trim</span>
+                </label>
+              </div>
+
+              <button id="parse-btn" class="btn btn-primary w-full">解析参数</button>
+            </div>
+          </div>
+
+          <!-- 结果面板 -->
+          <div>
+            <h3 class="font-semibold mb-3 text-sm" style="color: var(--fg-secondary);">解析结果</h3>
+            
+            <div id="parse-result" class="space-y-3">
+              <div class="result-block">
+                <p class="text-xs" style="color: var(--fg-muted);">点击「解析参数」查看结果</p>
+              </div>
+            </div>
+
+            <!-- 处理流程 -->
+            <div class="mt-4">
+              <h4 class="text-xs font-semibold mb-2" style="color: var(--fg-muted);">处理流程</h4>
+              <div id="parse-flow" class="space-y-2">
+                <div class="flow-step">
+                  <span class="flow-step-num">1</span>
+                  <span class="text-xs">解析 JSON 输入</span>
+                </div>
+                <div class="flow-step">
+                  <span class="flow-step-num">2</span>
+                  <span class="text-xs">查找原始键</span>
+                </div>
+                <div class="flow-step">
+                  <span class="flow-step-num">3</span>
+                  <span class="text-xs">尝试 snake_case 转换</span>
+                </div>
+                <div class="flow-step">
+                  <span class="flow-step-num">4</span>
+                  <span class="text-xs">验证并返回结果</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- snake_case 转换演示 -->
+    <section class="mb-12 anim-fade-up delay-5">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--glow-cyan);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00ddc0" stroke-width="2">
+            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+          </svg>
+        </span>
+        Snake Case 自动转换
+      </h2>
+
+      <div class="card p-5">
+        <p class="text-sm mb-4" style="color: var(--fg-secondary);">
+          系统支持 camelCase 和 snake_case 两种命名风格自动转换，确保参数名兼容性
+        </p>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs mb-1" style="color: var(--fg-muted);">输入 camelCase 键名</label>
+            <input id="camel-input" type="text" class="input-field font-mono text-xs" value="fileName" placeholder="camelCase 键名">
+          </div>
+          <div>
+            <label class="block text-xs mb-1" style="color: var(--fg-muted);">转换结果</label>
+            <div id="snake-output" class="input-field font-mono text-xs flex items-center" style="background: var(--bg-elevated);">
+              <span style="color: var(--accent-cyan);">file_name</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 grid grid-cols-3 gap-2">
+          <button class="btn btn-secondary text-xs convert-example" data-value="fileName">fileName</button>
+          <button class="btn btn-secondary text-xs convert-example" data-value="filePath">filePath</button>
+          <button class="btn btn-secondary text-xs convert-example" data-value="userID">userID</button>
+          <button class="btn btn-secondary text-xs convert-example" data-value="apiKey">apiKey</button>
+          <button class="btn btn-secondary text-xs convert-example" data-value="maxRetryCount">maxRetryCount</button>
+          <button class="btn btn-secondary text-xs convert-example" data-value="enableSSL">enableSSL</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 错误类型层次 -->
+    <section class="mb-12 anim-fade-up delay-6">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff7540" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </span>
+        错误类型层次结构
+      </h2>
+
+      <div class="card p-5">
+        <div class="grid md:grid-cols-3 gap-4" id="error-hierarchy">
+          <!-- Error 基类 -->
+          <div class="error-node" data-error="error">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="w-6 h-6 rounded flex items-center justify-center text-xs font-mono" style="background: var(--bg-elevated); color: var(--fg-muted);">E</span>
+              <span class="font-mono font-semibold text-sm" style="color: var(--fg-secondary);">Error</span>
+            </div>
+            <p class="text-xs" style="color: var(--fg-muted);">JavaScript 原生错误基类</p>
+          </div>
+
+          <!-- ToolInputError -->
+          <div class="error-node" data-error="input">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="w-6 h-6 rounded flex items-center justify-center text-xs font-mono" style="background: rgba(255, 192, 32, 0.2); color: var(--accent-amber);">400</span>
+              <span class="font-mono font-semibold text-sm" style="color: var(--accent-amber);">ToolInputError</span>
+            </div>
+            <p class="text-xs" style="color: var(--fg-muted);">工具输入错误，HTTP 400</p>
+            <div class="mt-2 text-xs font-mono" style="color: var(--fg-secondary);">
+              extends Error
+            </div>
+          </div>
+
+          <!-- ToolAuthorizationError -->
+          <div class="error-node" data-error="auth">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="w-6 h-6 rounded flex items-center justify-center text-xs font-mono" style="background: rgba(255, 80, 112, 0.2); color: var(--accent-rose);">403</span>
+              <span class="font-mono font-semibold text-sm" style="color: var(--accent-rose);">ToolAuthorizationError</span>
+            </div>
+            <p class="text-xs" style="color: var(--fg-muted);">工具授权错误，HTTP 403</p>
+            <div class="mt-2 text-xs font-mono" style="color: var(--fg-secondary);">
+              extends ToolInputError
+            </div>
+          </div>
+        </div>
+
+        <!-- 错误详情 -->
+        <div id="error-detail" class="mt-4 p-4 rounded-lg" style="background: var(--bg-secondary); display: none;">
+          <!-- 由 JS 渲染 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ActionGate 演示 -->
+    <section class="mb-12 anim-fade-up delay-7">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--glow-cyan);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00ddc0" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </span>
+        ActionGate 操作门控
+      </h2>
+
+      <div class="card p-5">
+        <p class="text-sm mb-4" style="color: var(--fg-secondary);">
+          ActionGate 用于控制特定操作是否允许执行，支持默认值和显式配置
+        </p>
+
+        <div class="grid lg:grid-cols-2 gap-5">
+          <!-- 配置面板 -->
+          <div>
+            <h4 class="text-xs font-semibold mb-2" style="color: var(--fg-muted);">操作配置</h4>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between p-2 rounded" style="background: var(--bg-secondary);">
+                <span class="text-xs font-mono">readFile</span>
+                <select class="gate-select text-xs px-2 py-1 rounded" style="background: var(--bg-elevated); border: 1px solid var(--border);" data-action="readFile">
+                  <option value="true">允许</option>
+                  <option value="false">禁止</option>
+                  <option value="undefined" selected>默认</option>
+                </select>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded" style="background: var(--bg-secondary);">
+                <span class="text-xs font-mono">writeFile</span>
+                <select class="gate-select text-xs px-2 py-1 rounded" style="background: var(--bg-elevated); border: 1px solid var(--border);" data-action="writeFile">
+                  <option value="true">允许</option>
+                  <option value="false">禁止</option>
+                  <option value="undefined" selected>默认</option>
+                </select>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded" style="background: var(--bg-secondary);">
+                <span class="text-xs font-mono">executeCommand</span>
+                <select class="gate-select text-xs px-2 py-1 rounded" style="background: var(--bg-elevated); border: 1px solid var(--border);" data-action="executeCommand">
+                  <option value="true">允许</option>
+                  <option value="false">禁止</option>
+                  <option value="undefined" selected>默认</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="mt-3">
+              <label class="block text-xs mb-1" style="color: var(--fg-muted);">默认值</label>
+              <select id="gate-default" class="input-field text-xs">
+                <option value="true">true (默认允许)</option>
+                <option value="false">false (默认禁止)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 结果面板 -->
+          <div>
+            <h4 class="text-xs font-semibold mb-2" style="color: var(--fg-muted);">门控结果</h4>
+            <div id="gate-result" class="space-y-2">
+              <!-- 由 JS 渲染 -->
+            </div>
+
+            <div class="mt-4 code-window">
+              <div class="code-content font-mono text-xs">
+                <div class="code-line"><span style="color: var(--accent-cyan);">const</span> gate = <span style="color: var(--accent-orange);">createActionGate</span>(actions);</div>
+                <div class="code-line"></div>
+                <div class="code-line">gate(<span style="color: var(--accent-amber);">"readFile"</span>);       <span style="color: var(--fg-muted);">// ?</span></div>
+                <div class="code-line">gate(<span style="color: var(--accent-amber);">"writeFile"</span>);      <span style="color: var(--fg-muted);">// ?</span></div>
+                <div class="code-line">gate(<span style="color: var(--accent-amber);">"executeCommand"</span>); <span style="color: var(--fg-muted);">// ?</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 函数一览 -->
+    <section class="mb-10 anim-fade-up delay-8">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff7540" stroke-width="2">
+            <polyline points="16,18 22,12 16,6"/>
+            <polyline points="8,6 2,12 8,18"/>
+          </svg>
+        </span>
+        核心函数一览
+      </h2>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-cyan);">readStringParam</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">读取字符串参数，支持必填、修剪、空值检查</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-cyan);">readNumberParam</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">读取数字参数，支持整数转换和严格模式</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-cyan);">readStringArrayParam</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">读取字符串数组，支持单值转数组</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-orange);">jsonResult</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">构建 JSON 格式的工具返回结果</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-orange);">imageResult</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">构建包含图像的工具返回结果</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-orange);">imageResultFromFile</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">从文件读取并构建图像结果</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-amber);">createActionGate</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">创建操作门控函数</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-amber);">wrapOwnerOnlyToolExecution</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">包装所有者专用工具执行</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-amber);">parseAvailableTags</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">解析可用标签列表</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="text-center py-5" style="color: var(--fg-muted);">
+      <p>OpenClaw common.ts 工具百宝箱技术解析</p>
+    </footer>
+  </div>
+
+  <script>
+    // ========== 数据定义 ==========
+    const ERROR_DETAILS = {
+      error: {
+        title: 'Error',
+        desc: 'JavaScript 原生错误基类，所有错误的祖先',
+        status: null,
+        usage: 'throw new Error("Something went wrong")'
+      },
+      input: {
+        title: 'ToolInputError',
+        desc: '工具输入错误，表示客户端提供了无效参数',
+        status: 400,
+        usage: 'throw new ToolInputError("fileName required")'
+      },
+      auth: {
+        title: 'ToolAuthorizationError',
+        desc: '工具授权错误，表示用户没有权限执行此操作',
+        status: 403,
+        usage: 'throw new ToolAuthorizationError("Not authorized to use this tool")'
+      }
+    };
+
+    // ========== 状态变量 ==========
+    let currentErrorType = null;
+
+    // ========== DOM 元素 ==========
+    const paramsInput = document.getElementById('params-input');
+    const paramKey = document.getElementById('param-key');
+    const readFunc = document.getElementById('read-func');
+    const requiredCheck = document.getElementById('required-check');
+    const trimCheck = document.getElementById('trim-check');
+    const parseBtn = document.getElementById('parse-btn');
+    const parseResult = document.getElementById('parse-result');
+    const parseFlow = document.getElementById('parse-flow');
+
+    const camelInput = document.getElementById('camel-input');
+    const snakeOutput = document.getElementById('snake-output');
+    const convertExamples = document.querySelectorAll('.convert-example');
+
+    const errorNodes = document.querySelectorAll('.error-node');
+    const errorDetail = document.getElementById('error-detail');
+
+    const gateSelects = document.querySelectorAll('.gate-select');
+    const gateDefault = document.getElementById('gate-default');
+    const gateResult = document.getElementById('gate-result');
+
+    // ========== 工具函数 ==========
+    function toSnakeCaseKey(key) {
+      return key
+        .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+        .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+        .toLowerCase();
+    }
+
+    function readParamRaw(params, key) {
+      if (Object.hasOwn(params, key)) {
+        return params[key];
+      }
+      const snakeKey = toSnakeCaseKey(key);
+      if (snakeKey !== key && Object.hasOwn(params, snakeKey)) {
+        return params[snakeKey];
+      }
+      return undefined;
+    }
+
+    // ========== 渲染函数 ==========
+    function renderParseResult() {
+      if (!parseResult || !paramsInput || !paramKey) return;
+
+      try {
+        const paramsText = paramsInput.value.trim() || '{}';
+        const params = JSON.parse(paramsText);
+        const key = paramKey.value.trim();
+        const funcType = readFunc?.value || 'string';
+        const required = requiredCheck?.checked || false;
+        const trim = trimCheck?.checked !== false;
+
+        // 高亮流程步骤
+        const steps = parseFlow?.querySelectorAll('.flow-step');
+        let activeStep = 0;
+
+        // 步骤 1: 解析 JSON
+        activeStep = 1;
+        
+        // 步骤 2: 查找原始键
+        const directValue = Object.hasOwn(params, key) ? params[key] : undefined;
+        activeStep = 2;
+
+        // 步骤 3: snake_case 转换
+        const snakeKey = toSnakeCaseKey(key);
+        const snakeValue = snakeKey !== key && Object.hasOwn(params, snakeKey) ? params[snakeKey] : undefined;
+        activeStep = 3;
+
+        // 步骤 4: 验证并返回
+        let result = null;
+        let error = null;
+        let usedKey = null;
+
+        if (directValue !== undefined) {
+          usedKey = key;
+          result = directValue;
+        } else if (snakeValue !== undefined) {
+          usedKey = snakeKey;
+          result = snakeValue;
+        }
+
+        // 类型验证
+        if (result !== null) {
+          if (funcType === 'string') {
+            if (typeof result !== 'string') {
+              if (required) {
+                error = `${key} must be a string`;
+              } else {
+                result = undefined;
+              }
+            } else if (trim) {
+              result = result.trim();
+              if (!result && required) {
+                error = `${key} required`;
+                result = undefined;
+              }
+            }
+          } else if (funcType === 'number') {
+            if (typeof result === 'number' && Number.isFinite(result)) {
+              // ok
+            } else if (typeof result === 'string') {
+              const parsed = parseFloat(result.trim());
+              if (Number.isFinite(parsed)) {
+                result = parsed;
+              } else if (required) {
+                error = `${key} must be a number`;
+                result = undefined;
+              }
+            } else if (required) {
+              error = `${key} required`;
+              result = undefined;
+            }
+          } else if (funcType === 'array') {
+            if (Array.isArray(result)) {
+              result = result.filter(e => typeof e === 'string').map(e => e.trim()).filter(Boolean);
+              if (result.length === 0 && required) {
+                error = `${key} required`;
+                result = undefined;
+              }
+            } else if (typeof result === 'string') {
+              const trimmed = result.trim();
+              if (trimmed) {
+                result = [trimmed];
+              } else if (required) {
+                error = `${key} required`;
+                result = undefined;
+              }
+            } else if (required) {
+              error = `${key} required`;
+              result = undefined;
+            }
+          }
+        } else if (required) {
+          error = `${key} required`;
+        }
+
+        activeStep = 4;
+
+        // 更新流程高亮
+        if (steps) {
+          steps.forEach((step, i) => {
+            if (i < activeStep) {
+              step.classList.add('active');
+            } else {
+              step.classList.remove('active');
+            }
+          });
+        }
+
+        // 渲染结果
+        if (error) {
+          parseResult.innerHTML = `
+            <div class="result-block error">
+              <div class="flex items-center gap-2 mb-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-rose)" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="15" y1="9" x2="9" y2="15"/>
+                  <line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+                <span class="font-mono text-xs font-semibold" style="color: var(--accent-rose);">ToolInputError</span>
+              </div>
+              <p class="text-xs font-mono" style="color: var(--fg-secondary);">${error}</p>
+            </div>
+          `;
+        } else {
+          const resultType = result === null ? 'undefined' : (Array.isArray(result) ? 'array' : typeof result);
+          parseResult.innerHTML = `
+            <div class="result-block success">
+              <div class="flex items-center gap-2 mb-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2">
+                  <polyline points="20,6 9,17 4,12"/>
+                </svg>
+                <span class="font-mono text-xs font-semibold" style="color: var(--accent-cyan);">Success</span>
+              </div>
+              ${usedKey ? `<p class="text-xs mb-1"><span style="color: var(--fg-muted);">使用的键:</span> <span class="font-mono" style="color: var(--accent-amber);">${usedKey}</span></p>` : ''}
+              <p class="text-xs mb-1"><span style="color: var(--fg-muted);">类型:</span> <span class="font-mono">${resultType}</span></p>
+              <p class="text-xs"><span style="color: var(--fg-muted);">值:</span> <span class="font-mono" style="color: var(--accent-cyan);">${JSON.stringify(result)}</span></p>
+            </div>
+          `;
+        }
+
+      } catch (e) {
+        parseResult.innerHTML = `
+          <div class="result-block error">
+            <p class="text-xs font-mono" style="color: var(--accent-rose);">JSON 解析错误: ${e.message}</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderSnakeCase() {
+      if (!camelInput || !snakeOutput) return;
+
+      const camel = camelInput.value.trim();
+      const snake = toSnakeCaseKey(camel);
+      snakeOutput.innerHTML = `<span style="color: var(--accent-cyan);">${snake}</span>`;
+    }
+
+    function renderErrorDetail(type) {
+      if (!errorDetail) return;
+
+      const detail = ERROR_DETAILS[type];
+      if (!detail) {
+        errorDetail.style.display = 'none';
+        return;
+      }
+
+      errorDetail.style.display = 'block';
+      errorDetail.innerHTML = `
+        <h4 class="font-mono font-semibold text-sm mb-2" style="color: ${type === 'auth' ? 'var(--accent-rose)' : type === 'input' ? 'var(--accent-amber)' : 'var(--fg-secondary)'};">${detail.title}</h4>
+        <p class="text-xs mb-3" style="color: var(--fg-secondary);">${detail.desc}</p>
+        ${detail.status ? `<p class="text-xs mb-2"><span style="color: var(--fg-muted);">HTTP Status:</span> <span class="font-mono" style="color: var(--accent-cyan);">${detail.status}</span></p>` : ''}
+        <div class="code-window">
+          <div class="code-content font-mono text-xs">
+            <div class="code-line" style="color: var(--fg-secondary);">${detail.usage}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderGateResult() {
+      if (!gateResult) return;
+
+      const actions = {};
+      gateSelects.forEach(select => {
+        const action = select.dataset.action;
+        const value = select.value;
+        if (value === 'true') {
+          actions[action] = true;
+        } else if (value === 'false') {
+          actions[action] = false;
+        }
+        // undefined 不设置
+      });
+
+      const defaultValue = gateDefault?.value === 'true';
+
+      const results = ['readFile', 'writeFile', 'executeCommand'].map(action => {
+        const explicit = actions[action];
+        const result = explicit !== undefined ? explicit : defaultValue;
+        return { action, explicit, result };
+      });
+
+      gateResult.innerHTML = results.map(r => `
+        <div class="flex items-center justify-between p-2 rounded" style="background: var(--bg-secondary);">
+          <span class="text-xs font-mono">${r.action}</span>
+          <div class="flex items-center gap-2">
+            ${r.explicit !== undefined 
+              ? `<span class="text-xs" style="color: var(--fg-muted);">显式: ${r.explicit}</span>` 
+              : `<span class="text-xs" style="color: var(--fg-muted);">默认: ${defaultValue}</span>`}
+            <span class="w-5 h-5 rounded flex items-center justify-center text-xs" 
+                  style="background: ${r.result ? 'var(--glow-cyan)' : 'rgba(255, 80, 112, 0.2)'}; color: ${r.result ? 'var(--accent-cyan)' : 'var(--accent-rose)'};">
+              ${r.result ? '✓' : '✕'}
+            </span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ========== 事件绑定 ==========
+    function initEventListeners() {
+      // 解析按钮
+      if (parseBtn) {
+        parseBtn.addEventListener('click', renderParseResult);
+      }
+
+      // snake_case 转换
+      if (camelInput) {
+        camelInput.addEventListener('input', renderSnakeCase);
+      }
+
+      // 转换示例按钮
+      convertExamples.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const value = btn.dataset.value;
+          if (value && camelInput) {
+            camelInput.value = value;
+            renderSnakeCase();
+          }
+        });
+      });
+
+      // 错误类型选择
+      errorNodes.forEach(node => {
+        node.addEventListener('click', () => {
+          errorNodes.forEach(n => n.classList.remove('selected'));
+          node.classList.add('selected');
+          const type = node.dataset.error;
+          if (type) {
+            currentErrorType = type;
+            renderErrorDetail(type);
+          }
+        });
+      });
+
+      // ActionGate 选择
+      gateSelects.forEach(select => {
+        select.addEventListener('change', renderGateResult);
+      });
+
+      if (gateDefault) {
+        gateDefault.addEventListener('change', renderGateResult);
+      }
+    }
+
+    // ========== 初始化 ==========
+    function init() {
+      renderSnakeCase();
+      renderGateResult();
+      initEventListeners();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

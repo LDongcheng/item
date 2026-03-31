@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw workspace.ts 技术解析</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;600;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg-primary: #010305;
+      --bg-secondary: #070a0e;
+      --bg-card: #0c1016;
+      --bg-elevated: #121820;
+      --fg-primary: #d8e2ec;
+      --fg-secondary: #485668;
+      --fg-muted: #243040;
+      --accent-cyan: #00f8e0;
+      --accent-orange: #ff5820;
+      --accent-gold: #ffc800;
+      --accent-violet: #c070ff;
+      --accent-mint: #30f8b0;
+      --border: #0c1820;
+      --glow-cyan: rgba(0, 248, 224, 0.08);
+      --glow-orange: rgba(255, 88, 32, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg-primary);
+      color: var(--fg-primary);
+      overflow-x: hidden;
+      line-height: 1.7;
+    }
+
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    .bg-atmosphere {
+      background:
+        radial-gradient(ellipse 200% 150% at 130% -30%, rgba(0, 248, 224, 0.03) 0%, transparent 50%),
+        radial-gradient(ellipse 180% 130% at -30% 130%, rgba(255, 88, 32, 0.025) 0%, transparent 50%),
+        radial-gradient(ellipse 100% 100% at 50% 50%, rgba(192, 112, 255, 0.015) 0%, transparent 70%),
+        var(--bg-primary);
+    }
+
+    .grid-dots {
+      background-image: radial-gradient(circle, rgba(0, 248, 224, 0.03) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes slideRight {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes flowPulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    .anim-fade-up { animation: fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+    .anim-scale-in { animation: scaleIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+    .anim-slide-right { animation: slideRight 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+
+    .delay-1 { animation-delay: 0.05s; }
+    .delay-2 { animation-delay: 0.1s; }
+    .delay-3 { animation-delay: 0.15s; }
+    .delay-4 { animation-delay: 0.2s; }
+    .delay-5 { animation-delay: 0.25s; }
+    .delay-6 { animation-delay: 0.3s; }
+    .delay-7 { animation-delay: 0.35s; }
+    .delay-8 { animation-delay: 0.4s; }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .card:hover {
+      border-color: var(--accent-cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px -4px var(--glow-cyan);
+    }
+
+    .card-orange:hover {
+      border-color: var(--accent-orange);
+      box-shadow: 0 8px 16px -4px var(--glow-orange);
+    }
+
+    .source-node {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .source-node:hover {
+      transform: scale(1.02);
+    }
+
+    .source-node.active {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 12px var(--glow-cyan);
+    }
+
+    .priority-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .limit-bar {
+      height: 6px;
+      background: var(--bg-secondary);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .limit-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
+
+    .input-field {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: var(--fg-primary);
+      font-size: 12px;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 2px var(--glow-cyan);
+    }
+
+    .code-window {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .code-content {
+      padding: 10px;
+      font-size: 10px;
+      line-height: 1.6;
+      overflow-x: auto;
+    }
+
+    .code-line {
+      padding: 1px 4px;
+      margin: 0 -4px;
+      border-radius: 2px;
+    }
+
+    .code-line:hover { background: rgba(0, 248, 224, 0.03); }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 8px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .skill-item {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      margin: 2px;
+      transition: all 0.15s ease;
+    }
+
+    .skill-item:hover {
+      transform: translateY(-1px);
+    }
+
+    ::-webkit-scrollbar { width: 3px; height: 3px; }
+    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-atmosphere grid-dots min-h-screen">
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
+
+    <!-- 头部 -->
+    <header class="text-center mb-8">
+      <div class="anim-fade-up">
+        <span class="tag" style="background: var(--glow-orange); color: var(--accent-orange);">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+          Workspace Skills Manager
+        </span>
+      </div>
+      <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black mt-4 mb-2 anim-fade-up delay-1">
+        <span style="color: var(--fg-primary);">workspace</span><span style="color: var(--accent-cyan);">.ts</span>
+      </h1>
+      <p class="text-base max-w-2xl mx-auto anim-fade-up delay-2" style="color: var(--fg-secondary);">
+        OpenClaw 的「技能加载引擎」—— 从多个来源聚合技能，管理优先级、限制和提示词生成
+      </p>
+    </header>
+
+    <!-- 核心比喻 -->
+    <section class="mb-8 anim-scale-in delay-3">
+      <div class="card p-5">
+        <h2 class="text-base font-bold mb-3 flex items-center gap-2">
+          <span class="w-6 h-6 rounded flex items-center justify-center" style="background: var(--glow-cyan);">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00f8e0" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4M12 8h.01"/>
+            </svg>
+          </span>
+          用生活场景理解它
+        </h2>
+        <div class="grid md:grid-cols-3 gap-3">
+          <div class="card card-orange p-3">
+            <div class="text-lg mb-1">📚</div>
+            <h3 class="font-semibold text-sm mb-1" style="color: var(--accent-cyan);">像图书馆借阅系统</h3>
+            <p class="text-xs" style="color: var(--fg-secondary);">
+              从多个书库（bundled、managed、workspace）收集书籍（技能），按优先级去重，限制借阅数量
+            </p>
+          </div>
+          <div class="card card-orange p-3">
+            <div class="text-lg mb-1">🔄</div>
+            <h3 class="font-semibold text-sm mb-1" style="color: var(--accent-orange);">像软件包管理器</h3>
+            <p class="text-xs" style="color: var(--fg-secondary);">
+              npm/yarn 从多个源（registry、local、git）合并依赖，workspace.ts 从多个目录合并技能
+            </p>
+          </div>
+          <div class="card card-orange p-3">
+            <div class="text-lg mb-1">⚖️</div>
+            <h3 class="font-semibold text-sm mb-1" style="color: var(--accent-gold);">像预算分配系统</h3>
+            <p class="text-xs" style="color: var(--fg-secondary);">
+              限制数量（maxSkillsInPrompt）和字符（maxSkillsPromptChars），确保不超出「预算」
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 技能来源优先级 -->
+    <section class="mb-8 anim-fade-up delay-4">
+      <h2 class="text-base font-bold mb-3 flex items-center gap-2">
+        <span class="w-6 h-6 rounded flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ff5820" stroke-width="2">
+            <line x1="12" y1="20" x2="12" y2="10"/>
+            <line x1="18" y1="20" x2="18" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="16"/>
+          </svg>
+        </span>
+        技能来源与优先级
+      </h2>
+
+      <div class="card p-4">
+        <p class="text-xs mb-3" style="color: var(--fg-secondary);">后加载的技能会覆盖同名的先加载技能，优先级从低到高：</p>
+        
+        <div id="priority-flow" class="space-y-2">
+          <!-- 由 JS 渲染 -->
+        </div>
+
+        <div class="mt-4 p-3 rounded-lg" style="background: var(--bg-secondary);">
+          <p class="text-xs" style="color: var(--fg-muted);">
+            <span style="color: var(--accent-cyan);">优先级规则：</span>
+            workspace > agents-skills-project > agents-skills-personal > managed > bundled > extra
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 限制系统 -->
+    <section class="mb-8 anim-fade-up delay-5">
+      <h2 class="text-base font-bold mb-3 flex items-center gap-2">
+        <span class="w-6 h-6 rounded flex items-center justify-center" style="background: var(--glow-cyan);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00f8e0" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </span>
+        限制系统可视化
+      </h2>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <!-- 限制配置 -->
+        <div class="card p-4">
+          <h3 class="font-semibold text-sm mb-3" style="color: var(--accent-cyan);">配置限制</h3>
+          
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs" style="color: var(--fg-secondary);">maxCandidatesPerRoot</span>
+                <span class="text-xs font-mono" style="color: var(--accent-gold);">300</span>
+              </div>
+              <div class="limit-bar">
+                <div class="limit-fill" style="width: 60%; background: var(--accent-cyan);"></div>
+              </div>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">每个根目录最大候选目录数</p>
+            </div>
+
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs" style="color: var(--fg-secondary);">maxSkillsLoadedPerSource</span>
+                <span class="text-xs font-mono" style="color: var(--accent-gold);">200</span>
+              </div>
+              <div class="limit-bar">
+                <div class="limit-fill" style="width: 40%; background: var(--accent-orange);"></div>
+              </div>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">每个来源最大加载技能数</p>
+            </div>
+
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs" style="color: var(--fg-secondary);">maxSkillsInPrompt</span>
+                <span class="text-xs font-mono" style="color: var(--accent-gold);">150</span>
+              </div>
+              <div class="limit-bar">
+                <div class="limit-fill" style="width: 30%; background: var(--accent-violet);"></div>
+              </div>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">提示词中最大技能数</p>
+            </div>
+
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs" style="color: var(--fg-secondary);">maxSkillsPromptChars</span>
+                <span class="text-xs font-mono" style="color: var(--accent-gold);">30,000</span>
+              </div>
+              <div class="limit-bar">
+                <div class="limit-fill" style="width: 50%; background: var(--accent-mint);"></div>
+              </div>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">提示词最大字符数</p>
+            </div>
+
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs" style="color: var(--fg-secondary);">maxSkillFileBytes</span>
+                <span class="text-xs font-mono" style="color: var(--accent-gold);">256KB</span>
+              </div>
+              <div class="limit-bar">
+                <div class="limit-fill" style="width: 70%; background: var(--accent-gold);"></div>
+              </div>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">SKILL.md 文件最大字节数</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 截断演示 -->
+        <div class="card p-4">
+          <h3 class="font-semibold text-sm mb-3" style="color: var(--accent-orange);">截断逻辑演示</h3>
+          
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs mb-1" style="color: var(--fg-muted);">模拟技能总数</label>
+              <input id="total-skills" type="number" min="0" max="500" value="180" class="input-field font-mono">
+            </div>
+            
+            <div>
+              <label class="block text-xs mb-1" style="color: var(--fg-muted);">maxSkillsInPrompt</label>
+              <input id="max-skills" type="number" min="1" max="200" value="150" class="input-field font-mono">
+            </div>
+
+            <button id="calc-btn" class="w-full py-2 rounded-lg font-semibold text-sm" style="background: linear-gradient(135deg, var(--accent-cyan), #00d0b0); color: var(--bg-primary);">
+              计算截断结果
+            </button>
+
+            <div id="truncation-result" class="p-3 rounded-lg" style="background: var(--bg-secondary);">
+              <p class="text-xs" style="color: var(--fg-muted);">点击计算查看结果</p>
+            </div>
+          </div>
+
+          <div class="mt-4 code-window">
+            <div class="code-content font-mono text-xs">
+              <div class="code-line"><span style="color: var(--fg-muted);">// 截断逻辑</span></div>
+              <div class="code-line"><span style="color: var(--accent-cyan);">const</span> byCount = skills</div>
+              <div class="code-line">  .slice(<span style="color: var(--accent-gold);">0</span>, maxSkillsInPrompt);</div>
+              <div class="code-line"></div>
+              <div class="code-line"><span style="color: var(--fg-muted);">// 字符限制用二分查找</span></div>
+              <div class="code-line"><span style="color: var(--accent-cyan);">while</span> (lo < hi) {</div>
+              <div class="code-line">  <span style="color: var(--accent-cyan);">const</span> mid = Math.ceil((lo+hi)/<span style="color: var(--accent-gold);">2</span>);</div>
+              <div class="code-line">  <span style="color: var(--accent-cyan);">if</span> (fits(skills.slice(<span style="color: var(--accent-gold);">0</span>, mid))) {</div>
+              <div class="code-line">    lo = mid;</div>
+              <div class="code-line">  } <span style="color: var(--accent-cyan);">else</span> { hi = mid - <span style="color: var(--accent-gold);">1</span>; }</div>
+              <div class="code-line">}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 路径压缩 -->
+    <section class="mb-8 anim-fade-up delay-6">
+      <h2 class="text-base font-bold mb-3 flex items-center gap-2">
+        <span class="w-6 h-6 rounded flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ff5820" stroke-width="2">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+        </span>
+        路径压缩优化
+      </h2>
+
+      <div class="card p-4">
+        <p class="text-xs mb-3" style="color: var(--fg-secondary);">
+          将用户主目录替换为 <code class="font-mono" style="color: var(--accent-cyan);">~</code>，每个技能节省 5-6 tokens
+        </p>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div>
+            <p class="text-xs mb-1" style="color: var(--fg-muted);">原始路径</p>
+            <div class="code-window">
+              <div class="code-content font-mono text-xs" style="word-break: break-all;">
+                <span style="color: var(--accent-orange);">/Users/alice/.bun/install/global/node_modules/@anthropic-ai/claude-code/skills/github/SKILL.md</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <p class="text-xs mb-1" style="color: var(--fg-muted);">压缩后</p>
+            <div class="code-window">
+              <div class="code-content font-mono text-xs" style="word-break: break-all;">
+                <span style="color: var(--accent-cyan);">~/.bun/install/global/node_modules/@anthropic-ai/claude-code/skills/github/SKILL.md</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 p-2 rounded flex items-center gap-2" style="background: var(--bg-secondary);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-gold)" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 16v-4M12 8h.01"/>
+          </svg>
+          <span class="text-xs" style="color: var(--fg-secondary);">
+            100 个技能 × 5 tokens = <span style="color: var(--accent-gold);">节省约 500 tokens</span>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 核心函数 -->
+    <section class="mb-8 anim-fade-up delay-7">
+      <h2 class="text-base font-bold mb-3 flex items-center gap-2">
+        <span class="w-6 h-6 rounded flex items-center justify-center" style="background: var(--glow-cyan);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00f8e0" stroke-width="2">
+            <polyline points="16,18 22,12 16,6"/>
+            <polyline points="8,6 2,12 8,18"/>
+          </svg>
+        </span>
+        核心导出函数
+      </h2>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-cyan);">loadWorkspaceSkillEntries</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">加载工作区所有技能条目</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-orange);">buildWorkspaceSkillsPrompt</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">构建技能提示词字符串</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-gold);">buildWorkspaceSkillSnapshot</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">构建技能快照用于运行时</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-violet);">syncSkillsToWorkspace</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">同步技能到沙盒工作区</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-mint);">filterWorkspaceSkillEntries</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">过滤符合条件的技能条目</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-cyan);">buildWorkspaceSkillCommandSpecs</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">构建技能命令规范</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 交互式模拟 -->
+    <section class="mb-8 anim-fade-up delay-8">
+      <h2 class="text-base font-bold mb-3 flex items-center gap-2">
+        <span class="w-6 h-6 rounded flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ff5820" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </span>
+        技能加载模拟器
+      </h2>
+
+      <div class="card p-4">
+        <div class="grid lg:grid-cols-3 gap-4">
+          <!-- 输入 -->
+          <div>
+            <h3 class="font-semibold text-sm mb-2" style="color: var(--accent-cyan);">来源配置</h3>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between p-2 rounded" style="background: var(--bg-secondary);">
+                <span class="text-xs">bundled</span>
+                <input type="number" class="w-16 input-field font-mono text-xs text-right" data-source="bundled" value="15">
+              </div>
+              <div class="flex items-center justify-between p-2 rounded" style="background: var(--bg-secondary);">
+                <span class="text-xs">managed</span>
+                <input type="number" class="w-16 input-field font-mono text-xs text-right" data-source="managed" value="20">
+              </div>
+              <div class="flex items-center justify-between p-2 rounded" style="background: var(--bg-secondary);">
+                <span class="text-xs">workspace</span>
+                <input type="number" class="w-16 input-field font-mono text-xs text-right" data-source="workspace" value="8">
+              </div>
+              <div class="flex items-center justify-between p-2 rounded" style="background: var(--bg-secondary);">
+                <span class="text-xs">重名覆盖数</span>
+                <input type="number" class="w-16 input-field font-mono text-xs text-right" id="overlap-count" value="5">
+              </div>
+            </div>
+            <button id="simulate-btn" class="w-full py-2 rounded-lg font-semibold text-sm mt-3" style="background: linear-gradient(135deg, var(--accent-cyan), #00d0b0); color: var(--bg-primary);">
+              模拟加载
+            </button>
+          </div>
+
+          <!-- 过程 -->
+          <div>
+            <h3 class="font-semibold text-sm mb-2" style="color: var(--accent-orange);">加载过程</h3>
+            <div id="load-process" class="space-y-1 text-xs">
+              <p style="color: var(--fg-muted);">点击「模拟加载」查看</p>
+            </div>
+          </div>
+
+          <!-- 结果 -->
+          <div>
+            <h3 class="font-semibold text-sm mb-2" style="color: var(--accent-gold);">合并结果</h3>
+            <div id="merge-result" class="code-window h-48 overflow-auto">
+              <div class="code-content font-mono text-xs">
+                <p style="color: var(--fg-muted);">等待模拟...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 词汇表 -->
+    <section class="mb-6">
+      <h2 class="text-base font-bold mb-3 flex items-center gap-2">
+        <span class="w-6 h-6 rounded flex items-center justify-center" style="background: var(--glow-cyan);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00f8e0" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+        </span>
+        核心概念词汇表
+      </h2>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div class="card p-2">
+          <h4 class="font-mono font-semibold text-xs" style="color: var(--accent-cyan);">SkillEntry</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">技能条目：skill + frontmatter + metadata</p>
+        </div>
+        <div class="card p-2">
+          <h4 class="font-mono font-semibold text-xs" style="color: var(--accent-orange);">SkillSnapshot</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">运行时快照：prompt + skills + filter</p>
+        </div>
+        <div class="card p-2">
+          <h4 class="font-mono font-semibold text-xs" style="color: var(--accent-gold);">SKILL.md</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">技能定义文件，含 YAML frontmatter</p>
+        </div>
+        <div class="card p-2">
+          <h4 class="font-mono font-semibold text-xs" style="color: var(--accent-violet);">NestedSkillsRoot</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">检测 dir/skills/*/SKILL.md 结构</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="text-center py-4" style="color: var(--fg-muted);">
+      <p class="text-xs">OpenClaw workspace.ts 技能加载引擎技术解析</p>
+    </footer>
+  </div>
+
+  <script>
+    // ========== 数据定义 ==========
+    const SKILL_SOURCES = [
+      { id: 'extra', label: 'extra', priority: 1, color: 'var(--fg-muted)', desc: '配置的额外目录' },
+      { id: 'bundled', label: 'bundled', priority: 2, color: 'var(--accent-violet)', desc: 'OpenClaw 内置技能' },
+      { id: 'managed', label: 'managed', priority: 3, color: 'var(--accent-orange)', desc: 'CONFIG_DIR/skills' },
+      { id: 'agents-personal', label: 'agents-skills-personal', priority: 4, color: 'var(--accent-mint)', desc: '~/.agents/skills' },
+      { id: 'agents-project', label: 'agents-skills-project', priority: 5, color: 'var(--accent-gold)', desc: 'workspace/.agents/skills' },
+      { id: 'workspace', label: 'workspace', priority: 6, color: 'var(--accent-cyan)', desc: 'workspace/skills' }
+    ];
+
+    // ========== DOM 元素 ==========
+    const priorityFlow = document.getElementById('priority-flow');
+    const totalSkillsInput = document.getElementById('total-skills');
+    const maxSkillsInput = document.getElementById('max-skills');
+    const calcBtn = document.getElementById('calc-btn');
+    const truncationResult = document.getElementById('truncation-result');
+    const simulateBtn = document.getElementById('simulate-btn');
+    const loadProcess = document.getElementById('load-process');
+    const mergeResult = document.getElementById('merge-result');
+    const overlapInput = document.getElementById('overlap-count');
+
+    // ========== 渲染函数 ==========
+    function renderPriorityFlow() {
+      if (!priorityFlow) return;
+
+      priorityFlow.innerHTML = SKILL_SOURCES.map((src, i) => `
+        <div class="flex items-center gap-3">
+          <span class="priority-badge" style="background: ${src.color}; color: var(--bg-primary);">${src.priority}</span>
+          <div class="source-node flex-1" style="border-color: ${src.color}40;">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono" style="color: ${src.color};">${src.label}</span>
+              <span class="text-xs" style="color: var(--fg-muted);">${src.desc}</span>
+            </div>
+          </div>
+          ${i < SKILL_SOURCES.length - 1 ? `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fg-muted)" stroke-width="1.5" style="position: absolute; left: 50%;">
+              <polyline points="6,9 12,15 18,9"/>
+            </svg>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    function calculateTruncation() {
+      if (!totalSkillsInput || !maxSkillsInput || !truncationResult) return;
+
+      const total = parseInt(totalSkillsInput.value, 10) || 0;
+      const max = parseInt(maxSkillsInput.value, 10) || 150;
+      const truncated = total > max;
+      const included = Math.min(total, max);
+      const excluded = total - included;
+
+      truncationResult.innerHTML = `
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <span class="text-xs">总技能数</span>
+            <span class="text-xs font-mono" style="color: var(--accent-gold);">${total}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-xs">包含数</span>
+            <span class="text-xs font-mono" style="color: var(--accent-cyan);">${included}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-xs">排除数</span>
+            <span class="text-xs font-mono" style="color: ${excluded > 0 ? 'var(--accent-orange)' : 'var(--fg-muted)'};">${excluded}</span>
+          </div>
+          <div class="mt-2 pt-2 border-t" style="border-color: var(--border);">
+            ${truncated 
+              ? `<span class="text-xs" style="color: var(--accent-orange);">已截断：${((excluded / total) * 100).toFixed(1)}% 被排除</span>`
+              : `<span class="text-xs" style="color: var(--accent-cyan);">未截断：全部包含</span>`
+            }
+          </div>
+        </div>
+      `;
+    }
+
+    function runSimulation() {
+      if (!loadProcess || !mergeResult) return;
+
+      const sourceInputs = document.querySelectorAll('[data-source]');
+      const overlap = parseInt(overlapInput?.value || '0', 10);
+      
+      const sources = {};
+      sourceInputs.forEach(input => {
+        const key = input.dataset.source;
+        sources[key] = parseInt(input.value, 10) || 0;
+      });
+
+      // 模拟加载过程
+      const process = [];
+      const merged = new Map();
+      let totalLoaded = 0;
+      let totalOverridden = 0;
+
+      // 按优先级顺序加载
+      SKILL_SOURCES.forEach(src => {
+        const count = sources[src.id] || 0;
+        if (count === 0) return;
+
+        const overridden = Math.min(count, merged.size); // 模拟重名
+        totalOverridden += overridden;
+        
+        for (let i = 0; i < count; i++) {
+          const name = `${src.id.slice(0, 3)}_${i}`;
+          merged.set(name, { source: src.label, name });
+        }
+        totalLoaded += count;
+
+        process.push({
+          source: src.label,
+          color: src.color,
+          loaded: count,
+          cumulative: merged.size
+        });
+      });
+
+      // 渲染过程
+      loadProcess.innerHTML = process.map((p, i) => `
+        <div class="p-2 rounded" style="background: var(--bg-secondary); animation: fadeUp 0.3s ease ${i * 0.1}s forwards; opacity: 0;">
+          <div class="flex items-center justify-between">
+            <span class="font-mono" style="color: ${p.color};">${p.source}</span>
+            <span class="text-xs">+${p.loaded} → 累计 ${p.cumulative}</span>
+          </div>
+        </div>
+      `).join('');
+
+      // 渲染结果
+      const skillNames = Array.from(merged.keys());
+      const bySource = {};
+      skillNames.forEach(name => {
+        const s = merged.get(name).source;
+        bySource[s] = (bySource[s] || 0) + 1;
+      });
+
+      mergeResult.innerHTML = `
+        <div class="code-content font-mono text-xs">
+          <div class="code-line" style="color: var(--fg-muted);">// 合并结果</div>
+          <div class="code-line"><span style="color: var(--accent-cyan);">total</span>: ${merged.size}</div>
+          <div class="code-line"><span style="color: var(--accent-cyan);">loaded</span>: ${totalLoaded}</div>
+          <div class="code-line"><span style="color: var(--accent-cyan);">overridden</span>: ${totalOverridden}</div>
+          <div class="code-line"></div>
+          <div class="code-line" style="color: var(--fg-muted);">// 按来源</div>
+          ${Object.entries(bySource).map(([s, c]) => `
+            <div class="code-line">  ${s}: ${c}</div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    // ========== 事件绑定 ==========
+    function initEventListeners() {
+      if (calcBtn) {
+        calcBtn.addEventListener('click', calculateTruncation);
+      }
+
+      if (simulateBtn) {
+        simulateBtn.addEventListener('click', runSimulation);
+      }
+    }
+
+    // ========== 初始化 ==========
+    function init() {
+      renderPriorityFlow();
+      initEventListeners();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

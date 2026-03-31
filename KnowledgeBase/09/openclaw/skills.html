@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw skills.ts 技术解析</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;600;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg-primary: #020406;
+      --bg-secondary: #080c10;
+      --bg-card: #0c1218;
+      --bg-elevated: #121a22;
+      --fg-primary: #dce6f0;
+      --fg-secondary: #4a5a6a;
+      --fg-muted: #283848;
+      --accent-cyan: #00f0d0;
+      --accent-orange: #ff6030;
+      --accent-amber: #ffd020;
+      --accent-violet: #d090ff;
+      --accent-mint: #40f0b0;
+      --border: #102030;
+      --glow-cyan: rgba(0, 240, 208, 0.1);
+      --glow-orange: rgba(255, 96, 48, 0.1);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg-primary);
+      color: var(--fg-primary);
+      overflow-x: hidden;
+      line-height: 1.7;
+    }
+
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* 背景 */
+    .bg-atmosphere {
+      background:
+        radial-gradient(ellipse 200% 140% at 120% -20%, rgba(0, 240, 208, 0.035) 0%, transparent 50%),
+        radial-gradient(ellipse 160% 120% at -20% 120%, rgba(255, 96, 48, 0.03) 0%, transparent 50%),
+        radial-gradient(ellipse 120% 100% at 50% 50%, rgba(208, 144, 255, 0.015) 0%, transparent 70%),
+        var(--bg-primary);
+    }
+
+    .grid-pattern {
+      background-image: 
+        linear-gradient(rgba(0, 240, 208, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 208, 0.015) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    /* 动画 */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(22px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes slideRight {
+      from { opacity: 0; transform: translateX(-25px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes flowPulse {
+      0%, 100% { stroke-opacity: 0.4; }
+      50% { stroke-opacity: 1; }
+    }
+
+    @keyframes nodeGlow {
+      0%, 100% { box-shadow: 0 0 0 0 transparent; }
+      50% { box-shadow: 0 0 20px 5px var(--glow-cyan); }
+    }
+
+    .anim-fade-up { animation: fadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+    .anim-scale-in { animation: scaleIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+    .anim-slide-right { animation: slideRight 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+
+    .delay-1 { animation-delay: 0.05s; }
+    .delay-2 { animation-delay: 0.1s; }
+    .delay-3 { animation-delay: 0.15s; }
+    .delay-4 { animation-delay: 0.2s; }
+    .delay-5 { animation-delay: 0.25s; }
+    .delay-6 { animation-delay: 0.3s; }
+    .delay-7 { animation-delay: 0.35s; }
+    .delay-8 { animation-delay: 0.4s; }
+
+    /* 卡片 */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .card:hover {
+      border-color: var(--accent-cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px -4px var(--glow-cyan);
+    }
+
+    .card-orange:hover {
+      border-color: var(--accent-orange);
+      box-shadow: 0 8px 16px -4px var(--glow-orange);
+    }
+
+    /* 模块节点 */
+    .module-node {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .module-node:hover {
+      border-color: var(--accent-cyan);
+      transform: scale(1.03);
+    }
+
+    .module-node.selected {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 16px var(--glow-cyan);
+    }
+
+    /* 函数项 */
+    .func-item {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      margin: 3px;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+
+    .func-item:hover {
+      transform: translateY(-1px);
+    }
+
+    .func-export { background: var(--glow-cyan); color: var(--accent-cyan); }
+    .func-import { background: rgba(255, 208, 32, 0.1); color: var(--accent-amber); }
+    .func-type { background: rgba(208, 144, 255, 0.1); color: var(--accent-violet); }
+
+    /* 输入框 */
+    .input-field {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: var(--fg-primary);
+      font-size: 12px;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 2px var(--glow-cyan);
+    }
+
+    /* 开关 */
+    .toggle-btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--bg-secondary);
+      color: var(--fg-secondary);
+    }
+
+    .toggle-btn.active {
+      background: var(--glow-cyan);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    /* 代码块 */
+    .code-window {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .code-content {
+      padding: 12px;
+      font-size: 11px;
+      line-height: 1.6;
+      overflow-x: auto;
+    }
+
+    .code-line {
+      padding: 1px 4px;
+      margin: 0 -4px;
+      border-radius: 2px;
+      transition: background 0.15s ease;
+    }
+
+    .code-line:hover { background: rgba(0, 240, 208, 0.03); }
+
+    /* 标签 */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 8px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    /* 结果块 */
+    .result-block {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 11px;
+    }
+
+    .result-block.success {
+      border-color: var(--accent-cyan);
+      background: rgba(0, 240, 208, 0.03);
+    }
+
+    /* 滚动条 */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-atmosphere grid-pattern min-h-screen">
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative">
+
+    <!-- 头部 -->
+    <header class="text-center mb-10">
+      <div class="anim-fade-up">
+        <span class="tag" style="background: var(--glow-orange); color: var(--accent-orange);">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26 12,2"/>
+          </svg>
+          Skills Module Facade
+        </span>
+      </div>
+      <h1 class="text-4xl sm:text-5xl lg:text-5xl font-black mt-4 mb-2 anim-fade-up delay-1">
+        <span style="color: var(--fg-primary);">skills</span><span style="color: var(--accent-cyan);">.ts</span>
+      </h1>
+      <p class="text-lg max-w-2xl mx-auto anim-fade-up delay-2" style="color: var(--fg-secondary);">
+        OpenClaw 的「技能系统入口」—— 聚合导出所有技能相关功能，并提供安装偏好解析
+      </p>
+    </header>
+
+    <!-- 核心比喻 -->
+    <section class="mb-10 anim-scale-in delay-3">
+      <div class="card p-5">
+        <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+          <span class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--glow-cyan);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00f0d0" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4M12 8h.01"/>
+            </svg>
+          </span>
+          理解它的角色
+        </h2>
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="card card-orange p-4">
+            <div class="text-xl mb-1">🔌</div>
+            <h3 class="font-semibold text-sm mb-1" style="color: var(--accent-cyan);">像电源插排</h3>
+            <p class="text-xs" style="color: var(--fg-secondary);">
+              把多个模块的「电源线」汇聚到一个插排上，外部只需要插一个插座就能获得所有功能
+            </p>
+          </div>
+          <div class="card card-orange p-4">
+            <div class="text-xl mb-1">🎯</div>
+            <h3 class="font-semibold text-sm mb-1" style="color: var(--accent-orange);">像统一服务台</h3>
+            <p class="text-xs" style="color: var(--fg-secondary);">
+              你不需要知道后厨、财务、人事在哪里，只需要到服务台，它能帮你对接所有部门
+            </p>
+          </div>
+          <div class="card card-orange p-4">
+            <div class="text-xl mb-1">📦</div>
+            <h3 class="font-semibold text-sm mb-1" style="color: var(--accent-amber);">像快递集散中心</h3>
+            <p class="text-xs" style="color: var(--fg-secondary);">
+              来自不同地方的包裹（模块）在这里分拣、重新打包，然后统一派送给客户
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 模块依赖图 -->
+    <section class="mb-10 anim-fade-up delay-4">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6030" stroke-width="2">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+        </span>
+        模块依赖关系图
+      </h2>
+
+      <div class="card p-5">
+        <div id="module-diagram" class="overflow-x-auto">
+          <!-- SVG 由 JS 渲染 -->
+        </div>
+        <p class="text-center mt-3 text-xs" style="color: var(--fg-muted);">点击各模块节点查看导出内容</p>
+      </div>
+    </section>
+
+    <!-- 导出内容详解 -->
+    <section class="mb-10 anim-fade-up delay-5">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--glow-cyan);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00f0d0" stroke-width="2">
+            <polyline points="16,18 22,12 16,6"/>
+            <polyline points="8,6 2,12 8,18"/>
+          </svg>
+        </span>
+        导出内容分类
+      </h2>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <!-- 函数导出 -->
+        <div class="card p-4">
+          <h3 class="font-semibold text-sm mb-3 flex items-center gap-2">
+            <span class="w-5 h-5 rounded flex items-center justify-center text-xs" style="background: var(--glow-cyan); color: var(--accent-cyan);">f</span>
+            函数导出
+          </h3>
+          <div class="space-y-2">
+            <div>
+              <p class="text-xs mb-1" style="color: var(--fg-muted);">from skills/config.js</p>
+              <div class="flex flex-wrap">
+                <span class="func-item func-export">hasBinary</span>
+                <span class="func-item func-export">isBundledSkillAllowed</span>
+                <span class="func-item func-export">isConfigPathTruthy</span>
+                <span class="func-item func-export">resolveBundledAllowlist</span>
+                <span class="func-item func-export">resolveConfigPath</span>
+                <span class="func-item func-export">resolveRuntimePlatform</span>
+                <span class="func-item func-export">resolveSkillConfig</span>
+              </div>
+            </div>
+            <div>
+              <p class="text-xs mb-1" style="color: var(--fg-muted);">from skills/env-overrides.js</p>
+              <div class="flex flex-wrap">
+                <span class="func-item func-export">applySkillEnvOverrides</span>
+                <span class="func-item func-export">applySkillEnvOverridesFromSnapshot</span>
+              </div>
+            </div>
+            <div>
+              <p class="text-xs mb-1" style="color: var(--fg-muted);">from skills/workspace.js</p>
+              <div class="flex flex-wrap">
+                <span class="func-item func-export">buildWorkspaceSkillSnapshot</span>
+                <span class="func-item func-export">buildWorkspaceSkillsPrompt</span>
+                <span class="func-item func-export">buildWorkspaceSkillCommandSpecs</span>
+                <span class="func-item func-export">filterWorkspaceSkillEntries</span>
+                <span class="func-item func-export">loadWorkspaceSkillEntries</span>
+                <span class="func-item func-export">resolveSkillsPromptForRun</span>
+                <span class="func-item func-export">syncSkillsToWorkspace</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 类型导出 -->
+        <div class="card p-4">
+          <h3 class="font-semibold text-sm mb-3 flex items-center gap-2">
+            <span class="w-5 h-5 rounded flex items-center justify-center text-xs" style="background: rgba(208, 144, 255, 0.15); color: var(--accent-violet);">T</span>
+            类型导出
+          </h3>
+          <div>
+            <p class="text-xs mb-1" style="color: var(--fg-muted);">from skills/types.js</p>
+            <div class="flex flex-wrap">
+              <span class="func-item func-type">OpenClawSkillMetadata</span>
+              <span class="func-item func-type">SkillEligibilityContext</span>
+              <span class="func-item func-type">SkillCommandSpec</span>
+              <span class="func-item func-type">SkillEntry</span>
+              <span class="func-item func-type">SkillInstallSpec</span>
+              <span class="func-item func-type">SkillSnapshot</span>
+              <span class="func-item func-type">SkillsInstallPreferences</span>
+            </div>
+          </div>
+
+          <div class="mt-4 p-3 rounded-lg" style="background: var(--bg-secondary);">
+            <p class="text-xs mb-2" style="color: var(--fg-secondary);">类型关系图</p>
+            <div class="code-window">
+              <div class="code-content font-mono text-xs">
+                <div class="code-line"><span style="color: var(--accent-violet);">SkillsInstallPreferences</span></div>
+                <div class="code-line">├─ preferBrew: <span style="color: var(--accent-cyan);">boolean</span></div>
+                <div class="code-line">└─ nodeManager: <span style="color: var(--accent-amber);">"npm" | "yarn" | "pnpm" | "bun"</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 核心函数解析 -->
+    <section class="mb-10 anim-fade-up delay-6">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6030" stroke-width="2">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+        </span>
+        唯一实现函数：resolveSkillsInstallPreferences
+      </h2>
+
+      <div class="card p-5">
+        <div class="grid lg:grid-cols-2 gap-5">
+          <!-- 函数源码 -->
+          <div>
+            <h3 class="font-semibold text-sm mb-3" style="color: var(--accent-cyan);">函数源码</h3>
+            <div class="code-window">
+              <div class="code-content font-mono text-xs">
+                <div class="code-line"><span style="color: var(--accent-cyan);">export function</span> <span style="color: var(--accent-amber);">resolveSkillsInstallPreferences</span>(</div>
+                <div class="code-line">  config?: <span style="color: var(--accent-violet);">OpenClawConfig</span></div>
+                <div class="code-line">): <span style="color: var(--accent-violet);">SkillsInstallPreferences</span> {</div>
+                <div class="code-line">  <span style="color: var(--fg-muted);">// 读取原始配置</span></div>
+                <div class="code-line">  <span style="color: var(--accent-cyan);">const</span> raw = config?.skills?.install;</div>
+                <div class="code-line"></div>
+                <div class="code-line">  <span style="color: var(--fg-muted);">// 默认优先使用 brew</span></div>
+                <div class="code-line">  <span style="color: var(--accent-cyan);">const</span> preferBrew = raw?.preferBrew ?? <span style="color: var(--accent-amber);">true</span>;</div>
+                <div class="code-line"></div>
+                <div class="code-line">  <span style="color: var(--fg-muted);">// 解析包管理器</span></div>
+                <div class="code-line">  <span style="color: var(--accent-cyan);">const</span> managerRaw = <span style="color: var(--accent-cyan);">typeof</span> raw?.nodeManager === <span style="color: var(--accent-amber);">"string"</span></div>
+                <div class="code-line">    ? raw.nodeManager.trim() : <span style="color: var(--accent-amber);">""</span>;</div>
+                <div class="code-line">  <span style="color: var(--accent-cyan);">const</span> manager = managerRaw.toLowerCase();</div>
+                <div class="code-line"></div>
+                <div class="code-line">  <span style="color: var(--fg-muted);">// 验证并选择有效的管理器</span></div>
+                <div class="code-line">  <span style="color: var(--accent-cyan);">const</span> nodeManager =</div>
+                <div class="code-line">    manager === <span style="color: var(--accent-amber);">"pnpm"</span> || manager === <span style="color: var(--accent-amber);">"yarn"</span> ||</div>
+                <div class="code-line">    manager === <span style="color: var(--accent-amber);">"bun"</span> || manager === <span style="color: var(--accent-amber);">"npm"</span></div>
+                <div class="code-line">      ? manager : <span style="color: var(--accent-amber);">"npm"</span>;</div>
+                <div class="code-line"></div>
+                <div class="code-line">  <span style="color: var(--accent-cyan);">return</span> { preferBrew, nodeManager };</div>
+                <div class="code-line">}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 处理流程 -->
+          <div>
+            <h3 class="font-semibold text-sm mb-3" style="color: var(--accent-orange);">处理流程</h3>
+            <div id="func-flow" class="space-y-2">
+              <div class="module-node">
+                <div class="flex items-center gap-2">
+                  <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs" style="background: var(--glow-cyan); color: var(--accent-cyan);">1</span>
+                  <span class="text-xs">读取 config.skills.install</span>
+                </div>
+              </div>
+              <div class="module-node">
+                <div class="flex items-center gap-2">
+                  <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs" style="background: var(--glow-cyan); color: var(--accent-cyan);">2</span>
+                  <span class="text-xs">提取 preferBrew (默认 true)</span>
+                </div>
+              </div>
+              <div class="module-node">
+                <div class="flex items-center gap-2">
+                  <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs" style="background: var(--glow-cyan); color: var(--accent-cyan);">3</span>
+                  <span class="text-xs">规范化 nodeManager 字符串</span>
+                </div>
+              </div>
+              <div class="module-node">
+                <div class="flex items-center gap-2">
+                  <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs" style="background: var(--glow-cyan); color: var(--accent-cyan);">4</span>
+                  <span class="text-xs">验证是否为有效管理器</span>
+                </div>
+              </div>
+              <div class="module-node">
+                <div class="flex items-center gap-2">
+                  <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs" style="background: var(--glow-orange); color: var(--accent-orange);">5</span>
+                  <span class="text-xs">返回 { preferBrew, nodeManager }</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 交互式演示 -->
+    <section class="mb-10 anim-fade-up delay-7">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--glow-cyan);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00f0d0" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </span>
+        交互式配置解析器
+      </h2>
+
+      <div class="card p-5">
+        <div class="grid lg:grid-cols-3 gap-5">
+          <!-- 输入 -->
+          <div>
+            <h3 class="font-semibold text-sm mb-3" style="color: var(--accent-cyan);">输入配置</h3>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs mb-1" style="color: var(--fg-muted);">preferBrew</label>
+                <div class="flex gap-2">
+                  <button class="toggle-btn active" data-field="preferBrew" data-value="true">true</button>
+                  <button class="toggle-btn" data-field="preferBrew" data-value="false">false</button>
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs mb-1" style="color: var(--fg-muted);">nodeManager</label>
+                <div class="flex flex-wrap gap-2">
+                  <button class="toggle-btn active" data-field="nodeManager" data-value="npm">npm</button>
+                  <button class="toggle-btn" data-field="nodeManager" data-value="yarn">yarn</button>
+                  <button class="toggle-btn" data-field="nodeManager" data-value="pnpm">pnpm</button>
+                  <button class="toggle-btn" data-field="nodeManager" data-value="bun">bun</button>
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs mb-1" style="color: var(--fg-muted);">无效值测试</label>
+                <input id="invalid-input" type="text" class="input-field font-mono text-xs" placeholder="输入任意字符串...">
+              </div>
+              <button id="parse-btn" class="w-full py-2 rounded-lg font-semibold text-sm" style="background: linear-gradient(135deg, var(--accent-cyan), #00c8a8); color: var(--bg-primary);">
+                解析配置
+              </button>
+            </div>
+          </div>
+
+          <!-- JSON 展示 -->
+          <div>
+            <h3 class="font-semibold text-sm mb-3" style="color: var(--accent-amber);">配置 JSON</h3>
+            <div id="config-json" class="code-window h-40">
+              <div class="code-content font-mono text-xs">
+                <div class="code-line" style="color: var(--fg-secondary);">{</div>
+                <div class="code-line">  <span style="color: var(--accent-violet);">skills</span>: {</div>
+                <div class="code-line">    <span style="color: var(--accent-violet);">install</span>: {</div>
+                <div class="code-line">      <span style="color: var(--accent-violet);">preferBrew</span>: <span style="color: var(--accent-cyan);">true</span>,</div>
+                <div class="code-line">      <span style="color: var(--accent-violet);">nodeManager</span>: <span style="color: var(--accent-amber);">"npm"</span></div>
+                <div class="code-line">    }</div>
+                <div class="code-line">  }</div>
+                <div class="code-line" style="color: var(--fg-secondary);">}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 结果 -->
+          <div>
+            <h3 class="font-semibold text-sm mb-3" style="color: var(--accent-violet);">解析结果</h3>
+            <div id="parse-result" class="result-block success h-40 overflow-auto">
+              <p class="text-xs font-mono" style="color: var(--accent-cyan);">点击「解析配置」查看结果</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 词汇表 -->
+    <section class="mb-8 anim-fade-up delay-8">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6030" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+        </span>
+        核心概念词汇表
+      </h2>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-cyan);">Skill</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">可扩展的能力模块，提供特定功能如代码分析、文档生成等</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-orange);">SkillEntry</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">技能条目，包含技能的配置信息和元数据</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-amber);">SkillSnapshot</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">技能快照，运行时的技能状态快照</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-violet);">preferBrew</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">是否优先使用 Homebrew 安装依赖</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-cyan);">nodeManager</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">Node.js 包管理器：npm/yarn/pnpm/bun</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-orange);">EnvOverrides</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">环境变量覆盖，技能可以修改运行环境</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-amber);">workspace.js</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">工作区技能管理，加载和同步技能</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-violet);">Facade Pattern</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">门面模式，统一暴露多个子模块功能</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="text-center py-4" style="color: var(--fg-muted);">
+      <p class="text-xs">OpenClaw skills.ts 技能系统入口技术解析</p>
+    </footer>
+  </div>
+
+  <script>
+    // ========== 数据定义 ==========
+    const MODULE_DATA = {
+      'skills/config.js': {
+        color: 'var(--accent-cyan)',
+        exports: [
+          { name: 'hasBinary', desc: '检查系统是否有指定二进制命令' },
+          { name: 'isBundledSkillAllowed', desc: '检查内置技能是否被允许' },
+          { name: 'isConfigPathTruthy', desc: '检查配置路径是否为真值' },
+          { name: 'resolveBundledAllowlist', desc: '解析内置技能白名单' },
+          { name: 'resolveConfigPath', desc: '解析配置文件路径' },
+          { name: 'resolveRuntimePlatform', desc: '解析运行时平台信息' },
+          { name: 'resolveSkillConfig', desc: '解析技能配置' }
+        ]
+      },
+      'skills/env-overrides.js': {
+        color: 'var(--accent-orange)',
+        exports: [
+          { name: 'applySkillEnvOverrides', desc: '应用技能环境变量覆盖' },
+          { name: 'applySkillEnvOverridesFromSnapshot', desc: '从快照应用环境变量覆盖' }
+        ]
+      },
+      'skills/types.js': {
+        color: 'var(--accent-violet)',
+        exports: [
+          { name: 'OpenClawSkillMetadata', desc: '技能元数据类型' },
+          { name: 'SkillEligibilityContext', desc: '技能资格上下文' },
+          { name: 'SkillCommandSpec', desc: '技能命令规范' },
+          { name: 'SkillEntry', desc: '技能条目类型' },
+          { name: 'SkillInstallSpec', desc: '技能安装规范' },
+          { name: 'SkillSnapshot', desc: '技能快照类型' },
+          { name: 'SkillsInstallPreferences', desc: '技能安装偏好' }
+        ]
+      },
+      'skills/workspace.js': {
+        color: 'var(--accent-amber)',
+        exports: [
+          { name: 'buildWorkspaceSkillSnapshot', desc: '构建工作区技能快照' },
+          { name: 'buildWorkspaceSkillsPrompt', desc: '构建技能提示词' },
+          { name: 'buildWorkspaceSkillCommandSpecs', desc: '构建技能命令规范' },
+          { name: 'filterWorkspaceSkillEntries', desc: '过滤工作区技能条目' },
+          { name: 'loadWorkspaceSkillEntries', desc: '加载工作区技能条目' },
+          { name: 'resolveSkillsPromptForRun', desc: '为运行解析技能提示词' },
+          { name: 'syncSkillsToWorkspace', desc: '同步技能到工作区' }
+        ]
+      },
+      'config/config.js': {
+        color: 'var(--accent-mint)',
+        imports: ['OpenClawConfig']
+      }
+    };
+
+    // ========== 状态变量 ==========
+    let currentConfig = {
+      preferBrew: true,
+      nodeManager: 'npm'
+    };
+
+    // ========== DOM 元素 ==========
+    const moduleDiagram = document.getElementById('module-diagram');
+    const configJson = document.getElementById('config-json');
+    const parseResult = document.getElementById('parse-result');
+    const parseBtn = document.getElementById('parse-btn');
+    const invalidInput = document.getElementById('invalid-input');
+
+    // ========== 渲染函数 ==========
+    function renderModuleDiagram() {
+      if (!moduleDiagram) return;
+
+      const modules = [
+        { id: 'skills/config.js', x: 80, y: 40, label: 'config.js' },
+        { id: 'skills/env-overrides.js', x: 220, y: 40, label: 'env-overrides.js' },
+        { id: 'skills/types.js', x: 360, y: 40, label: 'types.js' },
+        { id: 'skills/workspace.js', x: 500, y: 40, label: 'workspace.js' },
+        { id: 'config/config.js', x: 80, y: 160, label: 'config.js' },
+        { id: 'skills.ts', x: 290, y: 160, label: 'skills.ts' },
+      ];
+
+      let svg = `<svg viewBox="0 0 600 230" class="w-full min-w-[500px]" style="max-height: 230px;">`;
+      
+      // 绘制连接线
+      const connections = [
+        { from: 0, to: 5 }, // config.js -> skills.ts
+        { from: 1, to: 5 }, // env-overrides.js -> skills.ts
+        { from: 2, to: 5 }, // types.js -> skills.ts
+        { from: 3, to: 5 }, // workspace.js -> skills.ts
+        { from: 4, to: 5 }, // config/config.js -> skills.ts
+      ];
+
+      connections.forEach(conn => {
+        const from = modules[conn.from];
+        const to = modules[conn.to];
+        svg += `<line x1="${from.x + 60}" y1="${from.y + 20}" x2="${to.x - 10}" y2="${to.y + 20}" 
+                      stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,2"/>`;
+      });
+
+      // 绘制节点
+      modules.forEach((mod, i) => {
+        const data = MODULE_DATA[mod.id];
+        const color = data?.color || 'var(--fg-muted)';
+        const isMain = mod.id === 'skills.ts';
+        
+        svg += `
+          <g class="module-node" data-module="${mod.id}" onclick="showModuleDetail('${mod.id}')" 
+             style="cursor: pointer;">
+            <rect x="${mod.x - 60}" y="${mod.y - 5}" width="120" height="50" rx="6" 
+                  fill="var(--bg-elevated)" stroke="${color}" stroke-width="${isMain ? 2 : 1}"/>
+            <text x="${mod.x}" y="${mod.y + 15}" text-anchor="middle" 
+                  fill="${color}" font-size="11" font-weight="${isMain ? '600' : '400'}">${mod.label}</text>
+            ${isMain ? `<text x="${mod.x}" y="${mod.y + 32}" text-anchor="middle" 
+                             fill="var(--fg-muted)" font-size="9">Facade Module</text>` : ''}
+          </g>
+        `;
+      });
+
+      // 标注
+      svg += `
+        <text x="290" y="220" text-anchor="middle" fill="var(--fg-muted)" font-size="9">
+          点击模块节点查看导出内容
+        </text>
+      `;
+
+      svg += '</svg>';
+      moduleDiagram.innerHTML = svg;
+    }
+
+    function renderConfigJson() {
+      if (!configJson) return;
+
+      const preferBrew = currentConfig.preferBrew;
+      const nodeManager = currentConfig.nodeManager;
+
+      configJson.innerHTML = `
+        <div class="code-content font-mono text-xs">
+          <div class="code-line" style="color: var(--fg-secondary);">{</div>
+          <div class="code-line">  <span style="color: var(--accent-violet);">skills</span>: {</div>
+          <div class="code-line">    <span style="color: var(--accent-violet);">install</span>: {</div>
+          <div class="code-line">      <span style="color: var(--accent-violet);">preferBrew</span>: <span style="color: var(--accent-cyan);">${preferBrew}</span>,</div>
+          <div class="code-line">      <span style="color: var(--accent-violet);">nodeManager</span>: <span style="color: var(--accent-amber);">"${nodeManager}"</span></div>
+          <div class="code-line">    }</div>
+          <div class="code-line">  }</div>
+          <div class="code-line" style="color: var(--fg-secondary);">}</div>
+        </div>
+      `;
+    }
+
+    function renderParseResult() {
+      if (!parseResult) return;
+
+      const preferBrew = currentConfig.preferBrew;
+      let nodeManager = currentConfig.nodeManager;
+      
+      // 检查无效输入
+      const invalid = invalidInput?.value?.trim();
+      let validationNote = '';
+      
+      if (invalid) {
+        const normalized = invalid.toLowerCase();
+        if (!['npm', 'yarn', 'pnpm', 'bun'].includes(normalized)) {
+          nodeManager = 'npm'; // 回退到默认值
+          validationNote = `<p class="text-xs mt-2" style="color: var(--accent-orange);">
+            "${invalid}" 不是有效值，已回退到 "npm"
+          </p>`;
+        } else {
+          nodeManager = normalized;
+          validationNote = `<p class="text-xs mt-2" style="color: var(--accent-cyan);">
+            "${invalid}" 被规范化为 "${normalized}"
+          </p>`;
+        }
+      }
+
+      parseResult.innerHTML = `
+        <p class="text-xs font-semibold mb-2" style="color: var(--fg-secondary);">SkillsInstallPreferences</p>
+        <div class="code-window">
+          <div class="code-content font-mono text-xs">
+            <div class="code-line">{</div>
+            <div class="code-line">  <span style="color: var(--accent-violet);">preferBrew</span>: <span style="color: var(--accent-cyan);">${preferBrew}</span>,</div>
+            <div class="code-line">  <span style="color: var(--accent-violet);">nodeManager</span>: <span style="color: var(--accent-amber);">"${nodeManager}"</span></div>
+            <div class="code-line">}</div>
+          </div>
+        </div>
+        ${validationNote}
+      `;
+    }
+
+    // ========== 事件绑定 ==========
+    function initEventListeners() {
+      // Toggle 按钮
+      document.querySelectorAll('.toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const field = btn.dataset.field;
+          const value = btn.dataset.value;
+          
+          if (field && value) {
+            // 取消同组其他按钮的 active
+            document.querySelectorAll(`.toggle-btn[data-field="${field}"]`).forEach(b => {
+              b.classList.remove('active');
+            });
+            btn.classList.add('active');
+            
+            if (field === 'preferBrew') {
+              currentConfig.preferBrew = value === 'true';
+            } else if (field === 'nodeManager') {
+              currentConfig.nodeManager = value;
+            }
+            
+            renderConfigJson();
+          }
+        });
+      });
+
+      // 解析按钮
+      if (parseBtn) {
+        parseBtn.addEventListener('click', () => {
+          renderParseResult();
+        });
+      }
+    }
+
+    // ========== 全局函数 ==========
+    window.showModuleDetail = function(moduleId) {
+      const data = MODULE_DATA[moduleId];
+      if (!data) return;
+
+      const exports = data.exports || [];
+      const imports = data.imports || [];
+      
+      let content = `<p class="font-semibold text-sm mb-3" style="color: ${data.color};">${moduleId}</p>`;
+      
+      if (exports.length > 0) {
+        content += `<p class="text-xs mb-2" style="color: var(--fg-muted);">导出内容:</p>`;
+        content += `<div class="space-y-1">`;
+        exports.forEach(exp => {
+          content += `
+            <div class="p-2 rounded" style="background: var(--bg-secondary);">
+              <span class="font-mono text-xs" style="color: ${data.color};">${exp.name}</span>
+              <p class="text-xs mt-1" style="color: var(--fg-secondary);">${exp.desc}</p>
+            </div>
+          `;
+        });
+        content += `</div>`;
+      }
+      
+      if (imports.length > 0) {
+        content += `<p class="text-xs mt-3 mb-2" style="color: var(--fg-muted);">导入类型:</p>`;
+        content += `<div class="flex flex-wrap gap-2">`;
+        imports.forEach(imp => {
+          content += `<span class="func-item func-import">${imp}</span>`;
+        });
+        content += `</div>`;
+      }
+      
+      alert(content.replace(/<[^>]*>/g, '\n').replace(/\n+/g, '\n').trim());
+    };
+
+    // ========== 初始化 ==========
+    function init() {
+      renderModuleDiagram();
+      renderConfigJson();
+      initEventListeners();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw Hooks System - 学术理解</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #060b14;
+      --bg-elevated: #0c1420;
+      --fg: #e2e8f0;
+      --muted: #64748b;
+      --accent: #00d4aa;
+      --accent-dim: #00a385;
+      --card: rgba(15, 25, 40, 0.8);
+      --border: rgba(0, 212, 170, 0.15);
+      --glow: rgba(0, 212, 170, 0.4);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Source Sans 3', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    /* Background Grid */
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(0, 212, 170, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 212, 170, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .bg-gradient {
+      position: fixed;
+      inset: 0;
+      background: 
+        radial-gradient(ellipse 80% 50% at 20% 20%, rgba(0, 212, 170, 0.08), transparent),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(0, 150, 136, 0.06), transparent);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Canvas Background */
+    #particle-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    main {
+      position: relative;
+      z-index: 10;
+    }
+
+    /* Hero Section */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 2rem;
+      position: relative;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      color: var(--accent);
+      margin-bottom: 2rem;
+      width: fit-content;
+    }
+
+    .hero-title {
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      letter-spacing: -0.02em;
+      margin-bottom: 1.5rem;
+      background: linear-gradient(135deg, var(--fg) 0%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-subtitle {
+      font-size: clamp(1.125rem, 2.5vw, 1.5rem);
+      color: var(--muted);
+      max-width: 640px;
+      margin-bottom: 3rem;
+      font-weight: 300;
+    }
+
+    /* Section Styles */
+    section {
+      padding: 6rem 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--accent);
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+
+    .section-title {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      margin-bottom: 1.5rem;
+    }
+
+    .section-desc {
+      color: var(--muted);
+      max-width: 600px;
+      margin-bottom: 3rem;
+      font-size: 1.125rem;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 2rem;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 60px var(--glow);
+    }
+
+    /* Flow Diagram */
+    .flow-container {
+      position: relative;
+      padding: 3rem 0;
+    }
+
+    .flow-line {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: linear-gradient(to bottom, transparent, var(--accent), transparent);
+      transform: translateX(-50%);
+    }
+
+    .flow-node {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      margin: 2rem 0;
+      opacity: 0;
+      transform: translateY(30px);
+      transition: all 0.6s ease;
+    }
+
+    .flow-node.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .flow-node:nth-child(odd) {
+      flex-direction: row;
+    }
+
+    .flow-node:nth-child(even) {
+      flex-direction: row-reverse;
+    }
+
+    .flow-node-content {
+      flex: 1;
+      max-width: 400px;
+    }
+
+    .flow-node-marker {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--bg);
+      border: 2px solid var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      color: var(--accent);
+      position: relative;
+      z-index: 10;
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .flow-node-marker:hover {
+      background: var(--accent);
+      color: var(--bg);
+      box-shadow: 0 0 30px var(--glow);
+    }
+
+    .flow-node-marker.active {
+      background: var(--accent);
+      color: var(--bg);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 var(--glow); }
+      50% { box-shadow: 0 0 0 15px transparent; }
+    }
+
+    /* Code Block */
+    .code-block {
+      background: #0d1520;
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.875rem;
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      background: rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .code-dots {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .code-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .code-dot:nth-child(1) { background: #ff5f56; }
+    .code-dot:nth-child(2) { background: #ffbd2e; }
+    .code-dot:nth-child(3) { background: #27ca40; }
+
+    .code-content {
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+
+    .code-content pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .code-keyword { color: #c792ea; }
+    .code-function { color: #82aaff; }
+    .code-string { color: #c3e88d; }
+    .code-comment { color: #546e7a; }
+    .code-param { color: #ffcb6b; }
+    .code-number { color: #f78c6c; }
+
+    /* Glossary */
+    .glossary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .term-card {
+      perspective: 1000px;
+      cursor: pointer;
+      height: 200px;
+    }
+
+    .term-card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+    }
+
+    .term-card:hover .term-card-inner,
+    .term-card:focus .term-card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .term-card-front,
+    .term-card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 1rem;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .term-card-front {
+      background: var(--card);
+      border: 1px solid var(--border);
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .term-card-back {
+      background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(0, 100, 80, 0.2));
+      border: 1px solid var(--accent);
+      transform: rotateY(180deg);
+      justify-content: center;
+    }
+
+    .term-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.25rem;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+
+    .term-aka {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .term-def {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: var(--fg);
+    }
+
+    /* Interactive Demo */
+    .demo-container {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 2rem;
+      margin-top: 2rem;
+    }
+
+    .demo-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .demo-btn {
+      padding: 0.75rem 1.5rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--fg);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.875rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .demo-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .demo-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg);
+    }
+
+    .demo-visual {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+      align-items: center;
+      min-height: 200px;
+    }
+
+    .demo-node {
+      width: 80px;
+      height: 80px;
+      border-radius: 0.5rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .demo-node.highlight {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px var(--glow);
+      transform: scale(1.1);
+    }
+
+    .demo-node-icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .demo-arrow {
+      color: var(--muted);
+      font-size: 1.5rem;
+      animation: arrowPulse 1.5s infinite;
+    }
+
+    @keyframes arrowPulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+
+    /* Footer */
+    footer {
+      padding: 4rem 2rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--muted);
+    }
+
+    /* Scroll indicator */
+    .scroll-indicator {
+      position: absolute;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--muted);
+      font-size: 0.75rem;
+      animation: bounce 2s infinite;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(10px); }
+    }
+
+    /* Reveal animations */
+    .reveal {
+      opacity: 0;
+      transform: translateY(40px);
+      transition: all 0.8s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .flow-line {
+        left: 30px;
+      }
+      
+      .flow-node,
+      .flow-node:nth-child(even) {
+        flex-direction: row;
+      }
+      
+      .flow-node-marker {
+        width: 48px;
+        height: 48px;
+        font-size: 0.875rem;
+      }
+      
+      .flow-node-content {
+        max-width: none;
+      }
+      
+      section {
+        padding: 4rem 1.5rem;
+      }
+    }
+
+    /* Focus states */
+    button:focus-visible,
+    .term-card:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-gradient"></div>
+  <canvas id="particle-canvas"></canvas>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="hero-badge">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+        Academic Deep Dive
+      </div>
+      
+      <h1 class="hero-title">OpenClaw Hooks System</h1>
+      <p class="hero-subtitle">
+        深入理解机器学习框架中的钩子机制，探索其在训练生命周期中的核心作用与设计哲学
+      </p>
+      
+      <div class="hero-actions flex flex-wrap gap-4">
+        <a href="#overview" class="demo-btn active">开始探索</a>
+        <a href="#glossary" class="demo-btn">术语词典</a>
+        <a href="#demo" class="demo-btn">交互演示</a>
+      </div>
+      
+      <div class="scroll-indicator">
+        <span>向下滚动</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M19 12l-7 7-7-7"/>
+        </svg>
+      </div>
+    </section>
+
+    <!-- Overview Section -->
+    <section id="overview" class="reveal">
+      <span class="section-label">核心概念</span>
+      <h2 class="section-title">什么是 Hooks 系统</h2>
+      <p class="section-desc">
+        Hooks 是一种允许开发者在程序执行过程中的特定点注入自定义代码的设计模式，在机器学习框架中尤为关键。
+      </p>
+      
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="card">
+          <div class="text-accent mb-4">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12,6 12,12 16,14"/>
+            </svg>
+          </div>
+          <h3 class="text-xl mb-2">生命周期管理</h3>
+          <p class="text-sm text-[var(--muted)]">
+            在训练的不同阶段（epoch开始/结束、batch处理前后）执行特定逻辑，实现精细化的流程控制。
+          </p>
+        </div>
+        
+        <div class="card">
+          <div class="text-accent mb-4">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </svg>
+          </div>
+          <h3 class="text-xl mb-2">可扩展性</h3>
+          <p class="text-sm text-[var(--muted)]">
+            无需修改核心代码即可扩展功能，支持自定义回调、日志记录、模型检查点等插件化开发。
+          </p>
+        </div>
+        
+        <div class="card">
+          <div class="text-accent mb-4">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M3 9h18"/>
+              <path d="M9 21V9"/>
+            </svg>
+          </div>
+          <h3 class="text-xl mb-2">关注点分离</h3>
+          <p class="text-sm text-[var(--muted)]">
+            将训练逻辑与辅助功能解耦，使代码更清晰、更易维护，符合软件工程的最佳实践。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Flow Diagram Section -->
+    <section id="flow" class="reveal">
+      <span class="section-label">执行流程</span>
+      <h2 class="section-title">Hook 触发时机</h2>
+      <p class="section-desc">
+        点击各个节点了解不同类型的 Hook 在训练循环中的触发位置与作用
+      </p>
+      
+      <div class="flow-container">
+        <div class="flow-line"></div>
+        
+        <div class="flow-node" data-hook="before_train">
+          <div class="flow-node-content">
+            <h4 class="text-lg text-[var(--accent)] mb-2">before_train</h4>
+            <p class="text-sm text-[var(--muted)]">
+              训练开始前触发。常用于初始化日志系统、设置随机种子、加载预训练权重等准备工作。
+            </p>
+          </div>
+          <div class="flow-node-marker" tabindex="0" role="button" aria-label="before_train hook">BT</div>
+          <div class="flex-1"></div>
+        </div>
+        
+        <div class="flow-node" data-hook="before_epoch">
+          <div class="flex-1"></div>
+          <div class="flow-node-marker" tabindex="0" role="button" aria-label="before_epoch hook">BE</div>
+          <div class="flow-node-content">
+            <h4 class="text-lg text-[var(--accent)] mb-2">before_epoch</h4>
+            <p class="text-sm text-[var(--muted)]">
+              每个 epoch 开始时触发。可用于重置统计指标、调整学习率策略、记录 epoch 开始时间。
+            </p>
+          </div>
+        </div>
+        
+        <div class="flow-node" data-hook="before_iter">
+          <div class="flow-node-content">
+            <h4 class="text-lg text-[var(--accent)] mb-2">before_iter</h4>
+            <p class="text-sm text-[var(--muted)]">
+              每个 batch/iteration 前触发。适用于数据增强控制、梯度累积状态管理、动态 batch 处理。
+            </p>
+          </div>
+          <div class="flow-node-marker" tabindex="0" role="button" aria-label="before_iter hook">BI</div>
+          <div class="flex-1"></div>
+        </div>
+        
+        <div class="flow-node" data-hook="after_iter">
+          <div class="flex-1"></div>
+          <div class="flow-node-marker" tabindex="0" role="button" aria-label="after_iter hook">AI</div>
+          <div class="flow-node-content">
+            <h4 class="text-lg text-[var(--accent)] mb-2">after_iter</h4>
+            <p class="text-sm text-[var(--muted)]">
+              每个 batch 处理完成后触发。用于更新损失统计、记录训练指标、梯度裁剪、参数更新监控。
+            </p>
+          </div>
+        </div>
+        
+        <div class="flow-node" data-hook="after_epoch">
+          <div class="flow-node-content">
+            <h4 class="text-lg text-[var(--accent)] mb-2">after_epoch</h4>
+            <p class="text-sm text-[var(--muted)]">
+              每个 epoch 结束后触发。执行验证、保存检查点、早停判断、学习率调度更新。
+            </p>
+          </div>
+          <div class="flow-node-marker" tabindex="0" role="button" aria-label="after_epoch hook">AE</div>
+          <div class="flex-1"></div>
+        </div>
+        
+        <div class="flow-node" data-hook="after_train">
+          <div class="flex-1"></div>
+          <div class="flow-node-marker" tabindex="0" role="button" aria-label="after_train hook">AT</div>
+          <div class="flow-node-content">
+            <h4 class="text-lg text-[var(--accent)] mb-2">after_train</h4>
+            <p class="text-sm text-[var(--muted)]">
+              整个训练流程完成后触发。用于最终模型保存、训练报告生成、资源清理、通知发送。
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Code Example Section -->
+    <section id="code" class="reveal">
+      <span class="section-label">实践应用</span>
+      <h2 class="section-title">代码示例</h2>
+      <p class="section-desc">
+        以下展示如何在 OpenClaw 风格框架中定义和注册自定义 Hook
+      </p>
+      
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots">
+            <span class="code-dot"></span>
+            <span class="code-dot"></span>
+            <span class="code-dot"></span>
+          </div>
+          <span class="text-xs text-[var(--muted)]">custom_hook.py</span>
+        </div>
+        <div class="code-content">
+          <pre><code><span class="code-keyword">class</span> <span class="code-function">CustomHook</span>(<span class="code-function">Hook</span>):
+    <span class="code-string">"""自定义训练监控 Hook 示例"""</span>
+    
+    <span class="code-keyword">def</span> <span class="code-function">__init__</span>(<span class="code-param">self</span>, <span class="code-param">log_interval</span>=<span class="code-number">100</span>):
+        <span class="code-param">self</span>.log_interval = <span class="code-param">log_interval</span>
+        <span class="code-param">self</span>.loss_history = []
+    
+    <span class="code-keyword">def</span> <span class="code-function">before_train</span>(<span class="code-param">self</span>, <span class="code-param">trainer</span>):
+        <span class="code-comment"># 初始化日志记录器</span>
+        <span class="code-param">self</span>.logger = setup_logger(<span class="code-string">'custom_monitor'</span>)
+        <span class="code-param">self</span>.logger.info(<span class="code-string">f"Training started with {trainer.max_epochs} epochs"</span>)
+    
+    <span class="code-keyword">def</span> <span class="code-function">after_iter</span>(<span class="code-param">self</span>, <span class="code-param">trainer</span>):
+        <span class="code-comment"># 每 N 次迭代记录一次损失</span>
+        <span class="code-keyword">if</span> trainer.iter % <span class="code-param">self</span>.log_interval == <span class="code-number">0</span>:
+            loss = trainer.outputs[<span class="code-string">'loss'</span>]
+            <span class="code-param">self</span>.loss_history.append(loss)
+            <span class="code-param">self</span>.logger.info(<span class="code-string">f"Iter {trainer.iter}: loss = {loss:.4f}"</span>)
+    
+    <span class="code-keyword">def</span> <span class="code-function">after_epoch</span>(<span class="code-param">self</span>, <span class="code-param">trainer</span>):
+        <span class="code-comment"># Epoch 结束时计算平均损失</span>
+        avg_loss = sum(<span class="code-param">self</span>.loss_history) / len(<span class="code-param">self</span>.loss_history)
+        <span class="code-param">self</span>.logger.info(<span class="code-string">f"Epoch {trainer.epoch} avg loss: {avg_loss:.4f}"</span>)
+        <span class="code-param">self</span>.loss_history.clear()  <span class="code-comment"># 重置历史</span>
+
+<span class="code-comment"># 注册 Hook 到训练器</span>
+trainer.register_hook(CustomHook(log_interval=<span class="code-number">50</span>))</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Demo Section -->
+    <section id="demo" class="reveal">
+      <span class="section-label">交互演示</span>
+      <h2 class="section-title">Hook 执行可视化</h2>
+      <p class="section-desc">
+        选择不同的训练阶段，观察 Hook 的执行顺序与数据流向
+      </p>
+      
+      <div class="demo-container">
+        <div class="demo-controls">
+          <button class="demo-btn" data-phase="init" aria-label="初始化阶段">初始化</button>
+          <button class="demo-btn" data-phase="epoch-start" aria-label="Epoch开始">Epoch 开始</button>
+          <button class="demo-btn" data-phase="iteration" aria-label="迭代处理">迭代处理</button>
+          <button class="demo-btn" data-phase="epoch-end" aria-label="Epoch结束">Epoch 结束</button>
+          <button class="demo-btn" data-phase="finalize" aria-label="训练完成">训练完成</button>
+        </div>
+        
+        <div class="demo-visual" id="demo-visual">
+          <div class="demo-node" data-role="config">
+            <span class="demo-node-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v6m0 6v10M1 12h6m6 0h10"/>
+              </svg>
+            </span>
+            <span>Config</span>
+          </div>
+          <span class="demo-arrow">→</span>
+          <div class="demo-node" data-role="hook">
+            <span class="demo-node-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+              </svg>
+            </span>
+            <span>Hook</span>
+          </div>
+          <span class="demo-arrow">→</span>
+          <div class="demo-node" data-role="trainer">
+            <span class="demo-node-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="4" y="4" width="16" height="16" rx="2"/>
+                <rect x="9" y="9" width="6" height="6"/>
+              </svg>
+            </span>
+            <span>Trainer</span>
+          </div>
+          <span class="demo-arrow">→</span>
+          <div class="demo-node" data-role="model">
+            <span class="demo-node-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+              </svg>
+            </span>
+            <span>Model</span>
+          </div>
+          <span class="demo-arrow">→</span>
+          <div class="demo-node" data-role="output">
+            <span class="demo-node-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14,2 14,8 20,8"/>
+              </svg>
+            </span>
+            <span>Output</span>
+          </div>
+        </div>
+        
+        <div id="demo-info" class="mt-6 p-4 bg-[var(--bg)] rounded-lg border border-[var(--border)]">
+          <p class="text-sm text-[var(--muted)]">点击上方按钮开始演示 Hook 执行流程</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Glossary Section -->
+    <section id="glossary" class="reveal">
+      <span class="section-label">术语词典</span>
+      <h2 class="section-title">相关学术概念</h2>
+      <p class="section-desc">
+        点击卡片翻转查看详细定义，掌握 Hooks 系统相关的核心术语
+      </p>
+      
+      <div class="glossary-grid" id="glossary-grid">
+        <!-- Cards will be generated by JS -->
+      </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section id="architecture" class="reveal">
+      <span class="section-label">架构设计</span>
+      <h2 class="section-title">Hook 与训练引擎的协作</h2>
+      <p class="section-desc">
+        理解 Hook 如何融入整体训练架构，实现模块化与可扩展性
+      </p>
+      
+      <div class="grid md:grid-cols-2 gap-8 mt-8">
+        <div class="card">
+          <h3 class="text-xl mb-4 text-[var(--accent)]">Hook 基类设计</h3>
+          <p class="text-sm text-[var(--muted)] mb-4">
+            所有 Hook 继承自基类，默认实现空方法。子类按需重写特定生命周期方法，遵循接口隔离原则。
+          </p>
+          <ul class="text-sm space-y-2">
+            <li class="flex items-start gap-2">
+              <span class="text-[var(--accent)]">▸</span>
+              <span><strong>before_train / after_train</strong> - 训练生命周期边界</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-[var(--accent)]">▸</span>
+              <span><strong>before_epoch / after_epoch</strong> - Epoch 级别控制</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-[var(--accent)]">▸</span>
+              <span><strong>before_iter / after_iter</strong> - 迭代级别控制</span>
+            </li>
+          </ul>
+        </div>
+        
+        <div class="card">
+          <h3 class="text-xl mb-4 text-[var(--accent)]">优先级与执行顺序</h3>
+          <p class="text-sm text-[var(--muted)] mb-4">
+            Hook 可设置优先级数值，数值越小越先执行。同一优先级按注册顺序执行，支持依赖注入。
+          </p>
+          <ul class="text-sm space-y-2">
+            <li class="flex items-start gap-2">
+              <span class="text-[var(--accent)]">▸</span>
+              <span><strong>HIGH (10)</strong> - 关键操作如梯度裁剪</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-[var(--accent)]">▸</span>
+              <span><strong>NORMAL (50)</strong> - 常规监控与日志</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-[var(--accent)]">▸</span>
+              <span><strong>LOW (90)</strong> - 清理与收尾工作</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p class="text-sm">OpenClaw Hooks System 学术理解指南 | 交互式学习资源</p>
+  </footer>
+
+  <script>
+    // ============ Data ============
+    const glossaryTerms = [
+      {
+        term: 'Hook',
+        aka: '钩子 / 回调点',
+        def: '一种软件设计模式，允许开发者在程序执行的特定点插入自定义代码，实现行为的动态扩展而不修改原有逻辑。'
+      },
+      {
+        term: 'Callback',
+        aka: '回调函数',
+        def: '作为参数传递的函数，在特定事件发生时被调用。Hook 本质上是回调机制的框架化实现。'
+      },
+      {
+        term: 'Lifecycle',
+        aka: '生命周期',
+        def: '对象从创建到销毁的完整过程。训练框架中指从初始化到训练完成的各个阶段，每个阶段都可触发 Hook。'
+      },
+      {
+        term: 'Trainer',
+        aka: '训练器',
+        def: '机器学习框架的核心组件，负责协调模型训练的全过程。管理数据加载、前向传播、反向传播、参数更新等。'
+      },
+      {
+        term: 'Epoch',
+        aka: '训练轮次',
+        def: '完整遍历一次训练数据集的过程。深度学习通常需要多个 epoch 才能收敛。'
+      },
+      {
+        term: 'Iteration',
+        aka: '迭代',
+        def: '处理一个 batch 数据并更新一次模型参数的过程。iteration = epoch_size / batch_size。'
+      },
+      {
+        term: 'Checkpoint',
+        aka: '检查点',
+        def: '训练过程中保存的模型快照，包含模型权重、优化器状态等，用于恢复训练或模型部署。'
+      },
+      {
+        term: 'Early Stopping',
+        aka: '早停',
+        def: '一种正则化技术，当验证性能不再提升时提前终止训练，防止过拟合。常通过 Hook 实现。'
+      },
+      {
+        term: 'Learning Rate Scheduler',
+        aka: '学习率调度器',
+        def: '动态调整学习率的策略，如步进衰减、余弦退火等。通常作为 Hook 在 epoch 结束时更新。'
+      },
+      {
+        term: 'Dependency Injection',
+        aka: '依赖注入',
+        def: '设计模式，将组件的依赖从外部注入而非内部创建。Hook 系统通过 DI 获取 trainer 等对象。'
+      },
+      {
+        term: 'Observer Pattern',
+        aka: '观察者模式',
+        def: '行为设计模式，定义对象间的一对多依赖，当状态变化时自动通知所有依赖者。Hook 是其变体。'
+      },
+      {
+        term: 'Context',
+        aka: '上下文',
+        def: 'Hook 执行时可访问的运行时信息，如当前 epoch、iteration、loss 值、模型状态等。'
+      }
+    ];
+
+    const phaseInfo = {
+      init: {
+        highlight: ['config', 'hook'],
+        text: '初始化阶段：加载配置文件，实例化所有注册的 Hook。before_train hook 在此触发，完成日志系统初始化、随机种子设置等准备工作。'
+      },
+      'epoch-start': {
+        highlight: ['hook', 'trainer'],
+        text: 'Epoch 开始：before_epoch hook 触发，重置统计指标，更新学习率调度器状态，准备新一轮训练。'
+      },
+      iteration: {
+        highlight: ['trainer', 'model', 'hook'],
+        text: '迭代处理：before_iter → 前向传播 → 计算损失 → 反向传播 → after_iter。Hook 可在此监控梯度、记录损失、执行梯度裁剪。'
+      },
+      'epoch-end': {
+        highlight: ['model', 'hook', 'output'],
+        text: 'Epoch 结束：after_epoch hook 触发，执行验证评估、保存检查点、判断早停条件、更新学习率。'
+      },
+      finalize: {
+        highlight: ['hook', 'output'],
+        text: '训练完成：after_train hook 触发，保存最终模型、生成训练报告、清理临时资源、发送通知。'
+      }
+    };
+
+    // ============ Initialize ============
+    // DOM elements
+    const particleCanvas = document.getElementById('particle-canvas');
+    const ctx = particleCanvas.getContext('2d');
+    const glossaryGrid = document.getElementById('glossary-grid');
+    const demoVisual = document.getElementById('demo-visual');
+    const demoInfo = document.getElementById('demo-info');
+    
+    // Particle system variables
+    let particles = [];
+    let animationId = null;
+    let canvasWidth = 0;
+    let canvasHeight = 0;
+
+    // ============ Particle System ============
+    function resizeCanvas() {
+      canvasWidth = window.innerWidth;
+      canvasHeight = window.innerHeight;
+      particleCanvas.width = canvasWidth;
+      particleCanvas.height = canvasHeight;
+    }
+
+    function createParticles() {
+      particles = [];
+      const count = Math.floor((canvasWidth * canvasHeight) / 15000);
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * canvasWidth,
+          y: Math.random() * canvasHeight,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3,
+          radius: Math.random() * 1.5 + 0.5,
+          opacity: Math.random() * 0.5 + 0.2
+        });
+      }
+    }
+
+    function drawParticles() {
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+      
+      particles.forEach((p, i) => {
+        // Update position
+        p.x += p.vx;
+        p.y += p.vy;
+        
+        // Wrap around edges
+        if (p.x < 0) p.x = canvasWidth;
+        if (p.x > canvasWidth) p.x = 0;
+        if (p.y < 0) p.y = canvasHeight;
+        if (p.y > canvasHeight) p.y = 0;
+        
+        // Draw particle
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(0.1, p.radius), 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0, 212, 170, ${p.opacity})`;
+        ctx.fill();
+        
+        // Draw connections
+        particles.slice(i + 1).forEach(p2 => {
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < 120) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = `rgba(0, 212, 170, ${0.1 * (1 - dist / 120)})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        });
+      });
+      
+      animationId = requestAnimationFrame(drawParticles);
+    }
+
+    // ============ Glossary Cards ============
+    function renderGlossary() {
+      glossaryGrid.innerHTML = glossaryTerms.map((item, idx) => `
+        <div class="term-card" tabindex="0" role="button" aria-label="点击翻转查看 ${item.term} 的定义">
+          <div class="term-card-inner">
+            <div class="term-card-front">
+              <span class="term-name">${item.term}</span>
+              <span class="term-aka">${item.aka}</span>
+            </div>
+            <div class="term-card-back">
+              <p class="term-def">${item.def}</p>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ============ Demo System ============
+    function initDemo() {
+      const buttons = document.querySelectorAll('.demo-controls .demo-btn');
+      
+      buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const phase = btn.dataset.phase;
+          if (!phase || !phaseInfo[phase]) return;
+          
+          // Update active button
+          buttons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          
+          // Highlight nodes
+          const nodes = demoVisual.querySelectorAll('.demo-node');
+          nodes.forEach(node => {
+            node.classList.remove('highlight');
+            if (phaseInfo[phase].highlight.includes(node.dataset.role)) {
+              node.classList.add('highlight');
+            }
+          });
+          
+          // Update info text
+          demoInfo.innerHTML = `<p class="text-sm">${phaseInfo[phase].text}</p>`;
+        });
+      });
+    }
+
+    // ============ Flow Nodes ============
+    function initFlowNodes() {
+      const markers = document.querySelectorAll('.flow-node-marker');
+      
+      markers.forEach(marker => {
+        marker.addEventListener('click', () => {
+          markers.forEach(m => m.classList.remove('active'));
+          marker.classList.add('active');
+        });
+        
+        marker.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            marker.click();
+          }
+        });
+      });
+    }
+
+    // ============ Scroll Reveal ============
+    function initScrollReveal() {
+      const reveals = document.querySelectorAll('.reveal');
+      const flowNodes = document.querySelectorAll('.flow-node');
+      
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      }, {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+      });
+      
+      reveals.forEach(el => observer.observe(el));
+      
+      // Staggered reveal for flow nodes
+      const flowObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry, idx) => {
+          if (entry.isIntersecting) {
+            setTimeout(() => {
+              entry.target.classList.add('visible');
+            }, idx * 150);
+          }
+        });
+      }, {
+        threshold: 0.2
+      });
+      
+      flowNodes.forEach(el => flowObserver.observe(el));
+    }
+
+    // ============ Smooth Scroll ============
+    function initSmoothScroll() {
+      document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function(e) {
+          e.preventDefault();
+          const target = document.querySelector(this.getAttribute('href'));
+          if (target) {
+            target.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start'
+            });
+          }
+        });
+      });
+    }
+
+    // ============ Reduced Motion Check ============
+    function checkReducedMotion() {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    // ============ Initialize Everything ============
+    function init() {
+      // Initialize canvas and particles
+      resizeCanvas();
+      
+      if (!checkReducedMotion()) {
+        createParticles();
+        drawParticles();
+      }
+      
+      // Initialize UI components
+      renderGlossary();
+      initDemo();
+      initFlowNodes();
+      initScrollReveal();
+      initSmoothScroll();
+      
+      // Handle resize
+      window.addEventListener('resize', () => {
+        resizeCanvas();
+        if (!checkReducedMotion()) {
+          createParticles();
+        }
+      });
+    }
+
+    // Start when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>

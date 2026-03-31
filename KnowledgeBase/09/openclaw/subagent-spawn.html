@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw subagent-spawn.ts 技术解析</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;600;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg-primary: #030608;
+      --bg-secondary: #090e12;
+      --bg-card: #0e141a;
+      --bg-elevated: #141c24;
+      --fg-primary: #e0e8f0;
+      --fg-secondary: #5a6a7a;
+      --fg-muted: #304050;
+      --accent-cyan: #00e8c8;
+      --accent-orange: #ff6830;
+      --accent-amber: #ffc010;
+      --accent-violet: #c080ff;
+      --border: #12202a;
+      --glow-cyan: rgba(0, 232, 200, 0.1);
+      --glow-orange: rgba(255, 104, 48, 0.1);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg-primary);
+      color: var(--fg-primary);
+      overflow-x: hidden;
+      line-height: 1.7;
+    }
+
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* 背景 */
+    .bg-atmosphere {
+      background:
+        radial-gradient(ellipse 180% 120% at 110% -10%, rgba(0, 232, 200, 0.04) 0%, transparent 50%),
+        radial-gradient(ellipse 140% 100% at -10% 110%, rgba(255, 104, 48, 0.035) 0%, transparent 50%),
+        radial-gradient(ellipse 100% 80% at 50% 50%, rgba(192, 128, 255, 0.02) 0%, transparent 70%),
+        var(--bg-primary);
+    }
+
+    .grid-hex {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%2300e8c8' fill-opacity='0.025'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+
+    /* 动画 */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.94); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes slideRight {
+      from { opacity: 0; transform: translateX(-28px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 0 var(--glow-cyan); }
+      50% { box-shadow: 0 0 20px 5px var(--glow-cyan); }
+    }
+
+    @keyframes flowLine {
+      to { stroke-dashoffset: -20; }
+    }
+
+    @keyframes nodeFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+
+    .anim-fade-up { animation: fadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+    .anim-scale-in { animation: scaleIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+    .anim-slide-right { animation: slideRight 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+
+    .delay-1 { animation-delay: 0.06s; }
+    .delay-2 { animation-delay: 0.12s; }
+    .delay-3 { animation-delay: 0.18s; }
+    .delay-4 { animation-delay: 0.24s; }
+    .delay-5 { animation-delay: 0.30s; }
+    .delay-6 { animation-delay: 0.36s; }
+    .delay-7 { animation-delay: 0.42s; }
+    .delay-8 { animation-delay: 0.48s; }
+
+    /* 卡片 */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .card:hover {
+      border-color: var(--accent-cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px -5px var(--glow-cyan);
+    }
+
+    .card-orange:hover {
+      border-color: var(--accent-orange);
+      box-shadow: 0 10px 20px -5px var(--glow-orange);
+    }
+
+    /* 流程节点 */
+    .flow-node {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .flow-node:hover {
+      border-color: var(--accent-cyan);
+      transform: scale(1.02);
+    }
+
+    .flow-node.active {
+      border-color: var(--accent-cyan);
+      background: var(--glow-cyan);
+    }
+
+    .flow-node.blocked {
+      border-color: var(--accent-orange);
+      background: var(--glow-orange);
+    }
+
+    /* 深度指示器 */
+    .depth-indicator {
+      width: 100%;
+      height: 8px;
+      background: var(--bg-secondary);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .depth-bar {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+
+    /* 状态标签 */
+    .status-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .status-accepted { background: var(--glow-cyan); color: var(--accent-cyan); }
+    .status-forbidden { background: rgba(255, 104, 48, 0.15); color: var(--accent-orange); }
+    .status-error { background: rgba(255, 80, 112, 0.15); color: #ff5070; }
+
+    /* 模式卡片 */
+    .mode-card {
+      background: var(--bg-secondary);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      transition: all 0.25s ease;
+      cursor: pointer;
+    }
+
+    .mode-card.selected {
+      border-color: var(--accent-cyan);
+      background: var(--glow-cyan);
+    }
+
+    .mode-card:hover:not(.selected) {
+      border-color: var(--fg-muted);
+    }
+
+    /* 输入框 */
+    .input-field {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--fg-primary);
+      font-size: 13px;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 3px var(--glow-cyan);
+    }
+
+    /* 代码块 */
+    .code-window {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .code-content {
+      padding: 12px;
+      font-size: 11px;
+      line-height: 1.6;
+      overflow-x: auto;
+    }
+
+    .code-line {
+      padding: 2px 5px;
+      margin: 0 -5px;
+      border-radius: 3px;
+      transition: background 0.15s ease;
+    }
+
+    .code-line:hover { background: rgba(0, 232, 200, 0.03); }
+
+    /* 标签 */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    /* 滚动条 */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-atmosphere grid-hex min-h-screen">
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative">
+
+    <!-- 头部 -->
+    <header class="text-center mb-12">
+      <div class="anim-fade-up">
+        <span class="tag" style="background: var(--glow-orange); color: var(--accent-orange);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          Subagent Orchestrator
+        </span>
+      </div>
+      <h1 class="text-4xl sm:text-5xl lg:text-5xl font-black mt-5 mb-3 anim-fade-up delay-1">
+        <span style="color: var(--fg-primary);">subagent-spawn</span><span style="color: var(--accent-cyan);">.ts</span>
+      </h1>
+      <p class="text-lg sm:text-xl max-w-3xl mx-auto anim-fade-up delay-2" style="color: var(--fg-secondary);">
+        OpenClaw 的「子Agent孵化器」—— 负责创建、管理和监控子Agent的完整生命周期
+      </p>
+    </header>
+
+    <!-- 核心比喻 -->
+    <section class="mb-12 anim-scale-in delay-3">
+      <div class="card p-6">
+        <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+          <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--glow-cyan);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00e8c8" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4M12 8h.01"/>
+            </svg>
+          </span>
+          用生活场景理解它
+        </h2>
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="card card-orange p-4">
+            <div class="text-xl mb-2">🏢</div>
+            <h3 class="font-semibold mb-1" style="color: var(--accent-cyan);">像公司部门架构</h3>
+            <p class="text-sm" style="color: var(--fg-secondary);">
+              主Agent是部门经理，可以派遣子Agent（员工）去完成任务。经理不能无限派遣——有层级深度限制、同时活跃人数限制
+            </p>
+          </div>
+          <div class="card card-orange p-4">
+            <div class="text-xl mb-2">🎭</div>
+            <h3 class="font-semibold mb-1" style="color: var(--accent-orange);">像任务委托系统</h3>
+            <p class="text-sm" style="color: var(--fg-secondary);">
+              两种模式：「一次性任务」完成后消失 vs 「长期合作」保持会话持续沟通。还可以附带文件（附件）给子Agent
+            </p>
+          </div>
+          <div class="card card-orange p-4">
+            <div class="text-xl mb-2">🔐</div>
+            <h3 class="font-semibold mb-1" style="color: var(--accent-violet);">像安全代理系统</h3>
+            <p class="text-sm" style="color: var(--fg-secondary);">
+              沙盒隔离确保权限安全——沙盒中的父Agent不能派遣非沙盒子Agent，防止权限逃逸
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 生成流程可视化 -->
+    <section class="mb-12 anim-fade-up delay-4">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6830" stroke-width="2">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+        </span>
+        生成流程全景
+      </h2>
+
+      <div class="card p-5 overflow-x-auto">
+        <div id="spawn-flow" class="min-w-[700px]">
+          <!-- SVG流程图由JS渲染 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 深度限制演示 -->
+    <section class="mb-12 anim-fade-up delay-5">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--glow-cyan);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00e8c8" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </span>
+        嵌套深度控制
+      </h2>
+
+      <div class="card p-5">
+        <div class="grid lg:grid-cols-2 gap-5">
+          <!-- 深度可视化 -->
+          <div>
+            <h3 class="font-semibold mb-3 text-sm" style="color: var(--fg-secondary);">当前深度层级</h3>
+            <div id="depth-visualization" class="space-y-3">
+              <!-- 由JS渲染 -->
+            </div>
+
+            <div class="mt-4 flex gap-2">
+              <button id="depth-add" class="btn-secondary px-4 py-2 rounded-lg text-xs font-semibold" style="background: var(--bg-secondary); border: 1px solid var(--border);">
+                + 派遣子Agent
+              </button>
+              <button id="depth-reset" class="btn-secondary px-4 py-2 rounded-lg text-xs font-semibold" style="background: var(--bg-secondary); border: 1px solid var(--border);">
+                重置
+              </button>
+            </div>
+          </div>
+
+          <!-- 规则说明 -->
+          <div>
+            <h3 class="font-semibold mb-3 text-sm" style="color: var(--fg-secondary);">深度限制规则</h3>
+            <div class="space-y-2">
+              <div class="p-3 rounded-lg" style="background: var(--bg-secondary);">
+                <p class="text-xs font-mono mb-1" style="color: var(--accent-cyan);">maxSpawnDepth = 3</p>
+                <p class="text-xs" style="color: var(--fg-secondary);">默认最大嵌套深度，防止无限递归</p>
+              </div>
+              <div class="p-3 rounded-lg" style="background: var(--bg-secondary);">
+                <p class="text-xs font-mono mb-1" style="color: var(--accent-cyan);">maxChildrenPerAgent = 5</p>
+                <p class="text-xs" style="color: var(--fg-secondary);">同一父Agent同时活跃的子Agent数量上限</p>
+              </div>
+              <div class="p-3 rounded-lg" style="background: var(--bg-secondary);">
+                <p class="text-xs" style="color: var(--fg-muted);">childDepth = callerDepth + 1</p>
+                <p class="text-xs" style="color: var(--fg-secondary);">子Agent深度 = 父Agent深度 + 1</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 两种模式对比 -->
+    <section class="mb-12 anim-fade-up delay-6">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6830" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+        </span>
+        两种生成模式
+      </h2>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <!-- Run 模式 -->
+        <div class="mode-card" data-mode="run">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-mono font-bold" style="background: var(--glow-cyan); color: var(--accent-cyan);">R</span>
+            <div>
+              <h3 class="font-semibold" style="color: var(--accent-cyan);">run 模式</h3>
+              <p class="text-xs" style="color: var(--fg-muted);">一次性任务执行</p>
+            </div>
+          </div>
+          <ul class="space-y-2 text-xs" style="color: var(--fg-secondary);">
+            <li class="flex items-start gap-2">
+              <span style="color: var(--accent-cyan);">→</span>
+              任务完成后会话自动清理
+            </li>
+            <li class="flex items-start gap-2">
+              <span style="color: var(--accent-cyan);">→</span>
+              结果通过事件推送给父Agent
+            </li>
+            <li class="flex items-start gap-2">
+              <span style="color: var(--accent-cyan);">→</span>
+              父Agent不应轮询，等待完成消息
+            </li>
+            <li class="flex items-start gap-2">
+              <span style="color: var(--accent-cyan);">→</span>
+              适合：独立、可并行的子任务
+            </li>
+          </ul>
+        </div>
+
+        <!-- Session 模式 -->
+        <div class="mode-card" data-mode="session">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-mono font-bold" style="background: rgba(192, 128, 255, 0.15); color: var(--accent-violet);">S</span>
+            <div>
+              <h3 class="font-semibold" style="color: var(--accent-violet);">session 模式</h3>
+              <p class="text-xs" style="color: var(--fg-muted);">持久会话模式</p>
+            </div>
+          </div>
+          <ul class="space-y-2 text-xs" style="color: var(--fg-secondary);">
+            <li class="flex items-start gap-2">
+              <span style="color: var(--accent-violet);">→</span>
+              需要 thread=true 绑定消息线程
+            </li>
+            <li class="flex items-start gap-2">
+              <span style="color: var(--accent-violet);">→</span>
+              会话在任务后保持活跃
+            </li>
+            <li class="flex items-start gap-2">
+              <span style="color: var(--accent-violet);">→</span>
+              可以继续接收后续消息
+            </li>
+            <li class="flex items-start gap-2">
+              <span style="color: var(--accent-violet);">→</span>
+              适合：需要持续对话的协作任务
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 权限检查矩阵 -->
+    <section class="mb-12 anim-fade-up delay-7">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--glow-cyan);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00e8c0" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </span>
+        权限与沙盒检查
+      </h2>
+
+      <div class="card p-5">
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs" style="min-width: 500px;">
+            <thead>
+              <tr style="border-bottom: 1px solid var(--border);">
+                <th class="text-left py-2 px-3 font-semibold" style="color: var(--fg-muted);">检查项</th>
+                <th class="text-left py-2 px-3 font-semibold" style="color: var(--fg-muted);">条件</th>
+                <th class="text-left py-2 px-3 font-semibold" style="color: var(--fg-muted);">失败结果</th>
+              </tr>
+            </thead>
+            <tbody id="permission-table">
+              <!-- 由JS渲染 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 交互式模拟器 -->
+    <section class="mb-12 anim-fade-up delay-8">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6830" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </span>
+        交互式模拟器
+      </h2>
+
+      <div class="card p-5">
+        <div class="grid lg:grid-cols-3 gap-5">
+          <!-- 输入配置 -->
+          <div>
+            <h3 class="font-semibold mb-3 text-sm" style="color: var(--accent-cyan);">spawn 参数</h3>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs mb-1" style="color: var(--fg-muted);">task</label>
+                <input id="sim-task" type="text" class="input-field font-mono text-xs" value="分析代码库结构" placeholder="任务描述">
+              </div>
+              <div>
+                <label class="block text-xs mb-1" style="color: var(--fg-muted);">agentId</label>
+                <input id="sim-agent" type="text" class="input-field font-mono text-xs" value="coder" placeholder="目标Agent ID">
+              </div>
+              <div>
+                <label class="block text-xs mb-1" style="color: var(--fg-muted);">mode</label>
+                <select id="sim-mode" class="input-field text-xs">
+                  <option value="run">run</option>
+                  <option value="session">session</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs mb-1" style="color: var(--fg-muted);">callerDepth</label>
+                <input id="sim-depth" type="number" min="0" max="5" class="input-field font-mono text-xs" value="0">
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="sim-thread" class="w-4 h-4">
+                <label for="sim-thread" class="text-xs" style="color: var(--fg-secondary);">thread=true</label>
+              </div>
+              <button id="sim-run" class="w-full py-3 rounded-lg font-semibold text-sm" style="background: linear-gradient(135deg, var(--accent-cyan), #00c0a8); color: var(--bg-primary);">
+                执行 spawn
+              </button>
+            </div>
+          </div>
+
+          <!-- 执行流程 -->
+          <div>
+            <h3 class="font-semibold mb-3 text-sm" style="color: var(--accent-orange);">执行检查流程</h3>
+            <div id="sim-flow" class="space-y-2">
+              <p class="text-xs" style="color: var(--fg-muted);">点击「执行 spawn」开始模拟</p>
+            </div>
+          </div>
+
+          <!-- 结果 -->
+          <div>
+            <h3 class="font-semibold mb-3 text-sm" style="color: var(--accent-violet);">返回结果</h3>
+            <div id="sim-result" class="code-window">
+              <div class="code-content font-mono text-xs" style="color: var(--fg-muted);">
+                等待执行...
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 词汇表 -->
+    <section class="mb-10">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--glow-cyan);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00e8c8" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+        </span>
+        核心概念词汇表
+      </h2>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-cyan);">SpawnSubagentParams</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">生成子Agent的参数结构：task、agentId、mode、thread等</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-orange);">SpawnSubagentResult</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">返回结果：status、childSessionKey、runId、note</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-violet);">childSessionKey</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">子Agent的会话键，格式：agent:{id}:subagent:{uuid}</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-cyan);">spawnDepth</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">当前嵌套深度，每派遣一层+1</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-orange);">threadBinding</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">线程绑定，将子Agent关联到消息线程</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-violet);">attachments</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">附件系统，向子Agent传递文件数据</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="text-center py-5" style="color: var(--fg-muted);">
+      <p>OpenClaw subagent-spawn.ts 子Agent孵化器技术解析</p>
+    </footer>
+  </div>
+
+  <script>
+    // ========== 数据定义 ==========
+    const SPAWN_FLOW_STEPS = [
+      { id: 'validate', label: '参数验证', desc: '检查 agentId 格式、参数有效性', type: 'check' },
+      { id: 'depth', label: '深度检查', desc: 'callerDepth >= maxSpawnDepth ? forbidden', type: 'gate' },
+      { id: 'children', label: '子Agent计数', desc: 'activeChildren >= maxChildren ? forbidden', type: 'gate' },
+      { id: 'permission', label: 'Agent权限', desc: '目标Agent是否在允许列表中', type: 'gate' },
+      { id: 'sandbox', label: '沙盒检查', desc: '沙盒隔离规则验证', type: 'gate' },
+      { id: 'session', label: '创建会话', desc: '生成 childSessionKey', type: 'action' },
+      { id: 'patch', label: '配置注入', desc: '设置 spawnDepth、model、thinking', type: 'action' },
+      { id: 'thread', label: '线程绑定', desc: 'thread=true 时绑定消息线程', type: 'action' },
+      { id: 'attachments', label: '附件处理', desc: '写入附件文件、生成清单', type: 'action' },
+      { id: 'gateway', label: '调用网关', desc: '启动子Agent执行', type: 'action' },
+      { id: 'register', label: '注册运行', desc: '记录到子Agent注册表', type: 'action' },
+      { id: 'hooks', label: '生命周期钩子', desc: '触发 subagent_spawned', type: 'action' },
+      { id: 'return', label: '返回结果', desc: 'status: accepted | forbidden | error', type: 'result' }
+    ];
+
+    const PERMISSION_CHECKS = [
+      { check: 'agentId 格式', condition: '匹配 [a-z0-9][a-z0-9_-]{0,63}', result: 'error: Invalid agentId' },
+      { check: '嵌套深度', condition: 'callerDepth < maxSpawnDepth', result: 'forbidden: depth exceeded' },
+      { check: '活跃子Agent', condition: 'activeChildren < maxChildren', result: 'forbidden: max children' },
+      { check: 'Agent授权', condition: '目标Agent在 allowAgents 列表', result: 'forbidden: not allowed' },
+      { check: '沙盒继承', condition: '!sandboxed || childSandboxed', result: 'forbidden: sandbox escape' },
+      { check: '会话模式', condition: 'mode=session 需要 thread=true', result: 'error: missing thread' }
+    ];
+
+    // ========== 状态变量 ==========
+    let currentDepth = 0;
+    const maxDepth = 3;
+    let selectedMode = 'run';
+
+    // ========== DOM 元素 ==========
+    const spawnFlowContainer = document.getElementById('spawn-flow');
+    const depthVisualization = document.getElementById('depth-visualization');
+    const depthAddBtn = document.getElementById('depth-add');
+    const depthResetBtn = document.getElementById('depth-reset');
+    const permissionTable = document.getElementById('permission-table');
+    const modeCards = document.querySelectorAll('.mode-card');
+    const simTask = document.getElementById('sim-task');
+    const simAgent = document.getElementById('sim-agent');
+    const simMode = document.getElementById('sim-mode');
+    const simDepth = document.getElementById('sim-depth');
+    const simThread = document.getElementById('sim-thread');
+    const simRunBtn = document.getElementById('sim-run');
+    const simFlow = document.getElementById('sim-flow');
+    const simResult = document.getElementById('sim-result');
+
+    // ========== 渲染函数 ==========
+    function renderSpawnFlow() {
+      if (!spawnFlowContainer) return;
+
+      const nodeWidth = 100;
+      const nodeHeight = 50;
+      const gapX = 30;
+      const gapY = 70;
+      const cols = 5;
+      
+      let svg = `<svg viewBox="0 0 700 320" class="w-full" style="max-height: 320px;">`;
+      
+      // 绘制节点
+      SPAWN_FLOW_STEPS.forEach((step, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const x = 30 + col * (nodeWidth + gapX);
+        const y = 20 + row * (nodeHeight + gapY);
+        
+        const colors = {
+          check: 'var(--accent-cyan)',
+          gate: 'var(--accent-orange)',
+          action: 'var(--accent-violet)',
+          result: 'var(--accent-amber)'
+        };
+        const color = colors[step.type] || 'var(--fg-muted)';
+        
+        svg += `
+          <g class="flow-node" data-step="${step.id}" style="cursor: pointer;" onclick="showStepDetail('${step.id}')">
+            <rect x="${x}" y="${y}" width="${nodeWidth}" height="${nodeHeight}" rx="8" 
+                  fill="var(--bg-card)" stroke="${color}" stroke-width="1.5"/>
+            <text x="${x + nodeWidth/2}" y="${y + 22}" text-anchor="middle" 
+                  fill="${color}" font-size="11" font-weight="600">${step.label}</text>
+            <text x="${x + nodeWidth/2}" y="${y + 38}" text-anchor="middle" 
+                  fill="var(--fg-muted)" font-size="8">${step.type}</text>
+          </g>
+        `;
+        
+        // 绘制连接线
+        if (i < SPAWN_FLOW_STEPS.length - 1) {
+          const nextCol = (i + 1) % cols;
+          const nextRow = Math.floor((i + 1) / cols);
+          const nextX = 30 + nextCol * (nodeWidth + gapX);
+          const nextY = 20 + nextRow * (nodeHeight + gapY);
+          
+          if (row === nextRow) {
+            // 同行连接
+            svg += `<line x1="${x + nodeWidth}" y1="${y + nodeHeight/2}" 
+                          x2="${nextX}" y2="${nextY + nodeHeight/2}" 
+                          stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,2"/>`;
+          } else {
+            // 跨行连接
+            svg += `<path d="M${x + nodeWidth/2} ${y + nodeHeight} 
+                            L${x + nodeWidth/2} ${y + nodeHeight + gapY/2} 
+                            L${nextX + nodeWidth/2} ${y + nodeHeight + gapY/2} 
+                            L${nextX + nodeWidth/2} ${nextY}" 
+                          fill="none" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,2"/>`;
+          }
+        }
+      });
+      
+      svg += '</svg>';
+      spawnFlowContainer.innerHTML = svg;
+    }
+
+    function renderDepthVisualization() {
+      if (!depthVisualization) return;
+
+      let html = '';
+      for (let i = 0; i <= maxDepth; i++) {
+        const isCurrent = i === currentDepth;
+        const isBlocked = i >= maxDepth;
+        const percentage = ((i + 1) / (maxDepth + 1)) * 100;
+        
+        html += `
+          <div class="flex items-center gap-3">
+            <div class="w-16 text-xs font-mono" style="color: ${isCurrent ? 'var(--accent-cyan)' : 'var(--fg-muted)'};">
+              Depth ${i}
+            </div>
+            <div class="flex-1">
+              <div class="depth-indicator">
+                <div class="depth-bar" style="width: ${percentage}%; background: ${isBlocked ? 'var(--accent-orange)' : 'var(--accent-cyan)'};"></div>
+              </div>
+            </div>
+            <div class="w-20 text-right">
+              ${isCurrent ? '<span class="status-tag status-accepted">当前</span>' : ''}
+              ${isBlocked && !isCurrent ? '<span class="status-tag status-forbidden">禁止</span>' : ''}
+            </div>
+          </div>
+        `;
+      }
+      
+      depthVisualization.innerHTML = html;
+    }
+
+    function renderPermissionTable() {
+      if (!permissionTable) return;
+
+      permissionTable.innerHTML = PERMISSION_CHECKS.map(check => `
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td class="py-2 px-3 font-mono" style="color: var(--fg-secondary);">${check.check}</td>
+          <td class="py-2 px-3" style="color: var(--fg-muted);">${check.condition}</td>
+          <td class="py-2 px-3">
+            <span class="status-tag ${check.result.includes('forbidden') ? 'status-forbidden' : 'status-error'}">
+              ${check.result}
+            </span>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function runSimulation() {
+      if (!simFlow || !simResult) return;
+
+      const task = simTask?.value || '';
+      const agentId = simAgent?.value || '';
+      const mode = simMode?.value || 'run';
+      const depth = parseInt(simDepth?.value || '0', 10);
+      const thread = simThread?.checked || false;
+
+      // 模拟执行流程
+      const steps = [];
+      let status = 'accepted';
+      let errorMsg = '';
+
+      // Step 1: 参数验证
+      steps.push({ label: '参数验证', status: 'pass', detail: `task="${task.substring(0, 20)}..."` });
+      
+      // Step 2: 深度检查
+      if (depth >= maxDepth) {
+        steps.push({ label: '深度检查', status: 'fail', detail: `${depth} >= ${maxDepth}` });
+        status = 'forbidden';
+        errorMsg = `sessions_spawn is not allowed at this depth (current depth: ${depth}, max: ${maxDepth})`;
+      } else {
+        steps.push({ label: '深度检查', status: 'pass', detail: `${depth} < ${maxDepth}` });
+      }
+
+      // Step 3: 模式检查
+      if (status === 'accepted') {
+        if (mode === 'session' && !thread) {
+          steps.push({ label: '模式检查', status: 'fail', detail: 'session 需要 thread=true' });
+          status = 'error';
+          errorMsg = 'mode="session" requires thread=true so the subagent can stay bound to a thread.';
+        } else {
+          steps.push({ label: '模式检查', status: 'pass', detail: `mode=${mode}` });
+        }
+      }
+
+      // Step 4: 创建会话
+      if (status === 'accepted') {
+        steps.push({ label: '创建会话', status: 'pass', detail: `agent:${agentId}:subagent:{uuid}` });
+        steps.push({ label: '配置注入', status: 'pass', detail: `spawnDepth=${depth + 1}` });
+        steps.push({ label: '调用网关', status: 'pass', detail: 'agent.start()' });
+        steps.push({ label: '注册运行', status: 'pass', detail: 'registerSubagentRun()' });
+      }
+
+      // 渲染流程
+      simFlow.innerHTML = steps.map((step, i) => `
+        <div class="flow-node ${step.status === 'fail' ? 'blocked' : ''}" style="animation: fadeUp 0.3s ease ${i * 0.1}s forwards; opacity: 0;">
+          <div class="flex items-center gap-2">
+            <span class="w-5 h-5 rounded flex items-center justify-center text-xs"
+                  style="background: ${step.status === 'pass' ? 'var(--glow-cyan)' : 'var(--glow-orange)'}; 
+                         color: ${step.status === 'pass' ? 'var(--accent-cyan)' : 'var(--accent-orange)'};">
+              ${step.status === 'pass' ? '✓' : '✕'}
+            </span>
+            <div>
+              <span class="text-xs font-semibold">${step.label}</span>
+              <span class="text-xs ml-2" style="color: var(--fg-muted);">${step.detail}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      // 渲染结果
+      const childKey = status === 'accepted' ? `agent:${agentId}:subagent:sim-${Date.now().toString(36)}` : undefined;
+      
+      simResult.innerHTML = `
+        <div class="code-content font-mono text-xs">
+          <div class="code-line" style="color: var(--fg-secondary);">{</div>
+          <div class="code-line">  <span style="color: var(--accent-violet);">status</span>: <span style="color: ${status === 'accepted' ? 'var(--accent-cyan)' : status === 'forbidden' ? 'var(--accent-orange)' : 'var(--accent-amber)'};">"${status}"</span>,</div>
+          ${childKey ? `<div class="code-line">  <span style="color: var(--accent-violet);">childSessionKey</span>: <span style="color: var(--accent-amber);">"${childKey}"</span>,</div>` : ''}
+          <div class="code-line">  <span style="color: var(--accent-violet);">mode</span>: <span style="color: var(--accent-amber);">"${mode}"</span>,</div>
+          ${errorMsg ? `<div class="code-line">  <span style="color: var(--accent-violet);">error</span>: <span style="color: var(--accent-orange);">"${errorMsg.substring(0, 50)}..."</span></div>` : ''}
+          <div class="code-line" style="color: var(--fg-secondary);">}</div>
+        </div>
+      `;
+    }
+
+    // ========== 事件绑定 ==========
+    function initEventListeners() {
+      // 深度控制
+      if (depthAddBtn) {
+        depthAddBtn.addEventListener('click', () => {
+          if (currentDepth < maxDepth) {
+            currentDepth++;
+            renderDepthVisualization();
+          }
+        });
+      }
+
+      if (depthResetBtn) {
+        depthResetBtn.addEventListener('click', () => {
+          currentDepth = 0;
+          renderDepthVisualization();
+        });
+      }
+
+      // 模式选择
+      modeCards.forEach(card => {
+        card.addEventListener('click', () => {
+          modeCards.forEach(c => c.classList.remove('selected'));
+          card.classList.add('selected');
+          selectedMode = card.dataset.mode || 'run';
+          if (simMode) simMode.value = selectedMode;
+        });
+      });
+
+      // 模拟器
+      if (simRunBtn) {
+        simRunBtn.addEventListener('click', runSimulation);
+      }
+    }
+
+    // ========== 初始化 ==========
+    function init() {
+      renderSpawnFlow();
+      renderDepthVisualization();
+      renderPermissionTable();
+      initEventListeners();
+      
+      // 默认选中 run 模式
+      const runCard = document.querySelector('.mode-card[data-mode="run"]');
+      if (runCard) runCard.classList.add('selected');
+    }
+
+    // 暴露给全局的函数
+    window.showStepDetail = function(stepId) {
+      const step = SPAWN_FLOW_STEPS.find(s => s.id === stepId);
+      if (step) {
+        alert(`${step.label}\n\n${step.desc}`);
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

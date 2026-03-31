@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智能体 - OpenClaw 学术词</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #060b14; --bg-card: #0c1420; --fg: #e2e8f0; --muted: #64748b; --accent: #00d4aa; --border: rgba(0, 212, 170, 0.15); }
+    * { box-sizing: border-box; }
+    body { font-family: 'Noto Sans SC', sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; line-height: 1.7; }
+    .font-display { font-family: 'Space Grotesk', sans-serif; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 1rem; }
+    .card:hover { border-color: var(--accent); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .tag { display: inline-block; padding: 4px 12px; background: rgba(0, 212, 170, 0.15); border-radius: 999px; margin: 4px; font-size: 0.875rem; }
+    
+    .agent-demo {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding: 24px;
+      background: rgba(0, 212, 170, 0.05);
+      border-radius: 12px;
+    }
+    
+    .agent-brain {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+      background: linear-gradient(135deg, rgba(138, 43, 226, 0.2), rgba(0, 212, 170, 0.1));
+      border: 2px solid rgba(138, 43, 226, 0.5);
+      border-radius: 16px;
+      position: relative;
+    }
+    
+    .brain-icon {
+      font-size: 3rem;
+      animation: think 2s infinite;
+    }
+    
+    @keyframes think {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    
+    .task-input {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    .task-btn {
+      padding: 12px 20px;
+      background: rgba(0, 212, 170, 0.1);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      color: var(--fg);
+    }
+    
+    .task-btn:hover {
+      background: rgba(0, 212, 170, 0.2);
+      transform: translateY(-2px);
+    }
+    
+    .capability-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    .capability-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+      background: rgba(100, 116, 139, 0.1);
+      border: 1px solid rgba(100, 116, 139, 0.3);
+      border-radius: 12px;
+      min-width: 120px;
+      transition: all 0.3s ease;
+    }
+    
+    .capability-box.active {
+      background: rgba(0, 212, 170, 0.2);
+      border-color: var(--accent);
+      transform: scale(1.05);
+    }
+    
+    .output-box {
+      padding: 16px;
+      background: rgba(0, 212, 170, 0.1);
+      border-radius: 8px;
+      border-left: 4px solid var(--accent);
+      min-height: 60px;
+    }
+    
+    .typing {
+      display: inline-block;
+    }
+    
+    .typing::after {
+      content: '|';
+      animation: blink 1s infinite;
+    }
+    
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+    
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    
+    .feature-item {
+      padding: 16px;
+      background: rgba(0, 212, 170, 0.05);
+      border-radius: 8px;
+      border-left: 3px solid var(--accent);
+    }
+    
+    .code-block {
+      background: #0d1117;
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+    
+    .code-block .keyword { color: #ff7b72; }
+    .code-block .string { color: #a5d6ff; }
+    .code-block .comment { color: #8b949e; }
+    .code-block .function { color: #d2a8ff; }
+  </style>
+</head>
+<body class="p-8">
+  <div class="max-w-3xl mx-auto">
+    <a href="index.html" class="text-sm text-[var(--muted)] hover:text-[var(--accent)]">← 返回学术词索引</a>
+    <h1 class="font-display text-3xl font-bold mt-6 mb-2" style="background: linear-gradient(135deg, var(--fg), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">智能体 (Agent)</h1>
+    <p class="text-[var(--muted)] text-sm mb-8">架构相关 · Pi = Programming Intelligence</p>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-2 text-[var(--accent)]">🎯 一句话理解</h2>
+      <p class="text-lg">智能体就像一个<strong class="text-[var(--accent)]">会思考的助手</strong>，它能理解你的需求，自主规划步骤，并完成复杂的编程任务。</p>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-2 text-[var(--accent)]">💡 形象比喻</h2>
+      <div class="space-y-4">
+        <div class="p-4 bg-gradient-to-r from-purple-500/10 to-transparent rounded-lg">
+          <p class="font-semibold mb-2">🤖 超级程序员助手</p>
+          <p class="text-[var(--muted)]">想象有一个永不疲倦的程序员助手，你只需要告诉它"帮我做一个登录功能"，它就会自己分析需求、设计方案、编写代码、测试调试，最后交付一个完整的功能。</p>
+        </div>
+        <div class="p-4 bg-gradient-to-r from-green-500/10 to-transparent rounded-lg">
+          <p class="font-semibold mb-2">🧠 会学习的工匠</p>
+          <p class="text-[var(--muted)]">智能体像一个会学习的工匠，每次完成任务后都会积累经验，下次遇到类似问题时能更快更好地解决。它还能学会新的技能（Skills），变得越来越强大。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card mb-8">
+      <h2 class="font-display text-lg font-semibold mb-4 text-[var(--accent)] flex items-center gap-2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+        交互演示：智能体工作流程
+      </h2>
+      <p class="text-[var(--muted)] mb-4">点击下方的任务，观察智能体如何处理：</p>
+      
+      <div class="agent-demo">
+        <div class="task-input">
+          <button class="task-btn" onclick="assignTask('code')">📝 写一个排序函数</button>
+          <button class="task-btn" onclick="assignTask('debug')">🐛 帮我找Bug</button>
+          <button class="task-btn" onclick="assignTask('refactor')">🔧 重构这段代码</button>
+        </div>
+        
+        <div class="agent-brain">
+          <span class="brain-icon">🧠</span>
+          <span class="font-display font-semibold text-lg mt-2">Pi 智能体</span>
+          <span class="text-sm text-[var(--muted)]" id="agent-status">等待任务...</span>
+        </div>
+        
+        <div class="capability-row">
+          <div class="capability-box" id="cap-understand">
+            <span>📖</span>
+            <span class="text-sm">理解需求</span>
+          </div>
+          <div class="capability-box" id="cap-plan">
+            <span>📋</span>
+            <span class="text-sm">规划步骤</span>
+          </div>
+          <div class="capability-box" id="cap-execute">
+            <span>⚡</span>
+            <span class="text-sm">执行任务</span>
+          </div>
+          <div class="capability-box" id="cap-verify">
+            <span>✅</span>
+            <span class="text-sm">验证结果</span>
+          </div>
+        </div>
+        
+        <div class="output-box" id="output-box">
+          <span class="text-[var(--muted)]">智能体输出将显示在这里...</span>
+        </div>
+      </div>
+      
+      <p class="text-sm text-[var(--muted)] text-center mt-4">
+        💡 Pi = Programming Intelligence，专门处理编程任务的AI智能体
+      </p>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">🔧 核心能力</h2>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <p class="font-semibold mb-1">💻 代码生成</p>
+          <p class="text-sm text-[var(--muted)]">根据需求自动生成高质量代码</p>
+        </div>
+        <div class="feature-item">
+          <p class="font-semibold mb-1">🔍 问题诊断</p>
+          <p class="text-sm text-[var(--muted)]">分析错误原因，提供修复方案</p>
+        </div>
+        <div class="feature-item">
+          <p class="font-semibold mb-1">🔄 代码重构</p>
+          <p class="text-sm text-[var(--muted)]">优化代码结构，提升可维护性</p>
+        </div>
+        <div class="feature-item">
+          <p class="font-semibold mb-1">📚 技能学习</p>
+          <p class="text-sm text-[var(--muted)]">通过EvoMap学习新技能</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">📝 代码示例</h2>
+      <p class="text-[var(--muted)] mb-3">智能体的任务处理流程：</p>
+      <div class="code-block">
+        <span class="comment">// 智能体处理任务的伪代码</span><br>
+        <span class="keyword">class</span> <span class="function">ProgrammingAgent</span> {<br>
+        &nbsp;&nbsp;<span class="keyword">async</span> <span class="function">handleTask</span>(task) {<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">const</span> understanding = <span class="keyword">await</span> <span class="keyword">this</span>.understand(task);<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">const</span> plan = <span class="keyword">await</span> <span class="keyword">this</span>.plan(understanding);<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">const</span> result = <span class="keyword">await</span> <span class="keyword">this</span>.execute(plan);<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return</span> <span class="keyword">this</span>.verify(result);<br>
+        &nbsp;&nbsp;}<br>
+        }
+      </div>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-2 text-[var(--accent)]">🎓 学习提示词</h2>
+      <p class="text-[var(--muted)] italic">我想学习关于openclaw关于智能体的知识，之所以用html是因为可读性和可拓展性关联性等，让我更好地理解其学术词和学术词有关地其他学术词</p>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">🔗 相关学术词</h2>
+      <div><span class="tag"><a href="代码生成.html">代码生成</a></span><span class="tag"><a href="问题诊断.html">问题诊断</a></span><span class="tag"><a href="代码重构.html">代码重构</a></span><span class="tag"><a href="进程.html">进程</a></span><span class="tag"><a href="网关.html">网关</a></span></div>
+    </section>
+
+    <section class="card">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">📚 学习要点</h2>
+      <ul class="list-disc list-inside space-y-2">
+        <li><strong class="text-[var(--accent)]">Pi</strong> = Programming Intelligence，专门处理编程任务的AI</li>
+        <li>智能体具有<strong class="text-[var(--accent)]">自主性</strong>：能独立规划和执行任务</li>
+        <li>核心能力：代码生成、问题诊断、代码重构、技能学习</li>
+        <li>通过EvoMap可以学习和继承新的编程技能</li>
+        <li>理解智能体在OpenClaw架构中的核心地位</li>
+      </ul>
+    </section>
+  </div>
+
+  <script>
+    const capabilities = ['cap-understand', 'cap-plan', 'cap-execute', 'cap-verify'];
+    const outputs = {
+      code: '✅ 已生成快速排序函数\n📋 时间复杂度: O(n log n)\n💻 代码行数: 15行\n🎯 测试通过: 10/10',
+      debug: '🔍 发现问题: 数组越界访问\n📍 位置: 第23行\n💡 修复建议: 添加边界检查\n✅ 已自动修复',
+      refactor: '📊 分析完成: 发现3处可优化\n🔄 已重构: 提取公共方法\n📈 代码质量提升: 35%\n✅ 所有测试通过'
+    };
+    
+    function assignTask(type) {
+      capabilities.forEach(id => document.getElementById(id).classList.remove('active'));
+      document.getElementById('output-box').innerHTML = '<span class="text-[var(--muted)]">处理中...</span>';
+      document.getElementById('agent-status').textContent = '🔄 正在处理任务...';
+      
+      let step = 0;
+      const interval = setInterval(() => {
+        if (step < capabilities.length) {
+          document.getElementById(capabilities[step]).classList.add('active');
+          step++;
+        } else {
+          clearInterval(interval);
+          document.getElementById('agent-status').textContent = '✅ 任务完成';
+          document.getElementById('output-box').innerHTML = '<pre style="white-space: pre-wrap;">' + outputs[type] + '</pre>';
+        }
+      }, 500);
+    }
+  </script>
+</body>
+</html>

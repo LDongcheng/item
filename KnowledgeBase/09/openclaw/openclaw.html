@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenClaw Gateway - 架构与学术术语详解</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --light-bg: #f8f9fa;
+            --border-color: #e0e0e0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.8;
+            color: #333;
+            background-color: #fff;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* 标题样式 */
+        h1, h2, h3, h4 {
+            color: var(--primary-color);
+            margin-top: 2em;
+            margin-bottom: 1em;
+            font-weight: 600;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            border-bottom: 3px solid var(--secondary-color);
+            padding-bottom: 0.5em;
+            margin-bottom: 1.5em;
+        }
+
+        h2 {
+            font-size: 1.8em;
+            border-left: 4px solid var(--secondary-color);
+            padding-left: 15px;
+        }
+
+        h3 {
+            font-size: 1.4em;
+            color: #2c3e50;
+        }
+
+        /* 目录样式 */
+        .toc {
+            background: var(--light-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px 0;
+        }
+
+        .toc h2 {
+            margin-top: 0;
+            border-left: none;
+            padding-left: 0;
+        }
+
+        .toc ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .toc li {
+            margin: 8px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .toc li::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: var(--secondary-color);
+        }
+
+        .toc a {
+            color: var(--secondary-color);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .toc a:hover {
+            color: var(--accent-color);
+            text-decoration: underline;
+        }
+
+        /* 术语卡片样式 */
+        .term-card {
+            background: var(--light-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            transition: box-shadow 0.3s;
+        }
+
+        .term-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .term-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: var(--secondary-color);
+            margin-bottom: 10px;
+        }
+
+        .term-english {
+            color: #7f8c8d;
+            font-style: italic;
+            margin-bottom: 10px;
+            font-family: "Courier New", monospace;
+        }
+
+        .term-definition {
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .term-related {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed var(--border-color);
+        }
+
+        .term-related h4 {
+            margin-top: 0;
+            font-size: 1em;
+            color: var(--success-color);
+        }
+
+        .related-term {
+            display: inline-block;
+            background: white;
+            border: 1px solid var(--secondary-color);
+            border-radius: 4px;
+            padding: 5px 10px;
+            margin: 5px 5px 5px 0;
+            font-size: 0.9em;
+            color: var(--secondary-color);
+        }
+
+        /* 架构图样式 */
+        .architecture-diagram {
+            background: var(--light-bg);
+            border: 2px solid var(--secondary-color);
+            border-radius: 8px;
+            padding: 30px;
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .component-box {
+            display: inline-block;
+            background: white;
+            border: 2px solid var(--primary-color);
+            border-radius: 6px;
+            padding: 15px 25px;
+            margin: 10px;
+            font-weight: bold;
+            color: var(--primary-color);
+            min-width: 150px;
+        }
+
+        .arrow {
+            font-size: 2em;
+            color: var(--secondary-color);
+            margin: 10px 0;
+        }
+
+        .channel-box {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        .agent-box {
+            background: var(--success-color);
+            color: white;
+            border-color: var(--success-color);
+        }
+
+        /* 代码块样式 */
+        .code-block {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: "Courier New", monospace;
+            font-size: 0.9em;
+        }
+
+        .code-block .comment {
+            color: #7f8c8d;
+            font-style: italic;
+        }
+
+        .code-block .keyword {
+            color: #e74c3c;
+        }
+
+        .code-block .string {
+            color: #27ae60;
+        }
+
+        /* 关系图样式 */
+        .relationship-section {
+            background: var(--light-bg);
+            border-radius: 8px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+
+        .relationship-section h2 {
+            margin-top: 0;
+            border-left: none;
+            padding-left: 0;
+        }
+
+        .relationship-item {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            border-left: 4px solid var(--success-color);
+        }
+
+        .relationship-arrow {
+            font-size: 2em;
+            color: var(--warning-color);
+            margin: 0 20px;
+        }
+
+        /* 重点标记样式 */
+        .highlight {
+            background: linear-gradient(120deg, #fff3cd 0%, #fff3cd 100%);
+            background-repeat: no-repeat;
+            background-size: 100% 40%;
+            background-position: 0 90%;
+            padding: 0 4px;
+        }
+
+        .important {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .important h4 {
+            color: #856404;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        /* 可折叠部分 */
+        details {
+            background: var(--light-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin: 10px 0;
+            padding: 15px;
+        }
+
+        summary {
+            cursor: pointer;
+            font-weight: bold;
+            color: var(--secondary-color);
+            outline: none;
+        }
+
+        summary:hover {
+            color: var(--accent-color);
+        }
+
+        details[open] summary {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            h2 {
+                font-size: 1.5em;
+            }
+
+            .component-box {
+                display: block;
+                margin: 10px auto;
+                width: 80%;
+            }
+        }
+
+        /* 表格样式 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background: var(--secondary-color);
+            color: white;
+            font-weight: bold;
+        }
+
+        tr:nth-child(even) {
+            background: var(--light-bg);
+        }
+
+        /* 页脚 */
+        footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 2px solid var(--border-color);
+            text-align: center;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <h1>🦞 OpenClaw Gateway 架构与学术术语详解</h1>
+
+    <nav class="toc">
+        <h2>📚 目录</h2>
+        <ul>
+            <li><a href="#overview">1. 系统概述 (System Overview)</a></li>
+            <li><a href="#architecture">2. 核心架构 (Core Architecture)</a></li>
+            <li><a href="#gateway-core">3. Gateway 核心组件</a></li>
+            <li><a href="#communication">4. 通信机制 (Communication Mechanisms)</a></li>
+            <li><a href="#academic-terms">5. 学术术语详解 (Academic Terminology)</a></li>
+            <li><a href="#relationships">6. 概念关联图 (Concept Relationships)</a></li>
+            <li><a href="#extension">7. 可扩展性分析 (Extensibility Analysis)</a></li>
+        </ul>
+    </nav>
+
+    <section id="overview">
+        <h2>1. 系统概述 (System Overview)</h2>
+
+        <div class="important">
+            <h4>📌 核心定义</h4>
+            <p><strong>OpenClaw Gateway</strong> 是一个单一 HTTP+WebSocket 服务器，作为整个 OpenClaw 系统的<span class="highlight">控制平面</span> (Control Plane)，负责协调所有状态管理和通信。</p>
+        </div>
+
+        <p>OpenClaw 采用了<span class="highlight">分布式微服务架构</span>，其中 Gateway 扮演着中央协调器的角色，管理多个异构组件的交互。</p>
+    </section>
+
+    <section id="architecture">
+        <h2>2. 核心架构 (Core Architecture)</h2>
+
+        <div class="architecture-diagram">
+            <h3>🏗️ OpenClaw 系统架构图</h3>
+            <div style="margin: 30px 0;">
+                <div class="component-box channel-box">Channels<br><small>(飞书/WhatsApp/Telegram)</small></div>
+                <div class="arrow">⇄</div>
+                <div class="component-box" style="border-color: var(--accent-color);">Gateway<br><small>(HTTP+WebSocket Server)</small></div>
+                <div class="arrow">⇄</div>
+                <div class="component-box agent-box">Pi Agent<br><small>(嵌入式编码代理)</small></div>
+            </div>
+            <div style="margin: 30px 0;">
+                <div class="arrow">⬇</div>
+                <div class="component-box" style="background: #9b59b6; color: white; border-color: #9b59b6;">Skills<br><small>(工具/能力系统)</small></div>
+                <div class="arrow">⬇</div>
+                <div class="component-box" style="background: #34495e; color: white; border-color: #34495e;">Workspace<br><small>(工作空间)</small></div>
+            </div>
+        </div>
+
+        <div class="term-card">
+            <div class="term-name">控制平面 (Control Plane)</div>
+            <div class="term-english">Control Plane</div>
+            <div class="term-definition">
+                <p>控制平面是系统架构中的<span class="highlight">管理层</span>，负责协调、调度和管理数据平面组件的运行。在 OpenClaw 中，Gateway 作为控制平面，处理所有非数据转发的管理功能。</p>
+            </div>
+            <div class="term-related">
+                <h4>🔗 相关概念：</h4>
+                <span class="related-term">数据平面 (Data Plane)</span>
+                <span class="related-term">管理平面 (Management Plane)</span>
+                <span class="related-term">编排器 (Orchestrator)</span>
+            </div>
+        </div>
+    </section>
+
+    <section id="gateway-core">
+        <h2>3. Gateway 核心组件</h2>
+
+        <div class="term-card">
+            <div class="term-name">HTTP 服务器 (HTTP Server)</div>
+            <div class="term-english">Hypertext Transfer Protocol Server</div>
+            <div class="term-definition">
+                <p>Gateway 提供基于 HTTP/HTTPS 的 RESTful API，用于外部系统的同步调用。HTTP 采用<span class="highlight">请求-响应</span> (Request-Response) 模式，具有无状态特性。</p>
+            </div>
+            <div class="term-related">
+                <h4>🔗 相关概念：</h4>
+                <span class="related-term">RESTful API</span>
+                <span class="related-term">无状态 (Stateless)</span>
+                <span class="related-term">同步通信 (Synchronous Communication)</span>
+            </div>
+        </div>
+
+        <div class="term-card">
+            <div class="term-name">WebSocket 服务器</div>
+            <div class="term-english">WebSocket Server</div>
+            <div class="term-definition">
+                <p>WebSocket 提供全双工通信通道，支持<span class="highlight">持久连接</span> 和<span class="highlight">实时双向通信</span>。在 OpenClaw 中，WebSocket 用于 Web UI 的实时更新和某些渠道的实时消息推送。</p>
+            </div>
+            <div class="term-related">
+                <h4>🔗 相关概念：</h4>
+                <span class="related-term">全双工 (Full-Duplex)</span>
+                <span class="related-term">持久连接 (Persistent Connection)</span>
+                <span class="related-term">事件驱动 (Event-Driven)</span>
+            </div>
+        </div>
+
+        <div class="term-card">
+            <div class="term-name">状态管理器 (State Manager)</div>
+            <div class="term-english">State Manager</div>
+            <div class="term-definition">
+                <p>维护系统的<span class="highlight">全局状态</span>，包括 Agent 会话、渠道连接状态、配置信息等。状态管理是实现<span class="highlight">有状态服务</span> (Stateful Service) 的关键。</p>
+            </div>
+            <div class="term-related">
+                <h4>🔗 相关概念：</h4>
+                <span class="related-term">会话管理 (Session Management)</span>
+                <span class="related-term">状态机 (State Machine)</span>
+                <span class="related-term">持久化 (Persistence)</span>
+            </div>
+        </div>
+    </section>
+
+    <section id="communication">
+        <h2>4. 通信机制 (Communication Mechanisms)</h2>
+
+        <h3>4.1 RPC 通信 (Remote Procedure Call)</h3>
+
+        <div class="term-card">
+            <div class="term-name">远程过程调用 (RPC)</div>
+            <div class="term-english">Remote Procedure Call</div>
+            <div class="term-definition">
+                <p>RPC 是一种<span class="highlight">进程间通信</span> (IPC) 机制，允许程序调用位于另一台机器或进程中的函数，就像调用本地函数一样。Gateway 与 Pi Agent 通过 RPC 进行通信。</p>
+            </div>
+            <div class="term-related">
+                <h4>🔗 相关概念：</h4>
+                <span class="related-term">IPC (Inter-Process Communication)</span>
+                <span class="related-term">序列化 (Serialization)</span>
+                <span class="related-term">服务发现 (Service Discovery)</span>
+            </div>
+        </div>
+
+        <div class="code-block">
+            <span class="comment">// RPC 调用示例</span>
+            <span class="keyword">const</span> response = <span class="keyword">await</span> agent.executeTask({
+                task: <span class="string">"code_generation"</span>,
+                params: { prompt: <span class="string">"写一个排序算法"</span> }
+            });
+        </div>
+
+        <h3>4.2 事件驱动架构 (Event-Driven Architecture)</h3>
+
+        <div class="term-card">
+            <div class="term-name">事件驱动架构 (EDA)</div>
+            <div class="term-english">Event-Driven Architecture</div>
+            <div class="term-definition">
+                <p>EDA 是一种<span class="highlight">异步通信模式</span>，组件通过事件进行解耦通信。当特定事件发生时，生产者发布事件，消费者订阅并处理事件。</p>
+            </div>
+            <div class="term-related">
+                <h4>🔗 相关概念：</h4>
+                <span class="related-term">发布-订阅 (Pub/Sub)</span>
+                <span class="related-term">异步处理 (Asynchronous Processing)</span>
+                <span class="related-term">事件溯源 (Event Sourcing)</span>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>特性</th>
+                    <th>同步通信 (RPC)</th>
+                    <th>异步通信 (事件驱动)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>响应时间</td>
+                    <td>实时响应</td>
+                    <td>可能延迟</td>
+                </tr>
+                <tr>
+                    <td>耦合度</td>
+                    <td>强耦合</td>
+                    <td>松耦合</td>
+                </tr>
+                <tr>
+                    <td>可靠性</td>
+                    <td>同步错误处理</td>
+                    <td>需要消息队列</td>
+                </tr>
+                <tr>
+                    <td>适用场景</td>
+                    <td>实时性要求高</td>
+                    <td>高并发、解耦需求</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section id="academic-terms">
+        <h2>5. 学术术语详解 (Academic Terminology)</h2>
+
+        <div class="relationship-section">
+            <h2>📖 核心学术词汇树</h2>
+
+            <h3>5.1 架构模式 (Architectural Patterns)</h3>
+
+            <details>
+                <summary>微服务架构 (Microservices Architecture)</summary>
+                <div class="term-definition">
+                    <p>将单一应用程序开发为一组小型服务的方法，每个服务运行在自己的进程中，并使用轻量级机制（通常是 HTTP API）进行通信。</p>
+                    <div class="term-related">
+                        <h4>🔗 扩展概念：</h4>
+                        <span class="related-term">单体架构 (Monolithic)</span>
+                        <span class="related-term">服务网格 (Service Mesh)</span>
+                        <span class="related-term">容器化 (Containerization)</span>
+                    </div>
+                </div>
+            </details>
+
+            <details>
+                <summary>客户端-服务器架构 (Client-Server Architecture)</summary>
+                <div class="term-definition">
+                    <p>一种分布式系统架构，客户端向服务器请求服务，服务器处理请求并返回响应。OpenClaw Gateway 充当服务器，处理来自多个客户端（Channel、Web UI）的请求。</p>
+                    <div class="term-related">
+                        <h4>🔗 扩展概念：</h4>
+                        <span class="related-term">三层架构 (3-Tier Architecture)</span>
+                        <span class="related-term">B/S 架构 (Browser/Server)</span>
+                        <span class="related-term">C/S 架构 (Client/Server)</span>
+                    </div>
+                </div>
+            </details>
+
+            <details>
+                <summary>插件架构 (Plugin Architecture)</summary>
+                <div class="term-definition">
+                    <p>一种允许在不修改核心代码的情况下扩展系统功能的架构模式。OpenClaw 的 Skills 系统采用插件架构，允许动态加载和使用各种工具。</p>
+                    <div class="term-related">
+                        <h4>🔗 扩展概念：</h4>
+                        <span class="related-term">模块化 (Modularity)</span>
+                        <span class="related-term">依赖注入 (Dependency Injection)</span>
+                        <span class="related-term">钩子机制 (Hook Mechanism)</span>
+                    </div>
+                </div>
+            </details>
+
+            <h3>5.2 通信协议 (Communication Protocols)</h3>
+
+            <details>
+                <summary>WebSocket 协议</summary>
+                <div class="term-definition">
+                    <p>一种在单个 TCP 连接上提供全双工通信信道的协议。它从 HTTP 升级而来，适合实时应用场景。</p>
+                    <div class="term-related">
+                        <h4>🔗 扩展概念：</h4>
+                        <span class="related-term">握手 (Handshake)</span>
+                        <span class="related-term">帧 (Frame)</span>
+                        <span class="related-term">心跳 (Heartbeat)</span>
+                    </div>
+                </div>
+            </details>
+
+            <details>
+                <summary>RESTful API</summary>
+                <div class="term-definition">
+                    <p>符合 REST (Representational State Transfer) 风格的 Web API，使用 HTTP 方法（GET、POST、PUT、DELETE）操作资源。</p>
+                    <div class="term-related">
+                        <h4>🔗 扩展概念：</h4>
+                        <span class="related-term">资源 (Resource)</span>
+                        <span class="related-term">状态转移 (State Transfer)</span>
+                        <span class="related-term">幂等性 (Idempotency)</span>
+                    </div>
+                </div>
+            </details>
+
+            <h3>5.3 并发与并行 (Concurrency & Parallelism)</h3>
+
+            <details>
+                <summary>并发 (Concurrency)</summary>
+                <div class="term-definition">
+                    <p>同时处理多个任务的能力，但不一定同时执行。在单核 CPU 上，通过时间片轮转实现并发。</p>
+                </div>
+            </details>
+
+            <details>
+                <summary>并行 (Parallelism)</summary>
+                <div class="term-definition">
+                    <p>同时执行多个任务的能力，需要多核 CPU 或多台机器支持。并行是并发的一种特殊形式。</p>
+                </div>
+            </details>
+
+            <div class="relationship-item">
+                <span class="component-box" style="font-size: 0.9em;">异步 I/O (Async I/O)</span>
+                <span class="relationship-arrow">⇒</span>
+                <div>
+                    <strong>非阻塞 I/O 模型</strong><br>
+                    <small>允许程序在等待 I/O 操作时执行其他任务</small>
+                </div>
+            </div>
+
+            <h3>5.4 数据处理模式 (Data Processing Patterns)</h3>
+
+            <details>
+                <summary>流式处理 (Stream Processing)</summary>
+                <div class="term-definition">
+                    <p>以流的形式连续处理数据，而不是等待所有数据到达后再处理。适合实时性要求高的场景。</p>
+                    <div class="term-related">
+                        <h4>🔗 扩展概念：</h4>
+                        <span class="related-term">实时处理 (Real-time Processing)</span>
+                        <span class="related-term">批处理 (Batch Processing)</span>
+                        <span class="related-term">增量处理 (Incremental Processing)</span>
+                    </div>
+                </div>
+            </details>
+
+            <details>
+                <summary>事件循环 (Event Loop)</summary>
+                <div class="term-definition">
+                    <p>一种编程模型，用于处理异步回调事件。Node.js 采用事件循环机制实现非阻塞 I/O。</p>
+                </div>
+            </details>
+        </div>
+    </section>
+
+    <section id="relationships">
+        <h2>6. 概念关联图 (Concept Relationships)</h2>
+
+        <div class="relationship-section">
+            <h3>6.1 通信模式对比</h3>
+
+            <div class="relationship-item">
+                <div style="flex: 1;">
+                    <strong>同步通信 (Synchronous)</strong>
+                    <ul>
+                        <li>RPC</li>
+                        <li>HTTP REST API</li>
+                        <li>立即返回结果</li>
+                    </ul>
+                </div>
+                <span class="relationship-arrow">↔</span>
+                <div style="flex: 1;">
+                    <strong>异步通信 (Asynchronous)</strong>
+                    <ul>
+                        <li>WebSocket</li>
+                        <li>事件驱动</li>
+                        <li>回调/Promise</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>6.2 架构层次关系</h3>
+
+            <div style="background: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+                <div style="text-align: center; margin-bottom: 10px;">
+                    <strong>应用层 (Application Layer)</strong>
+                </div>
+                <div style="text-align: center;">Web UI | Channels</div>
+                <div style="text-align: center; margin: 10px 0;">↓</div>
+                <div style="text-align: center; margin-bottom: 10px;">
+                    <strong>表示层 (Presentation Layer)</strong>
+                </div>
+                <div style="text-align: center;">Gateway (HTTP + WebSocket)</div>
+                <div style="text-align: center; margin: 10px 0;">↓</div>
+                <div style="text-align: center; margin-bottom: 10px;">
+                    <strong>业务逻辑层 (Business Logic Layer)</strong>
+                </div>
+                <div style="text-align: center;">Pi Agent | Skills</div>
+                <div style="text-align: center; margin: 10px 0;">↓</div>
+                <div style="text-align: center; margin-bottom: 10px;">
+                    <strong>数据层 (Data Layer)</strong>
+                </div>
+                <div style="text-align: center;">Workspace | Sessions</div>
+            </div>
+        </div>
+    </section>
+
+    <section id="extension">
+        <h2>7. 可扩展性分析 (Extensibility Analysis)</h2>
+
+        <div class="important">
+            <h4>🔧 OpenClaw 的扩展点</h4>
+            <ol>
+                <li><strong>渠道扩展 (Channel Extension)</strong>：通过插件系统添加新的消息平台</li>
+                <li><strong>技能扩展 (Skill Extension)</strong>：动态加载新的工具和能力</li>
+                <li><strong>Agent 扩展</strong>：创建专门的子 Agent 处理特定任务</li>
+                <li><strong>中间件扩展</strong>：在请求处理流程中插入自定义逻辑</li>
+            </ol>
+        </div>
+
+        <div class="term-card">
+            <div class="term-name">开闭原则 (Open-Closed Principle)</div>
+            <div class="term-english">OCP - Open for Extension, Closed for Modification</div>
+            <div class="term-definition">
+                <p>软件实体应该对扩展开放，对修改关闭。OpenClaw 通过插件和配置系统实现这一原则，允许在不修改核心代码的情况下扩展功能。</p>
+            </div>
+            <div class="term-related">
+                <h4>🔗 相关设计原则：</h4>
+                <span class="related-term">单一职责原则 (SRP)</span>
+                <span class="related-term">依赖倒置原则 (DIP)</span>
+                <span class="related-term">接口隔离原则 (ISP)</span>
+            </div>
+        </div>
+
+        <div class="term-card">
+            <div class="term-name">水平扩展 (Horizontal Scaling)</div>
+            <div class="term-english">Scaling Out</div>
+            <div class="term-definition">
+                <p>通过增加更多的服务器实例来增加系统容量。OpenClaw 的微服务架构支持水平扩展，可以将不同的 Agent 部署在不同的服务器上。</p>
+            </div>
+            <div class="term-related">
+                <h4>🔗 对比概念：</h4>
+                <span class="related-term">垂直扩展 (Vertical Scaling)</span>
+                <span class="related-term">负载均衡 (Load Balancing)</span>
+                <span class="related-term">分布式系统 (Distributed System)</span>
+            </div>
+        </div>
+
+        <h3>扩展性实现机制</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>扩展类型</th>
+                    <th>实现方式</th>
+                    <th>示例</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>功能扩展</td>
+                    <td>插件系统</td>
+                    <td>飞书、WhatsApp 渠道</td>
+                </tr>
+                <tr>
+                    <td>能力扩展</td>
+                    <td>Skill 系统</td>
+                    <td>Web 搜索、文件处理</td>
+                </tr>
+                <tr>
+                    <td>代理扩展</td>
+                    <td>Agent 绑定</td>
+                    <td>专门的代码审查 Agent</td>
+                </tr>
+                <tr>
+                    <td>协议扩展</td>
+                    <td>适配器模式</td>
+                    <td>支持新的通信协议</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <footer>
+        <p>🦞 OpenClaw Gateway - 架构与学术术语详解</p>
+        <p>版本 1.0 | 更新时间：2026年</p>
+        <p>本文档旨在帮助理解 OpenClaw 的架构设计和相关学术概念</p>
+    </footer>
+</body>
+</html>
