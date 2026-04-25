@@ -1,0 +1,708 @@
+<!-- 像素画编辑器页面 - 像素游戏风格（内联样式） -->
+<section class="pixel-editor-page">
+    <style>
+/* 基础变量 */
+:root {
+    --pixel-bg: #fbebd3;
+    --pixel-border: #181818;
+    --pixel-text: #181818;
+    --pixel-accent: #4CAF50;
+    --pixel-accent-dark: #388E3C;
+    --pixel-panel-bg: #d4c4a8;
+    --pixel-btn-bg: #e8d8bc;
+    --pixel-btn-active: #c8b898;
+    --pixel-grid-line: #c0b090;
+}
+
+/* 页面整体 */
+.pixel-editor-page {
+    width: 100%;
+    height: 100vh;
+    background-color: var(--pixel-bg);
+    font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
+    display: flex;
+    flex-direction: column;
+    color: var(--pixel-text);
+}
+
+/* 顶部工具栏 */
+.editor-toolbar {
+    height: 40px;
+    background-color: var(--pixel-panel-bg);
+    border-bottom: 2px solid var(--pixel-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+}
+
+.toolbar-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin: 0;
+}
+
+.toolbar-right {
+    display: flex;
+    gap: 8px;
+}
+
+.toolbar-btn {
+    padding: 6px 12px;
+    background-color: var(--pixel-btn-bg);
+    border: 2px solid var(--pixel-border);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.toolbar-btn:hover {
+    background-color: var(--pixel-btn-active);
+}
+
+.toolbar-btn.primary {
+    background-color: var(--pixel-accent);
+    color: white;
+    border-color: var(--pixel-accent-dark);
+}
+
+/* 主内容区 */
+.editor-main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+/* 左侧工具面板 */
+.tool-panel {
+    width: 200px;
+    background-color: var(--pixel-panel-bg);
+    border-right: 2px solid var(--pixel-border);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+}
+
+.panel-section {
+    background-color: var(--pixel-btn-bg);
+    border: 2px solid var(--pixel-border);
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.section-title {
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: var(--pixel-border);
+}
+
+/* 工具按钮 */
+.tool-buttons {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.tool-btn {
+    width: 40px;
+    height: 40px;
+    background-color: var(--pixel-bg);
+    border: 2px solid var(--pixel-border);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.tool-btn:hover {
+    background-color: var(--pixel-btn-active);
+}
+
+.tool-btn.active {
+    background-color: var(--pixel-accent);
+    border-color: var(--pixel-accent-dark);
+    color: white;
+}
+
+/* 尺寸输入 */
+.size-inputs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.size-input {
+    width: 50px;
+    padding: 4px;
+    border: 2px solid var(--pixel-border);
+    border-radius: 2px;
+    background-color: var(--pixel-bg);
+    font-size: 12px;
+    text-align: center;
+}
+
+.size-separator {
+    font-weight: bold;
+}
+
+.size-btn {
+    padding: 4px 8px;
+    background-color: var(--pixel-accent);
+    color: white;
+    border: 2px solid var(--pixel-accent-dark);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* 当前颜色 */
+.current-color {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.color-preview {
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--pixel-border);
+    background-image: linear-gradient(45deg, #ccc 25%, transparent 25%),
+                      linear-gradient(-45deg, #ccc 25%, transparent 25%),
+                      linear-gradient(45deg, transparent 75%, #ccc 75%),
+                      linear-gradient(-45deg, transparent 75%, #ccc 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+}
+
+.color-preview.has-color {
+    background-image: none;
+}
+
+.color-value {
+    font-size: 12px;
+    font-family: monospace;
+}
+
+.transparent-btn {
+    width: 100%;
+    padding: 6px;
+    background-color: var(--pixel-bg);
+    border: 2px solid var(--pixel-border);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.transparent-btn.active {
+    background-color: #ff6b6b;
+    border-color: #cc5555;
+}
+
+/* 调色板 */
+.palette-section {
+    flex: 1;
+    min-height: 150px;
+    overflow-y: auto;
+}
+
+.palette-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 2px;
+}
+
+.palette-color {
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--pixel-border);
+    cursor: pointer;
+}
+
+.palette-color:hover {
+    transform: scale(1.2);
+}
+
+.palette-color.selected {
+    border: 2px solid var(--pixel-accent);
+}
+
+/* 中间画布区域 */
+.canvas-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--pixel-bg);
+    overflow: auto;
+    position: relative;
+}
+
+/* 参考图层 */
+.reference-layer {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1;
+}
+
+.reference-image {
+    max-width: 300px;
+    max-height: 300px;
+    opacity: 0.5;
+    border: 1px dashed #888;
+    cursor: move;
+}
+
+.reference-controls {
+    background-color: var(--pixel-panel-bg);
+    border: 2px solid var(--pixel-border);
+    padding: 8px;
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ref-label {
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ref-slider {
+    width: 100px;
+}
+
+.ref-btn {
+    padding: 4px 8px;
+    background-color: #ff6b6b;
+    color: white;
+    border: 2px solid #cc5555;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.upload-ref-btn {
+    padding: 8px 16px;
+    background-color: var(--pixel-btn-bg);
+    border: 2px solid var(--pixel-border);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* 画布容器 */
+.canvas-container {
+    position: relative;
+    display: inline-block;
+}
+
+/* 像素网格 */
+.pixel-grid {
+    display: grid;
+    border: 2px solid var(--pixel-border);
+    background-image: linear-gradient(45deg, #e0d0b0 25%, transparent 25%),
+                      linear-gradient(-45deg, #e0d0b0 25%, transparent 25%),
+                      linear-gradient(45deg, transparent 75%, #e0d0b0 75%),
+                      linear-gradient(-45deg, transparent 75%, #e0d0b0 75%);
+    background-size: 8px 8px;
+}
+
+/* 像素单元格 */
+.pixel-cell {
+    width: 12px;
+    height: 12px;
+    border: 1px solid var(--pixel-grid-line);
+    cursor: crosshair;
+}
+
+.pixel-cell:hover {
+    border-color: var(--pixel-border);
+}
+
+.pixel-cell.has-color {
+    background-image: none;
+}
+
+/* 选框层 */
+.selection-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.selection-box {
+    position: absolute;
+    border: 2px dashed var(--pixel-accent);
+    background-color: rgba(76, 175, 80, 0.1);
+    pointer-events: auto;
+    cursor: move;
+}
+
+/* 选框操作面板 */
+.selection-panel {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: var(--pixel-panel-bg);
+    border: 2px solid var(--pixel-border);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 20;
+}
+
+.sel-btn {
+    padding: 6px 12px;
+    background-color: var(--pixel-btn-bg);
+    border: 2px solid var(--pixel-border);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* 右侧信息面板 */
+.info-panel {
+    width: 150px;
+    background-color: var(--pixel-panel-bg);
+    border-left: 2px solid var(--pixel-border);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.pixel-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+}
+
+.stat-label {
+    color: #888;
+}
+
+.stat-value {
+    font-weight: bold;
+}
+
+/* 快捷键列表 */
+.shortcut-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.shortcut-item {
+    font-size: 11px;
+}
+
+.shortcut-item kbd {
+    background-color: var(--pixel-bg);
+    border: 1px solid var(--pixel-border);
+    border-radius: 2px;
+    padding: 1px 4px;
+    font-family: monospace;
+    margin-right: 4px;
+}
+
+/* 底部状态栏 */
+.editor-statusbar {
+    height: 24px;
+    background-color: var(--pixel-panel-bg);
+    border-top: 2px solid var(--pixel-border);
+    padding: 4px 16px;
+    font-size: 12px;
+}
+
+/* 弹窗 */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.modal-content {
+    background-color: var(--pixel-panel-bg);
+    border: 4px solid var(--pixel-border);
+    border-radius: 8px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 2px solid var(--pixel-border);
+}
+
+.modal-header h2 {
+    font-size: 16px;
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.modal-body {
+    padding: 16px;
+}
+
+.export-textarea,
+.import-textarea {
+    width: 100%;
+    height: 200px;
+    background-color: var(--pixel-bg);
+    border: 2px solid var(--pixel-border);
+    padding: 8px;
+    font-family: monospace;
+    font-size: 10px;
+    resize: vertical;
+}
+
+.export-error,
+.import-error {
+    color: #ff6b6b;
+    font-size: 12px;
+    margin-top: 8px;
+    padding: 8px;
+    background-color: rgba(255, 107, 107, 0.1);
+    border: 1px solid #ff6b6b;
+    border-radius: 4px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 2px solid var(--pixel-border);
+}
+
+.modal-btn {
+    padding: 8px 16px;
+    background-color: var(--pixel-btn-bg);
+    border: 2px solid var(--pixel-border);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.modal-btn.primary {
+    background-color: var(--pixel-accent);
+    color: white;
+    border-color: var(--pixel-accent-dark);
+}
+
+/* 响应式 */
+@media (max-width: 900px) {
+    .tool-panel { width: 160px; }
+    .info-panel { width: 120px; }
+    .pixel-cell { width: 10px; height: 10px; }
+    .palette-color { width: 12px; height: 12px; }
+}
+
+@media (max-width: 600px) {
+    .tool-panel, .info-panel { width: 100px; font-size: 10px; }
+    .pixel-cell { width: 8px; height: 8px; }
+}
+    </style>
+
+    <!-- 顶部工具栏 -->
+    <header class="editor-toolbar">
+        <div class="toolbar-left">
+            <h1 class="toolbar-title">像素画编辑器</h1>
+        </div>
+        <div class="toolbar-right">
+            <button class="toolbar-btn" id="btnNew">新建</button>
+            <button class="toolbar-btn" id="btnClear">清空</button>
+            <button class="toolbar-btn primary" id="btnExport">导出</button>
+            <button class="toolbar-btn" id="btnImport">导入</button>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="editor-main">
+        <!-- 左侧工具面板 -->
+        <aside class="tool-panel">
+            <!-- 工具选择 -->
+            <div class="panel-section">
+                <div class="section-title">工具</div>
+                <div class="tool-buttons">
+                    <button class="tool-btn active" data-tool="brush" title="画笔(B)">✏️</button>
+                    <button class="tool-btn" data-tool="eraser" title="橡皮擦(E)">🧹</button>
+                    <button class="tool-btn" data-tool="fill" title="填充(F)">🪣</button>
+                    <button class="tool-btn" data-tool="select" title="选框(S)">⬜</button>
+                </div>
+            </div>
+
+            <!-- 画布尺寸 -->
+            <div class="panel-section">
+                <div class="section-title">画布尺寸</div>
+                <div class="size-inputs">
+                    <input type="number" id="canvasWidth" value="41" min="4" max="128" class="size-input">
+                    <span class="size-separator">×</span>
+                    <input type="number" id="canvasHeight" value="41" min="4" max="128" class="size-input">
+                    <button class="size-btn" id="btnResize">应用</button>
+                </div>
+            </div>
+
+            <!-- 当前颜色 -->
+            <div class="panel-section">
+                <div class="section-title">当前颜色</div>
+                <div class="current-color">
+                    <div class="color-preview" id="colorPreview"></div>
+                    <span class="color-value" id="colorValue">透明</span>
+                </div>
+                <button class="transparent-btn" id="btnTransparent">选择透明色</button>
+            </div>
+
+            <!-- 调色板 -->
+            <div class="panel-section palette-section">
+                <div class="section-title">调色板</div>
+                <div class="palette-grid" id="paletteGrid"></div>
+            </div>
+        </aside>
+
+        <!-- 中间画布区域 -->
+        <div class="canvas-area">
+            <!-- 参考图层容器 -->
+            <div class="reference-layer" id="referenceLayer">
+                <input type="file" id="referenceInput" accept="image/*" style="display:none">
+                <img id="referenceImage" class="reference-image" style="display:none">
+                <div class="reference-controls" id="referenceControls" style="display:none">
+                    <label class="ref-label">透明度: <input type="range" id="referenceOpacity" min="0" max="100" value="50" class="ref-slider"></label>
+                    <label class="ref-label">大小: <input type="range" id="referenceScale" min="10" max="200" value="100" class="ref-slider"></label>
+                    <button class="ref-btn" id="btnRemoveReference">移除参考图</button>
+                </div>
+                <button class="upload-ref-btn" id="btnUploadReference">上传参考图</button>
+            </div>
+
+            <!-- 像素画布 -->
+            <div class="canvas-container" id="canvasContainer">
+                <div class="pixel-grid" id="pixelGrid"></div>
+                <!-- 选框层 -->
+                <div class="selection-layer" id="selectionLayer" style="display:none">
+                    <div class="selection-box" id="selectionBox"></div>
+                </div>
+            </div>
+
+            <!-- 选框操作面板 -->
+            <div class="selection-panel" id="selectionPanel" style="display:none">
+                <button class="sel-btn" id="btnCopySelection">复制</button>
+                <button class="sel-btn" id="btnMoveSelection">移动</button>
+                <button class="sel-btn" id="btnDeleteSelection">删除</button>
+                <button class="sel-btn" id="btnCancelSelection">取消</button>
+            </div>
+        </div>
+
+        <!-- 右侧信息面板 -->
+        <aside class="info-panel">
+            <div class="panel-section">
+                <div class="section-title">像素统计</div>
+                <div class="pixel-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">总像素:</span>
+                        <span class="stat-value" id="totalPixels">1681</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">已绘制:</span>
+                        <span class="stat-value" id="drawnPixels">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">透明:</span>
+                        <span class="stat-value" id="transparentPixels">1681</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-title">快捷键</div>
+                <div class="shortcut-list">
+                    <div class="shortcut-item"><kbd>B</kbd> 画笔</div>
+                    <div class="shortcut-item"><kbd>E</kbd> 橿皮擦</div>
+                    <div class="shortcut-item"><kbd>F</kbd> 填充</div>
+                    <div class="shortcut-item"><kbd>S</kbd> 选框</div>
+                    <div class="shortcut-item"><kbd>T</kbd> 透明色</div>
+                    <div class="shortcut-item"><kbd>Ctrl+S</kbd> 导出</div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- 底部状态栏 -->
+    <footer class="editor-statusbar">
+        <span class="status-text" id="statusText">就绪 - 选择工具开始绘制</span>
+    </footer>
+
+    <!-- 导出弹窗 -->
+    <div class="modal" id="exportModal" style="display:none">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>导出JSON数据</h2>
+                <button class="modal-close" id="closeExportModal">×</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="exportTextarea" class="export-textarea" readonly></textarea>
+                <div class="export-error" id="exportError" style="display:none"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn" id="btnCopyExport">复制到剪贴板</button>
+                <button class="modal-btn primary" id="btnDownloadExport">下载文件</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入弹窗 -->
+    <div class="modal" id="importModal" style="display:none">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>导入JSON数据</h2>
+                <button class="modal-close" id="closeImportModal">×</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="importTextarea" class="import-textarea" placeholder="粘贴JSON数据..."></textarea>
+                <div class="import-error" id="importError" style="display:none"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn primary" id="btnConfirmImport">导入</button>
+            </div>
+        </div>
+    </div>
+</section>

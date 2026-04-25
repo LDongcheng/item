@@ -10,7 +10,7 @@ class App {
     init() {
         // 初始化路由
         this.initRouter();
-        // 加载默认页面
+        // 加载默认页面（pixel-editor 像素编辑器 / pixel-canvas 角色展示）
         this.loadPage('pixel-canvas');
     }
 

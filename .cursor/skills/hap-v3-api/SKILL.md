@@ -241,6 +241,27 @@ POST /v3/app/worksheets/{worksheet_id}/rows
 ### 阶段四: 查询和分析数据
 
 **Step 7: 查询记录列表**
+
+#### 方式一：关键词模糊搜索 ⭐
+
+明道云原生支持 `keyWords` 参数进行全字段模糊搜索：
+
+```javascript
+POST /v3/app/worksheets/{worksheet_id}/rows/list
+{
+  "keyWords": "搜索关键词",  // ⭐ 全字段模糊搜索
+  "pageIndex": 1,
+  "pageSize": 20
+}
+```
+
+**特点**：
+- ✅ 全字段模糊匹配（标题、内容等所有文本字段）
+- ✅ 单关键词，不支持逗号分隔多个关键词
+- ✅ 明道云原生支持，速度快
+
+#### 方式二：Filter 筛选器查询
+
 ```javascript
 POST /v3/app/worksheets/{worksheet_id}/rows/list
 {
@@ -252,7 +273,7 @@ POST /v3/app/worksheets/{worksheet_id}/rows/list
         "type": "condition",
         "field": "customer_type",
         "operator": "eq",
-        "value": ["74c7b607-864d-4cc4-b401-28acba2636e9"]  // 使用key
+        "value": ["74c7b607-864d-4cc4-b401-28acba2636e9"]
       }
     ]
   },
@@ -260,6 +281,22 @@ POST /v3/app/worksheets/{worksheet_id}/rows/list
     "field": "annual_budget",
     "isAsc": false
   }],
+  "pageIndex": 1,
+  "pageSize": 20
+}
+```
+
+#### 方式三：组合搜索（关键词 + 筛选）
+
+```javascript
+POST /v3/app/worksheets/{worksheet_id}/rows/list
+{
+  "keyWords": "关键词",      // 模糊搜索
+  "filter": {               // 精准筛选
+    "type": "group",
+    "logic": "AND",
+    "children": [...]
+  },
   "pageIndex": 1,
   "pageSize": 20
 }
