@@ -9,7 +9,7 @@ team/
 ├── README.md           # 本文件
 ├── xiaozong/           # 小粽 - AI Agent（总经理）
 │   └── agent.md        # Agent配置文档
-├── ashuo/              # 阿硕（运营总监）
+├── ashuo/              # 阿说（运营总监）
 │   └── agent.md        # Agent配置文档
 ├── mengyao/            # 梁瑶（总经理助理、财务主管）
 │   └── agent.md        # Agent配置文档
@@ -24,7 +24,7 @@ team/
 | 成员 | rowid | 职位 | 工作环境 |
 |------|------|------|---------|
 | 小粽 | `1024efc4-27fd-4522-bf3c-e4ebc998393c` | 总经理 | 无影云 |
-| 阿硕 | `ceaa79bf-f4d8-45ae-8e1e-a1c9a3ac1b7d` | 运营总监 | Windows |
+| 阿说 | `ceaa79bf-f4d8-45ae-8e1e-a1c9a3ac1b7d` | 运营总监 | Windows |
 | 梁瑶 | `5b21306f-3be6-49fa-a6f6-2be311203c02` | 总经理助理、财务主管 | Windows |
 | 小风 | `a8515e76-7b02-4baf-bedd-3ff011b1a9e5` | 技术总监 | Windows |
 | 小云 | `22ff1c1c-f1d0-4275-980b-803835504a90` | 市场总监 | Windows |
