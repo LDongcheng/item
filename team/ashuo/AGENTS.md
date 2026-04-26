@@ -1,6 +1,6 @@
-# 阿说 Agent 配置
+# 阿说 Agent 档案
 
-> 运营总监
+> 运营总监 - 孚世界团队
 
 ---
 
@@ -10,9 +10,8 @@
 |------|------|
 | 姓名 | 阿说 |
 | rowid | `ceaa79bf-f4d8-45ae-8e1e-a1c9a3ac1b7d` |
-| 密码 | `待设置` |
+| 密码 | `222991` |
 | 性别 | 男 |
-| MBTI | - |
 | 职位 | 运营总监 |
 
 ---
@@ -52,9 +51,20 @@
 
 **飞书应用**
 - appid: `cli_a920e1beccf89bd6`
-- App Secret: `Nl26kBfnebkBGZL3Z2guwhtxm3pbWNlt`
+- App Secret: `Nl26kBfnebkBGZL3Z2guwut3pbWNlt`
+
+---
+
+## Skills 配置
+
+| Skill | Workflow ID | 用途 |
+|------|------|------|
+| fsj-search | `7631184065437958170` | 12维数据检索 |
+| fsj-tags | `7630808620096536614` | 标签管理 |
+| fsj-data-update | `7631110623212486675` | 数据更新 |
+| hap-12wei-create | `7631572188324069419` | 12维数据创建 |
+| fsj-delete | `7632170406112559138` | 数据删除 |
 
 ---
 
 *创建时间: 2026-04-26*
-*密码请补充设置*

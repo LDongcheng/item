@@ -173,6 +173,7 @@ curl -s -X POST 'https://api.coze.cn/v1/workflow/stream_run' \
 | Skill | 协同场景 |
 |-------|---------|
 | `fsj-fields` | 字段定义参考 |
+| `fsj-tags` | **创建数据前，先用此Skill获取标签rowid，再填入 guanjianci** |
 | `fsj-search` | 创建后检索验证 |
 | `fsj-data-update` | 创建后补充更新 |
 | `fsj-delete` | 删除错误创建的数据 |
@@ -183,10 +184,13 @@ curl -s -X POST 'https://api.coze.cn/v1/workflow/stream_run' \
 
 ```
 1. 确定 leixing（1技能~12复盘）
-2. 构造 controls 数组（改什么填什么）
-3. 创建 JSON 文件（UTF-8）
-4. curl --data-binary 发送
-5. 检查返回 rowid
+2. 如需设置 guanjianci（关键词标签）：
+   a. 先调用 fsj-tags 获取/创建标签，拿到 tag rowid
+   b. 将 rowid 用逗号拼接传入 guanjianci
+3. 构造 controls 数组（改什么填什么）
+4. 创建 JSON 文件（UTF-8）
+5. curl --data-binary 发送
+6. 检查返回 rowid
 ```
 
 ---
@@ -197,6 +201,7 @@ curl -s -X POST 'https://api.coze.cn/v1/workflow/stream_run' \
 2. **字段名拼写**：`fabuzhe` 不是 `fabudzhe`
 3. **中文必须文件发送**：避免乱码
 4. **改什么填什么**：不需要每个字段都填
+5. **⚠️ guanjianci（关键词）需要标签rowid，不是文本！** 必须先调用 `fsj-tags` 获取/创建标签拿到rowid，再传入此字段，多个rowid用逗号分隔
 
 ---
 

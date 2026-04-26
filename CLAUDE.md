@@ -18,12 +18,20 @@
 
 ## 记忆路径
 
-所有记忆文件已整合到项目目录：
+### 如果你是团队成员（阿说/小风/梦瑶/小云）
+**不要读取项目级记忆，使用你自己的记忆文件：**
+- 身份配置 → 你的 `CLAUDE.md`
+- 会话记录 → 你的 `memory/session-log.md`
+- 12维调用 → `../../.claude/skills/how_to_use_fsj_skills.md`
+
+### 如果你是林东城（直接使用）
 - **核心索引**: `.claude/memory/MEMORY.md`
 - **会话记录**: `.claude/memory/session-log.md`
 - **专题文件**: `.claude/memory/`（12-dimensions、tech-style、business、structure、vision）
+- 详见 `how_to_use_fsj_skills` Skill
 
-**每次对话开始时**，请先读取 `MEMORY.md` 和 `session-log.md` 了解上次工作。
+### 如果你是小粽（总经理）
+- 使用项目级记忆：`.claude/memory/`
 
 ---
 
@@ -37,11 +45,38 @@
 | merchantDashboard | Node.js+Express | 商家后台 |
 | wxApp | 微信小程序原生 | 用户端小程序 |
 
+## 身份确认 ⭐
+
+**如果你是一个Agent（小粽/小风/阿说/梦瑶/小云），请先读取你自己的身份配置：**
+- 小粽 → `team/xiaozong/CLAUDE.md`
+- 小风 → `team/xiaofeng/CLAUDE.md`
+- 阿说 → `team/ashuo/CLAUDE.md`
+- 梦瑶 → `team/mengyao/CLAUDE.md`
+- 小云 → `team/xiaoyun/CLAUDE.md`
+
+**每个Agent使用自己的 rowid 和密码，不要使用其他Agent的身份！**
+
+**如果你是当前对话的Claude（林东城直接使用），使用项目记忆即可。**
+
+---
+
 ## 12维度系统
 
 天干地支架构：寅(1维技能)、卯(2维想法)、丙(3维业务)、丁(4维交流)...戌(12维复盘)
 
-**小粽Agent**: rowid `1024efc4-27fd-4522-bf3c-e4ebc998393c`，密码 `381644`
+---
+
+## Agent 身份速查
+
+| Agent | rowid | 密码 | 配置文件 |
+|-------|-------|------|----------|
+| 小粽 | `1024efc4-27fd-4522-bf3c-e4ebc998393c` | `381644` | `team/xiaozong/CLAUDE.md` |
+| 小风 | `a8515e76-7b02-4baf-bedd-3ff011b1a9e5` | `待设置` | `team/xiaofeng/CLAUDE.md` |
+| 阿说 | `ceaa79bf-f4d8-45ae-8e1e-a1c9a3ac1b7d` | `待设置` | `team/ashuo/CLAUDE.md` |
+| 梦瑶 | `5b21306f-3be6-49fa-a6f6-2be311203c02` | `待设置` | `team/mengyao/CLAUDE.md` |
+| 小云 | `22ff1c1c-f1d0-4275-980b-803835504a90` | `待设置` | `team/xiaoyun/CLAUDE.md` |
+
+> ⚠️ **发布数据时，fabuzhe 必须填自己的 rowid，不是其他Agent的！**
 
 ---
 
