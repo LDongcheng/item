@@ -36,37 +36,54 @@ description: 3维业务管理技能。Agent通过此Skill管理业务、项目�
 
 ```json
 {
-  
-  "mima": "{{AGENT_PASSWORD}}",
-  "controls": [
-    {"controlId": "mingcheng", "value": "业务名称"},
-    {"controlId": "leixing", "value": "3", "valueType": "1"},
-    {"controlId": "neirong", "value": "业务详细内容"},
-    {"controlId": "kssj", "value": "开始时间"},
-    {"controlId": "yjwcsj", "value": "预计完成时间"},
-    {"controlId": "duixiang", "value": "业务对象"},
-    {"controlId": "fu", "value": ["计划rowid"]}
-  ]
+  "workflow_id": "7631572188324069419",
+  "parameters": {
+    "controls": [
+      {"controlId": "mingcheng", "value": "业务名称"},
+      {"controlId": "leixing", "value": "3项目"},
+      {"controlId": "neirong", "value": "业务详细内容"},
+      {"controlId": "kssj", "value": "2026-04-26 09:00:00"},
+      {"controlId": "yjwcsj", "value": "2026-04-30 18:00:00"},
+      {"controlId": "duixiang", "value": "业务对象rowid"},
+      {"controlId": "fu", "value": "计划rowid"},
+      {"controlId": "fabuzhe", "value": "发布者rowid"}
+    ],
+    "mima": "{{AGENT_PASSWORD}}",
+    "role_rowid": "{{AGENT_ROWID}}"
+  }
 }
 ```
+
+> **完整字段定义见**：[fsj-fields.md](fsj-fields.md)
 
 ### 2. 检索业务
 
-通过 `fsj-search` 检索，设置 `dimension: 3`
+通过 `fsj-search` 检索（Workflow ID: `7631184065437958170`）
 
 ### 3. 更新业务进度
 
+通过 `fsj-data-update` 更新（Workflow ID: `7631110623212486675`）
+
 ```json
 {
-  "controls": [
-    {"controlId": "sjwcsj", "value": "实际完成时间"},
-    {"controlId": "neirong", "value": "更新后的内容"},
-    {"controlId": "zi", "value": ["结果rowid"]}
-  ]
+  "workflow_id": "7631110623212486675",
+  "parameters": {
+    "rowid": "{{BUSINESS_ROWID}}",
+    "controls": [
+      {"controlId": "sjwcsj", "value": "2026-04-30 16:00:00"},
+      {"controlId": "neirong", "value": "更新后的内容"},
+      {"controlId": "zi", "value": "结果rowid1,结果rowid2"}
+    ],
+    "mima": "{{AGENT_PASSWORD}}"
+  }
 }
 ```
 
-### 4. 业务完成归档
+### 4. 删除业务
+
+通过 `fsj-delete` 删除（Workflow ID: `7632170406112559138`）
+
+### 5. 业务完成归档
 
 完成后存入11维(仓)，复盘存入12维(戌)
 
@@ -92,16 +109,19 @@ description: 3维业务管理技能。Agent通过此Skill管理业务、项目�
 
 ## 与其他 Skill 协同
 
-| Skill | 协同场景 |
-|-------|---------|
-| `fsj-search` | 检索业务 |
-| `fsj-data-update` | 创建/更新业务 |
-| `8-dimension` | 计划分解为业务 |
-| `11-dimension` | 业务结果存仓 |
-| `12-dimension` | 业务复盘 |
+| Skill | Workflow ID | 协同场景 |
+|-------|-------------|---------|
+| `hap-12wei-create` | `7631572188324069419` | 创建业务 |
+| `fsj-search` | `7631184065437958170` | 检索业务 |
+| `fsj-data-update` | `7631110623212486675` | 更新业务 |
+| `fsj-delete` | `7632170406112559138` | 删除业务 |
+| `fsj-fields` | - | 字段定义参考 |
+| `8-dimension` | - | 计划分解为业务 |
+| `11-dimension` | - | 业务结果存仓 |
+| `12-dimension` | - | 业务复盘 |
 
 ---
 
-**技能版本**: v1.0
-**最后更新**: 2026-04-22
+**技能版本**: v2.0
+**最后更新**: 2026-04-26
 **维度**: 3维(丙)业务

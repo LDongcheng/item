@@ -36,30 +36,35 @@ description: 2维想法管理技能。Agent通过此Skill管理创意、想法�
 
 ```json
 {
-  "mima": "{{AGENT_PASSWORD}}",
-  "controls": [
-    {"controlId": "mingcheng", "value": "想法名称"},
-    {"controlId": "leixing", "value": "2", "valueType": "1"},
-    {"controlId": "neirong", "value": "想法详细内容"},
-    {"controlId": "miaoshu", "value": "简短描述"},
-    {"controlId": "guanjianci", "value": ["标签rowid"], "editType": "1"}
-  ]
+  "workflow_id": "7631572188324069419",
+  "parameters": {
+    "controls": [
+      {"controlId": "mingcheng", "value": "想法名称"},
+      {"controlId": "leixing", "value": "2想法"},
+      {"controlId": "neirong", "value": "想法详细内容"},
+      {"controlId": "miaoshu", "value": "简短描述"},
+      {"controlId": "guanjianci", "value": "标签rowid1,标签rowid2"},
+      {"controlId": "fabuzhe", "value": "发布者rowid"}
+    ],
+    "mima": "{{AGENT_PASSWORD}}",
+    "role_rowid": "{{AGENT_ROWID}}"
+  }
 }
 ```
 
-> **worksheetId 已内置，无需输入**
+> **完整字段定义见**：[fsj-fields.md](fsj-fields.md)
 
 ### 2. 检索想法
 
-通过 `fsj-search` 检索，设置 `dimension: 2`
+通过 `fsj-search` 检索（Workflow ID: `7631184065437958170`）
 
 ### 3. 更新想法
 
-验证后更新状态，可能转化为技能或业务
+通过 `fsj-data-update` 更新（Workflow ID: `7631110623212486675`）
 
 ### 4. 删除想法
 
-想法被否定或放弃时删除
+通过 `fsj-delete` 删除（Workflow ID: `7632170406112559138`，只能删除自己发布的）
 
 ---
 
@@ -81,15 +86,18 @@ description: 2维想法管理技能。Agent通过此Skill管理创意、想法�
 
 ## 与其他 Skill 协同
 
-| Skill | 协同场景 |
-|-------|---------|
-| `fsj-search` | 检索想法 |
-| `fsj-data-update` | 创建/更新想法 |
-| `1-dimension` | 想法转化为技能 |
-| `3-dimension` | 想法转化为业务 |
+| Skill | Workflow ID | 协同场景 |
+|-------|-------------|---------|
+| `hap-12wei-create` | `7631572188324069419` | 创建想法 |
+| `fsj-search` | `7631184065437958170` | 检索想法 |
+| `fsj-data-update` | `7631110623212486675` | 更新想法 |
+| `fsj-delete` | `7632170406112559138` | 删除想法 |
+| `fsj-fields` | - | 字段定义参考 |
+| `1-dimension` | - | 想法转化为技能 |
+| `3-dimension` | - | 想法转化为业务 |
 
 ---
 
-**技能版本**: v1.0
-**最后更新**: 2026-04-22
+**技能版本**: v2.0
+**最后更新**: 2026-04-26
 **维度**: 2维(卯)想法

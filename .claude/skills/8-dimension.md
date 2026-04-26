@@ -36,20 +36,28 @@ description: 8维计划管理技能。Agent通过此Skill管理自己的计划�
 
 ```json
 {
-  
-  "mima": "{{AGENT_PASSWORD}}",
-  "controls": [
-    {"controlId": "mingcheng", "value": "计划名称"},
-    {"controlId": "leixing", "value": "8", "valueType": "1"},
-    {"controlId": "neirong", "value": "计划内容"},
-    {"controlId": "fu", "value": ["目标rowid"]},
-    {"controlId": "kssj", "value": "开始时间"},
-    {"controlId": "yjwcsj", "value": "预计完成时间"}
-  ]
+  "workflow_id": "7631572188324069419",
+  "parameters": {
+    "controls": [
+      {"controlId": "mingcheng", "value": "计划名称"},
+      {"controlId": "leixing", "value": "8计划"},
+      {"controlId": "neirong", "value": "计划内容"},
+      {"controlId": "fu", "value": "目标rowid"},
+      {"controlId": "kssj", "value": "2026-04-26 09:00:00"},
+      {"controlId": "yjwcsj", "value": "2026-04-30 18:00:00"},
+      {"controlId": "fabuzhe", "value": "发布者rowid"}
+    ],
+    "mima": "{{AGENT_PASSWORD}}",
+    "role_rowid": "{{AGENT_ROWID}}"
+  }
 }
 ```
 
+> **完整字段定义见**：[fsj-fields.md](fsj-fields.md)
+
 ### 2. 检索计划
+
+通过 `fsj-search` 检索（Workflow ID: `7631184065437958170`）
 
 查询自己的待办计划
 
@@ -59,14 +67,25 @@ description: 8维计划管理技能。Agent通过此Skill管理自己的计划�
 
 ### 4. 更新进度
 
+通过 `fsj-data-update` 更新（Workflow ID: `7631110623212486675`）
+
 ```json
 {
-  "controls": [
-    {"controlId": "sjwcsj", "value": "实际完成时间"},
-    {"controlId": "zi", "value": ["业务rowid"]}
-  ]
+  "workflow_id": "7631110623212486675",
+  "parameters": {
+    "rowid": "{{PLAN_ROWID}}",
+    "controls": [
+      {"controlId": "sjwcsj", "value": "2026-04-30 16:00:00"},
+      {"controlId": "zi", "value": "业务rowid1,业务rowid2"}
+    ],
+    "mima": "{{AGENT_PASSWORD}}"
+  }
 }
 ```
+
+### 5. 删除计划
+
+通过 `fsj-delete` 删除（Workflow ID: `7632170406112559138`）
 
 ---
 
@@ -84,16 +103,19 @@ description: 8维计划管理技能。Agent通过此Skill管理自己的计划�
 
 ## 与其他 Skill 协同
 
-| Skill | 协同场景 |
-|-------|---------|
-| `fsj-search` | 检索计划 |
-| `fsj-data-update` | 更新计划进度 |
-| `7-dimension` | 计划对齐目标 |
-| `3-dimension` | 计划分解为业务 |
-| `1-dimension` | 计划需要技能 |
+| Skill | Workflow ID | 协同场景 |
+|-------|-------------|---------|
+| `hap-12wei-create` | `7631572188324069419` | 创建计划 |
+| `fsj-search` | `7631184065437958170` | 检索计划 |
+| `fsj-data-update` | `7631110623212486675` | 更新计划进度 |
+| `fsj-delete` | `7632170406112559138` | 删除计划 |
+| `fsj-fields` | - | 字段定义参考 |
+| `7-dimension` | - | 计划对齐目标 |
+| `3-dimension` | - | 计划分解为业务 |
+| `1-dimension` | - | 计划需要技能 |
 
 ---
 
-**技能版本**: v1.0
-**最后更新**: 2026-04-22
+**技能版本**: v2.0
+**最后更新**: 2026-04-26
 **维度**: 8维(癸)计划

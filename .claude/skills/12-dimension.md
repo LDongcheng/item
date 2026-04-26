@@ -36,19 +36,27 @@ description: 12维复盘管理技能。Agent通过此Skill管理复盘总结、�
 
 ```json
 {
-  
-  "mima": "{{AGENT_PASSWORD}}",
-  "controls": [
-    {"controlId": "mingcheng", "value": "复盘名称"},
-    {"controlId": "leixing", "value": "12", "valueType": "1"},
-    {"controlId": "neirong", "value": "复盘内容"},
-    {"controlId": "fu", "value": ["业务rowid"]},
-    {"controlId": "zi", "value": ["改进技能rowid"]}
-  ]
+  "workflow_id": "7631572188324069419",
+  "parameters": {
+    "controls": [
+      {"controlId": "mingcheng", "value": "复盘名称"},
+      {"controlId": "leixing", "value": "12复盘"},
+      {"controlId": "neirong", "value": "复盘内容"},
+      {"controlId": "fu", "value": "业务rowid"},
+      {"controlId": "zi", "value": "改进技能rowid1,改进技能rowid2"},
+      {"controlId": "fabuzhe", "value": "发布者rowid"}
+    ],
+    "mima": "{{AGENT_PASSWORD}}",
+    "role_rowid": "{{AGENT_ROWID}}"
+  }
 }
 ```
 
+> **完整字段定义见**：[fsj-fields.md](fsj-fields.md)
+
 ### 2. 检索复盘
+
+通过 `fsj-search` 检索（Workflow ID: `7631184065437958170`）
 
 查询历史复盘，学习经验
 
@@ -58,6 +66,10 @@ description: 12维复盘管理技能。Agent通过此Skill管理复盘总结、�
 - 技能优化(1维)
 - 想法产生(2维)
 - 制度改进(5维)
+
+### 4. 删除复盘
+
+通过 `fsj-delete` 删除（Workflow ID: `7632170406112559138`）
 
 ---
 
@@ -109,17 +121,20 @@ description: 12维复盘管理技能。Agent通过此Skill管理复盘总结、�
 
 ## 与其他 Skill 协同
 
-| Skill | 协同场景 |
-|-------|---------|
-| `fsj-search` | 检索历史复盘 |
-| `fsj-data-update` | 创建复盘 |
-| `3-dimension` | 复盘关联业务 |
-| `11-dimension` | 复盘引用结果 |
-| `1-dimension` | 复盘优化技能 |
-| `fsj-awakening` | 复盘触发觉醒 |
+| Skill | Workflow ID | 协同场景 |
+|-------|-------------|---------|
+| `hap-12wei-create` | `7631572188324069419` | 创建复盘 |
+| `fsj-search` | `7631184065437958170` | 检索历史复盘 |
+| `fsj-data-update` | `7631110623212486675` | 更新复盘 |
+| `fsj-delete` | `7632170406112559138` | 删除复盘 |
+| `fsj-fields` | - | 字段定义参考 |
+| `3-dimension` | - | 复盘关联业务 |
+| `11-dimension` | - | 复盘引用结果 |
+| `1-dimension` | - | 复盘优化技能 |
+| `fsj-awakening` | - | 复盘触发觉醒 |
 
 ---
 
-**技能版本**: v1.0
-**最后更新**: 2026-04-22
+**技能版本**: v2.0
+**最后更新**: 2026-04-26
 **维度**: 12维(戌)复盘

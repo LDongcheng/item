@@ -8,15 +8,15 @@
 team/
 ├── README.md           # 本文件
 ├── xiaozong/           # 小粽 - AI Agent（总经理）
-│   └── agent.md        # Agent配置文档
+│   └── AGENTS.md       # Agent配置文档
 ├── ashuo/              # 阿说（运营总监）
-│   └── agent.md        # Agent配置文档
+│   └── AGENTS.md       # Agent配置文档
 ├── mengyao/            # 梁瑶（总经理助理、财务主管）
-│   └── agent.md        # Agent配置文档
+│   └── AGENTS.md       # Agent配置文档
 ├── xiaofeng/           # 小风（技术总监）
-│   └── agent.md        # Agent配置文档
+│   └── AGENTS.md       # Agent配置文档
 └── xiaoyun/            # 小云（市场总监）
-│   └── agent.md        # Agent配置文档
+│   └── AGENTS.md       # Agent配置文档
 ```
 
 ## 成员一览
@@ -38,7 +38,7 @@ cd E:\Item\fsj\team\xiaofeng
 claude
 ```
 
-每个成员目录下的 `agent.md` 包含：
+每个成员目录下的 `AGENTS.md` 包含：
 - 基本信息（rowid、密码、职位等）
 - 职责说明
 - 工作环境

@@ -38,35 +38,41 @@ description: 1维技能管理技能。Agent通过此Skill管理技能数据：�
 
 **使用场景**：Agent发现需要新技能来完成任务
 
-**操作方式**：通过 `fsj-data-update` Skill 创建新记录
+**操作方式**：通过 `hap-12wei-create` Skill 创建新记录
 
 ```json
 {
-  "mima": "{{AGENT_PASSWORD}}",
-  "controls": [
-    {"controlId": "mingcheng", "value": "技能名称"},
-    {"controlId": "leixing", "value": "1", "valueType": "1"},
-    {"controlId": "miaoshu", "value": "技能描述"},
-    {"controlId": "neirong", "value": "技能详细内容/代码/规范"},
-    {"controlId": "guanjianci", "value": ["标签rowid1", "标签rowid2"], "editType": "1"},
-    {"controlId": "quanzhong", "value": "100"}
-  ]
+  "workflow_id": "7631572188324069419",
+  "parameters": {
+    "controls": [
+      {"controlId": "mingcheng", "value": "技能名称"},
+      {"controlId": "leixing", "value": "1技能"},
+      {"controlId": "miaoshu", "value": "技能描述"},
+      {"controlId": "neirong", "value": "技能详细内容/代码/规范"},
+      {"controlId": "guanjianci", "value": "标签rowid1,标签rowid2"},
+      {"controlId": "quanzhong", "value": "100"},
+      {"controlId": "fabuzhe", "value": "发布者rowid"}
+    ],
+    "mima": "{{AGENT_PASSWORD}}",
+    "role_rowid": "{{AGENT_ROWID}}"
+  }
 }
 ```
 
-> **worksheetId 已内置，无需输入**
-
 **必填字段**：
 - `mingcheng` - 技能名称
-- `leixing` - 固定为 `1`
-- `neirong` - 技能内容
+- `leixing` - 固定为 `1技能`（完整文本）
+- `fabuzhe` - 发布者 rowid
 
 **可选字段**：
 - `miaoshu` - 简短描述
-- `guanjianci` - 关键词标签
+- `neirong` - 技能内容
+- `guanjianci` - 关键词标签（逗号分隔的rowid）
 - `quanzhong` - 权重（用于排序）
 - `fu` - 父记录（目标/计划等）
 - `readme` - 使用说明
+
+> **完整字段定义见**：[fsj-fields.md](fsj-fields.md)
 
 ---
 
@@ -80,9 +86,15 @@ description: 1维技能管理技能。Agent通过此Skill管理技能数据：�
 
 ```json
 {
-  "keywords": "数据分析",
-  "dimension": 1,
-  "limit": 20
+  "workflow_id": "7631184065437958170",
+  "parameters": {
+    "keyWords": "数据分析",
+    "pageSize": 20,
+    "sortId": "ctime",
+    "isAsc": "false",
+    "mima": "{{AGENT_PASSWORD}}",
+    "role_rowid": "{{AGENT_ROWID}}"
+  }
 }
 ```
 
@@ -90,14 +102,22 @@ description: 1维技能管理技能。Agent通过此Skill管理技能数据：�
 
 ```json
 {
-  "filters": [
-    {
-      "controlId": "guanjianci",
-      "value": "标签rowid",
-      "filterType": 2
-    }
-  ],
-  "dimension": 1
+  "workflow_id": "7631184065437958170",
+  "parameters": {
+    "filters": [
+      {
+        "controlId": "guanjianci",
+        "dataType": 29,
+        "filterType": 2,
+        "value": "标签rowid"
+      }
+    ],
+    "pageSize": 20,
+    "sortId": "ctime",
+    "isAsc": "false",
+    "mima": "{{AGENT_PASSWORD}}",
+    "role_rowid": "{{AGENT_ROWID}}"
+  }
 }
 ```
 
@@ -127,17 +147,18 @@ description: 1维技能管理技能。Agent通过此Skill管理技能数据：�
 
 ```json
 {
-  "rowid": "{{SKILL_ROWID}}",
-  "mima": "{{AGENT_PASSWORD}}",
-  "controls": [
-    {"controlId": "neirong", "value": "优化后的技能内容"},
-    {"controlId": "guanjianci", "value": ["新标签rowid"], "editType": "1"},
-    {"controlId": "quanzhong", "value": "150"}
-  ]
+  "workflow_id": "7631110623212486675",
+  "parameters": {
+    "rowid": "{{SKILL_ROWID}}",
+    "controls": [
+      {"controlId": "neirong", "value": "优化后的技能内容"},
+      {"controlId": "guanjianci", "value": "新标签rowid1,新标签rowid2"},
+      {"controlId": "quanzhong", "value": "150"}
+    ],
+    "mima": "{{AGENT_PASSWORD}}"
+  }
 }
 ```
-
-> **worksheetId 已内置，无需输入**
 
 **核心原则**：改什么填什么，不需要每个字段都填
 
@@ -147,17 +168,21 @@ description: 1维技能管理技能。Agent通过此Skill管理技能数据：�
 
 **使用场景**：技能过时或不再使用
 
-**操作方式**：通过 HAP API 删除记录
+**操作方式**：通过 `fsj-delete` Skill 删除（只能删除自己发布的）
 
-```bash
-curl -X DELETE 'https://api.mingdao.com/v3/app/worksheets/liu/rows/{{SKILL_ROWID}}' \
--H 'HAP-Appkey: {{APPKEY}}' \
--H 'HAP-Sign: {{SIGN}}' \
--H 'Content-Type: application/json'
+```json
+{
+  "workflow_id": "7632170406112559138",
+  "parameters": {
+    "mima": "{{AGENT_PASSWORD}}",
+    "rowid": "{{SKILL_ROWID}}"
+  }
+}
 ```
 
 **注意**：
 - 删除是不可逆操作
+- 只有数据发布者才能删除（密码验证）
 - 建议先标记为"废弃"状态，而非直接删除
 - 删除前检查是否有子记录依赖
 
@@ -201,13 +226,16 @@ curl -X DELETE 'https://api.mingdao.com/v3/app/worksheets/liu/rows/{{SKILL_ROWID
 
 ## 与其他 Skill 协同
 
-| Skill | 协同场景 |
-|-------|---------|
-| `fsj-search` | 检索技能数据 |
-| `fsj-data-update` | 创建/更新技能 |
-| `fsj-tags` | 管理技能关键词标签 |
-| `information-flow` | 定位技能在执行流程中的位置 |
-| `12-dimension` | 复盘技能效果 |
+| Skill | Workflow ID | 协同场景 |
+|-------|-------------|---------|
+| `hap-12wei-create` | `7631572188324069419` | 创建技能 |
+| `fsj-search` | `7631184065437958170` | 检索技能数据 |
+| `fsj-data-update` | `7631110623212486675` | 更新技能 |
+| `fsj-delete` | `7632170406112559138` | 删除技能 |
+| `fsj-tags` | `7630808620096536614` | 管理技能关键词标签 |
+| `fsj-fields` | - | 字段定义参考 |
+| `information-flow` | - | 定位技能在执行流程中的位置 |
+| `12-dimension` | - | 复盘技能效果 |
 
 ---
 
@@ -246,20 +274,24 @@ curl -X DELETE 'https://api.mingdao.com/v3/app/worksheets/liu/rows/{{SKILL_ROWID
 
 ## Windows 中文编码提醒 ⭐
 
-**调用 API 时必须用文件方式发送中文！**
+**调用 API 创建/更新时，中文必须用文件方式发送！**
 
 ```bash
+# 1. 创建 JSON 文件（UTF-8）
 cat > /tmp/skill.json << 'EOF'
 {
-  "workflow_id": "{{WORKFLOW_ID}}",
+  "workflow_id": "7631572188324069419",
   "parameters": {
-    
-    "controls": [{"controlId": "mingcheng", "value": "中文技能名"}]
+    "controls": [{"controlId": "mingcheng", "value": "中文技能名"}],
+    "mima": "密码",
+    "role_rowid": "Agent rowid"
   }
 }
 EOF
 
+# 2. 用 --data-binary 发送
 curl -X POST 'https://api.coze.cn/v1/workflow/stream_run' \
+-H "Authorization: Bearer {{TOKEN}}" \
 -H "Content-Type: application/json; charset=utf-8" \
 --data-binary @/tmp/skill.json
 ```
@@ -275,6 +307,6 @@ curl -X POST 'https://api.coze.cn/v1/workflow/stream_run' \
 
 ---
 
-**技能版本**: v1.0
-**最后更新**: 2026-04-22
+**技能版本**: v2.0
+**最后更新**: 2026-04-26
 **维度**: 1维(寅)技能

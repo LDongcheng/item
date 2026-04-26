@@ -36,25 +36,39 @@ description: 10维人脉管理技能。Agent通过此Skill管理用户画像、�
 
 ```json
 {
-  
-  "mima": "{{AGENT_PASSWORD}}",
-  "controls": [
-    {"controlId": "mingcheng", "value": "用户名称"},
-    {"controlId": "leixing", "value": "10", "valueType": "1"},
-    {"controlId": "neirong", "value": "用户画像信息"},
-    {"controlId": "duixiang", "value": "关联用户ID"},
-    {"controlId": "guanjianci", "value": ["标签rowid"]}
-  ]
+  "workflow_id": "7631572188324069419",
+  "parameters": {
+    "controls": [
+      {"controlId": "mingcheng", "value": "用户名称"},
+      {"controlId": "leixing", "value": "10人脉"},
+      {"controlId": "neirong", "value": "用户画像信息"},
+      {"controlId": "duixiang", "value": "关联用户rowid"},
+      {"controlId": "guanjianci", "value": "标签rowid1,标签rowid2"},
+      {"controlId": "fabuzhe", "value": "发布者rowid"}
+    ],
+    "mima": "{{AGENT_PASSWORD}}",
+    "role_rowid": "{{AGENT_ROWID}}"
+  }
 }
 ```
 
+> **完整字段定义见**：[fsj-fields.md](fsj-fields.md)
+
 ### 2. 检索用户信息
+
+通过 `fsj-search` 检索（Workflow ID: `7631184065437958170`）
 
 查询用户画像，提供个性化服务
 
 ### 3. 更新用户画像
 
+通过 `fsj-data-update` 更新（Workflow ID: `7631110623212486675`）
+
 根据交互历史更新画像
+
+### 4. 删除用户画像
+
+通过 `fsj-delete` 删除（Workflow ID: `7632170406112559138`）
 
 ---
 
@@ -71,14 +85,17 @@ description: 10维人脉管理技能。Agent通过此Skill管理用户画像、�
 
 ## 与其他 Skill 协同
 
-| Skill | 协同场景 |
-|-------|---------|
-| `fsj-search` | 检索用户信息 |
-| `fsj-data-update` | 更新用户画像 |
-| `4-dimension` | 交互记录关联 |
+| Skill | Workflow ID | 协同场景 |
+|-------|-------------|---------|
+| `hap-12wei-create` | `7631572188324069419` | 创建用户画像 |
+| `fsj-search` | `7631184065437958170` | 检索用户信息 |
+| `fsj-data-update` | `7631110623212486675` | 更新用户画像 |
+| `fsj-delete` | `7632170406112559138` | 删除用户画像 |
+| `fsj-fields` | - | 字段定义参考 |
+| `4-dimension` | - | 交互记录关联 |
 
 ---
 
-**技能版本**: v1.0
-**最后更新**: 2026-04-22
+**技能版本**: v2.0
+**最后更新**: 2026-04-26
 **维度**: 10维(辰)人脉

@@ -51,22 +51,27 @@ description: 4维交流管理技能。Agent通过此Skill管理与人、其他Ag
 
 ```json
 {
-  
-  "mima": "{{AGENT_PASSWORD}}",
-  "controls": [
-    {"controlId": "mingcheng", "value": "对话主题"},
-    {"controlId": "leixing", "value": "4", "valueType": "1"},
-    {"controlId": "neirong", "value": "对话内容"},
-    {"controlId": "fabuzhe", "value": "发布者ID"},
-    {"controlId": "duixiang", "value": "接收对象ID"},
-    {"controlId": "canyuzhe", "value": ["参与者列表"]}
-  ]
+  "workflow_id": "7631572188324069419",
+  "parameters": {
+    "controls": [
+      {"controlId": "mingcheng", "value": "对话主题"},
+      {"controlId": "leixing", "value": "4交流"},
+      {"controlId": "neirong", "value": "对话内容"},
+      {"controlId": "fabuzhe", "value": "发布者rowid"},
+      {"controlId": "duixiang", "value": "接收对象rowid"},
+      {"controlId": "canyuzhe", "value": "参与者rowid1,参与者rowid2"}
+    ],
+    "mima": "{{AGENT_PASSWORD}}",
+    "role_rowid": "{{AGENT_ROWID}}"
+  }
 }
 ```
 
+> **完整字段定义见**：[fsj-fields.md](fsj-fields.md)
+
 ### 2. 查询历史对话
 
-通过 `fsj-search` 检索，设置 `dimension: 4`
+通过 `fsj-search` 检索（Workflow ID: `7631184065437958170`）
 
 ### 3. 广播消息
 
@@ -86,14 +91,16 @@ description: 4维交流管理技能。Agent通过此Skill管理与人、其他Ag
 
 ## 与其他 Skill 协同
 
-| Skill | 协同场景 |
-|-------|---------|
-| `fsj-search` | 检索历史对话 |
-| `fsj-data-update` | 记录交流数据 |
-| WebSocket服务 | 实时消息传输 |
+| Skill | Workflow ID | 协同场景 |
+|-------|-------------|---------|
+| `hap-12wei-create` | `7631572188324069419` | 记录交流数据 |
+| `fsj-search` | `7631184065437958170` | 检索历史对话 |
+| `fsj-data-update` | `7631110623212486675` | 更新交流数据 |
+| `fsj-fields` | - | 字段定义参考 |
+| WebSocket服务 | - | 实时消息传输 |
 
 ---
 
-**技能版本**: v1.0
-**最后更新**: 2026-04-22
+**技能版本**: v2.0
+**最后更新**: 2026-04-26
 **维度**: 4维(丁)交流

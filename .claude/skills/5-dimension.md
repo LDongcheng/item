@@ -36,24 +36,36 @@ description: 5维制度管理技能。Agent通过此Skill管理规范、规章�
 
 ```json
 {
-  
-  "mima": "{{AGENT_PASSWORD}}",
-  "controls": [
-    {"controlId": "mingcheng", "value": "制度名称"},
-    {"controlId": "leixing", "value": "5", "valueType": "1"},
-    {"controlId": "neirong", "value": "制度内容"},
-    {"controlId": "quanzhong", "value": "100"}
-  ]
+  "workflow_id": "7631572188324069419",
+  "parameters": {
+    "controls": [
+      {"controlId": "mingcheng", "value": "制度名称"},
+      {"controlId": "leixing", "value": "5规则"},
+      {"controlId": "neirong", "value": "制度内容"},
+      {"controlId": "quanzhong", "value": "100"},
+      {"controlId": "fabuzhe", "value": "发布者rowid"}
+    ],
+    "mima": "{{AGENT_PASSWORD}}",
+    "role_rowid": "{{AGENT_ROWID}}"
+  }
 }
 ```
 
+> **完整字段定义见**：[fsj-fields.md](fsj-fields.md)
+
 ### 2. 检索制度
+
+通过 `fsj-search` 检索（Workflow ID: `7631184065437958170`）
 
 Agent执行任务前应先检索相关制度
 
 ### 3. 制度约束检查
 
 Agent行为是否符合制度规范
+
+### 4. 删除制度
+
+通过 `fsj-delete` 删除（Workflow ID: `7632170406112559138`）
 
 ---
 
@@ -69,13 +81,16 @@ Agent行为是否符合制度规范
 
 ## 与其他 Skill 协同
 
-| Skill | 协同场景 |
-|-------|---------|
-| `fsj-search` | 检索制度规范 |
-| `fsj-data-update` | 更新制度 |
+| Skill | Workflow ID | 协同场景 |
+|-------|-------------|---------|
+| `hap-12wei-create` | `7631572188324069419` | 创建制度 |
+| `fsj-search` | `7631184065437958170` | 检索制度规范 |
+| `fsj-data-update` | `7631110623212486675` | 更新制度 |
+| `fsj-delete` | `7632170406112559138` | 删除制度 |
+| `fsj-fields` | - | 字段定义参考 |
 
 ---
 
-**技能版本**: v1.0
-**最后更新**: 2026-04-22
+**技能版本**: v2.0
+**最后更新**: 2026-04-26
 **维度**: 5维(庚)制度
