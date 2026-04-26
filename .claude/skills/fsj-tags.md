@@ -215,28 +215,76 @@ curl -X POST 'https://api.coze.cn/v1/workflow/run' \
 | 配置项 | 状态 | 说明 |
 |--------|------|------|
 | `TOKEN` | ✅ 已配置 | `sat_PsqZd6JJl9qOPZoT30rPv2gLKAVIMXGMmIp38VzXXIRU77nzgzk09yvcFwNT8Z4h` |
-| `WORKFLOW_ID_GET_OR_CREATE` | ✅ 已测试 | `7630808620096536614`（2026-04-26 测试通过） |
-| `WORKFLOW_ID_SEARCH` | ⚠️ 待调整 | `7632929583486058511`（返回数据非标签表） |
-| `WORKFLOW_ID_RETAG` | ❌ 待配置 | 重新打标签 |
+| `WORKFLOW_ID_GET_OR_CREATE` | ✅ 已测试 | `7630808620096536614`（获取/创建标签） |
+| `WORKFLOW_ID_SEARCH` | ✅ 已测试 | `7632929583486058511`（搜索标签，无需鉴权） |
+
+> **重新打标签**：不需要单独 Workflow，直接用 `fsj-data-update` 更新 `guanjianci` 字段即可
 
 ---
 
-## 搜索标签 Workflow 参数
+## 搜索标签 Workflow
+
+**无需权限验证！标签是全局的，任何人都可以查询。**
+
+### 参数
 
 ```json
 {
   "workflow_id": "7632929583486058511",
   "parameters": {
-    "role_rowid": "Agent rowid",
-    "mima": "密码",
-    "pageSize": 20,
+    "keyWords": "搜索关键词（可选）",
+    "pageSize": 10,
     "sortId": "ctime",
     "isAsc": "false"
   }
 }
 ```
 
-> ⚠️ 当前返回数据非标签表数据，需在 Coze Workflow 中调整 worksheetId
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `keyWords` | string | ❌ | 搜索关键词，不传则返回全部 |
+| `pageSize` | number | ✅ | 返回数量 |
+| `sortId` | string | ✅ | 排序字段，如 `ctime` |
+| `isAsc` | string | ✅ | 是否升序，`"true"` / `"false"` |
+
+### 返回字段
+
+| 字段 | 说明 |
+|------|------|
+| `rowid` | 标签唯一标识 |
+| `mingcheng` | 标签名称 |
+| `ctime` | 创建时间 |
+
+### 示例
+
+```bash
+# 搜索标签
+curl -s -X POST 'https://api.coze.cn/v1/workflow/stream_run' \
+-H "Authorization: Bearer sat_PsqZd6JJl9qOPZoT30rPv2gLKAVIMXGMmIp38VzXXIRU77nzgzk09yvcFwNT8Z4h" \
+-H "Content-Type: application/json" \
+-d '{
+  "workflow_id": "7632929583486058511",
+  "parameters": {
+    "keyWords": "历史",
+    "pageSize": 10,
+    "sortId": "ctime",
+    "isAsc": "false"
+  }
+}'
+
+# 返回全部标签（不传 keyWords）
+curl -s -X POST 'https://api.coze.cn/v1/workflow/stream_run' \
+-H "Authorization: Bearer sat_PsqZd6JJl9qOPZoT30rPv2gLKAVIMXGMmIp38VzXXIRU77nzgzk09yvcFwNT8Z4h" \
+-H "Content-Type: application/json" \
+-d '{
+  "workflow_id": "7632929583486058511",
+  "parameters": {
+    "pageSize": 25,
+    "sortId": "ctime",
+    "isAsc": "false"
+  }
+}'
+```
 
 ---
 
