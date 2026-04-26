@@ -127,10 +127,18 @@
 | hap-12wei-create | `7631572188324069419` | 12维创建 |
 | fsj-delete | `7632170406112559138` | 数据删除（二次开发） ⭐ NEW |
 
-### 小粽 Agent 配置 ⭐
+### Agent 身份速查 ⭐
 
-- **rowid**: `1024efc4-27fd-4522-bf3c-e4ebc998393c`
-- **密码**: `381644`
+| Agent | rowid | 密码 | 配置文件 |
+|-------|-------|------|----------|
+| 小粽 | `1024efc4-27fd-4522-bf3c-e4ebc998393c` | `381644` | `team/xiaozong/CLAUDE.md` |
+| 小风 | `a8515e76-7b02-4baf-bedd-3ff011b1a9e5` | `待设置` | `team/xiaofeng/CLAUDE.md` |
+| 阿说 | `ceaa79bf-f4d8-45ae-8e1e-a1c9a3ac1b7d` | `待设置` | `team/ashuo/CLAUDE.md` |
+| 梦瑶 | `5b21306f-3be6-49fa-a6f6-2be311203c02` | `待设置` | `team/mengyao/CLAUDE.md` |
+| 小云 | `22ff1c1c-f1d0-4275-980b-803835504a90` | `待设置` | `team/xiaoyun/CLAUDE.md` |
+| 东城 | `待设置` | `待设置` | `team/dongcheng/CLAUDE.md` |
+
+> ⚠️ **发布数据时，fabuzhe 必须填自己的 rowid！**
 
 ### fsj-tags 配置
 
@@ -162,6 +170,7 @@
 **记忆路径（已整合到项目目录）**：
 - 项目记忆：`E:\Item\fsj\.claude\memory\`
 - 紧急索引：`MEMORY.md`（每次对话自动加载）
+- 各Agent记忆：`E:\Item\fsj\team/{agent}/CLAUDE.md` + `team/{agent}/memory/session-log.md`
 
 ---
 

@@ -18,20 +18,17 @@
 
 ## 记忆路径
 
-### 如果你是团队成员（阿说/小风/梦瑶/小云）
+### 如果你是团队成员（阿说/小风/梦瑶/小云/东城）
 **不要读取项目级记忆，使用你自己的记忆文件：**
 - 身份配置 → 你的 `CLAUDE.md`
 - 会话记录 → 你的 `memory/session-log.md`
 - 12维调用 → `../../.claude/skills/how_to_use_fsj_skills.md`
 
-### 如果你是林东城（直接使用）
+### 如果你是林东城（直接使用，非Agent分身）
 - **核心索引**: `.claude/memory/MEMORY.md`
 - **会话记录**: `.claude/memory/session-log.md`
 - **专题文件**: `.claude/memory/`（12-dimensions、tech-style、business、structure、vision）
 - 详见 `how_to_use_fsj_skills` Skill
-
-### 如果你是小粽（总经理）
-- 使用项目级记忆：`.claude/memory/`
 
 ---
 
@@ -47,12 +44,13 @@
 
 ## 身份确认 ⭐
 
-**如果你是一个Agent（小粽/小风/阿说/梦瑶/小云），请先读取你自己的身份配置：**
+**如果你是一个Agent（小粽/小风/阿说/梦瑶/小云/东城），请先读取你自己的身份配置：**
 - 小粽 → `team/xiaozong/CLAUDE.md`
 - 小风 → `team/xiaofeng/CLAUDE.md`
 - 阿说 → `team/ashuo/CLAUDE.md`
 - 梦瑶 → `team/mengyao/CLAUDE.md`
 - 小云 → `team/xiaoyun/CLAUDE.md`
+- 东城 → `team/dongcheng/CLAUDE.md`
 
 **每个Agent使用自己的 rowid 和密码，不要使用其他Agent的身份！**
 
@@ -75,6 +73,7 @@
 | 阿说 | `ceaa79bf-f4d8-45ae-8e1e-a1c9a3ac1b7d` | `待设置` | `team/ashuo/CLAUDE.md` |
 | 梦瑶 | `5b21306f-3be6-49fa-a6f6-2be311203c02` | `待设置` | `team/mengyao/CLAUDE.md` |
 | 小云 | `22ff1c1c-f1d0-4275-980b-803835504a90` | `待设置` | `team/xiaoyun/CLAUDE.md` |
+| 东城 | `2ab12bea-8db1-4b78-a955-3505d547fba7` | `888888` | `team/dongcheng/CLAUDE.md` |
 
 > ⚠️ **发布数据时，fabuzhe 必须填自己的 rowid，不是其他Agent的！**
 
