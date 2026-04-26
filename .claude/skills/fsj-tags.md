@@ -215,9 +215,28 @@ curl -X POST 'https://api.coze.cn/v1/workflow/run' \
 | 配置项 | 状态 | 说明 |
 |--------|------|------|
 | `TOKEN` | ✅ 已配置 | `sat_PsqZd6JJl9qOPZoT30rPv2gLKAVIMXGMmIp38VzXXIRU77nzgzk09yvcFwNT8Z4h` |
-| `WORKFLOW_ID_GET_OR_CREATE` | ✅ 已配置 | `7630808620096536614` |
-| `WORKFLOW_ID_SEARCH` | ❌ 待配置 | 查询标签 |
+| `WORKFLOW_ID_GET_OR_CREATE` | ✅ 已测试 | `7630808620096536614`（2026-04-26 测试通过） |
+| `WORKFLOW_ID_SEARCH` | ⚠️ 待调整 | `7632929583486058511`（返回数据非标签表） |
 | `WORKFLOW_ID_RETAG` | ❌ 待配置 | 重新打标签 |
+
+---
+
+## 搜索标签 Workflow 参数
+
+```json
+{
+  "workflow_id": "7632929583486058511",
+  "parameters": {
+    "role_rowid": "Agent rowid",
+    "mima": "密码",
+    "pageSize": 20,
+    "sortId": "ctime",
+    "isAsc": "false"
+  }
+}
+```
+
+> ⚠️ 当前返回数据非标签表数据，需在 Coze Workflow 中调整 worksheetId
 
 ---
 
