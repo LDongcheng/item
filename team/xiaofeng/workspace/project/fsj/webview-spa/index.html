@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AI赋能商家平台</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/components-login.css">
+  <link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+  <!-- 页面容器 -->
+  <div id="app">
+    <!-- 首页 -->
+    <div class="page active" id="page-home">
+      <header class="top-bar">
+        <div class="top-bar-left">
+          <span class="scope-selector" id="scope-selector">组织 ▾</span>
+        </div>
+        <div class="top-bar-center">
+          <div class="search-box">
+            <input type="text" placeholder="搜索" />
+          </div>
+        </div>
+        <div class="top-bar-right">
+          <span class="btn-task" id="btn-task">任务</span>
+        </div>
+      </header>
+      <main class="page-content" id="home-container">
+        <!-- 轮播图 -->
+        <div class="banner" id="home-banner"></div>
+
+        <!-- 功能列表 -->
+        <div class="func-grid" id="home-func-grid"></div>
+
+        <!-- 文章列表 -->
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">最新文章</span>
+            <span class="section-more">查看更多</span>
+          </div>
+          <div class="article-list" id="home-article-list"></div>
+        </div>
+      </main>
+    </div>
+
+    <!-- 智能体聊天页 -->
+    <div class="page" id="page-agent">
+      <header class="top-bar">
+        <div class="top-bar-left">
+          <span class="agent-top-btn" data-panel="tasks">任务</span>
+        </div>
+        <div class="top-bar-center">
+          <h2 class="page-title">智能体</h2>
+        </div>
+        <div class="top-bar-right" style="display:flex;gap:12px;">
+          <span class="agent-top-btn" data-panel="skills">技能</span>
+          <span class="agent-top-btn" data-panel="settings">设定</span>
+        </div>
+      </header>
+      <main class="page-content page-agent-content" id="chat-container">
+        <div id="chat-messages"></div>
+        <div class="bottom-card">
+          <div class="quick-actions-scroll">
+            <div class="quick-actions" id="quick-actions"></div>
+          </div>
+          <div class="input-area" id="chat-input-area"></div>
+        </div>
+      </main>
+    </div>
+
+    <!-- 消息页面 -->
+    <div class="page" id="page-message">
+      <header class="top-bar">
+        <div class="top-bar-center">
+          <h2 class="page-title">消息</h2>
+        </div>
+      </header>
+      <main class="page-content" id="message-container">
+        <div class="message-list" id="message-list"></div>
+      </main>
+    </div>
+
+    <!-- 我的页面 -->
+    <div class="page" id="page-profile">
+      <main class="page-content" id="profile-container">
+        <div class="user-card" id="profile-user-card"></div>
+        <div class="stats-card" id="profile-stats"></div>
+        <div class="settings-list" id="profile-settings"></div>
+      </main>
+    </div>
+
+    <!-- 底部TabBar -->
+    <nav class="tab-bar">
+      <div class="tab-item active" data-page="home">
+        <div class="tab-icon-img"></div>
+        <span class="tab-label">首页</span>
+      </div>
+      <div class="tab-item" data-page="agent">
+        <div class="tab-icon-img"></div>
+        <span class="tab-label">智能体</span>
+      </div>
+      <div class="tab-item" data-page="message">
+        <div class="tab-icon-img"></div>
+        <span class="tab-label">消息</span>
+      </div>
+      <div class="tab-item" data-page="profile">
+        <div class="tab-icon-img"></div>
+        <span class="tab-label">我的</span>
+      </div>
+    </nav>
+  </div>
+
+  <script src="js/bridge.js"></script>
+  <script src="js/app.js" type="module"></script>
+</body>
+</html>

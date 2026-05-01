@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>图标预览</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+    h1 { text-align: center; margin-bottom: 20px; font-size: 18px; }
+    .hint { text-align: center; color: #666; margin-bottom: 20px; font-size: 14px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; max-width: 900px; margin: 0 auto; }
+    .item { background: #fff; border-radius: 8px; padding: 10px; text-align: center; border: 2px solid transparent; }
+    .item img { width: 60px; height: 60px; object-fit: contain; }
+    .item .idx { font-size: 12px; font-weight: bold; color: #2563EB; margin-bottom: 4px; }
+    .item .fname { font-size: 9px; color: #999; margin-top: 4px; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h1>图标预览 — 请告诉我每个功能用哪个编号</h1>
+  <p class="hint">需要确认：TabBar 首页/智能体/消息/我的，快捷入口4个图标</p>
+  <div class="grid" id="grid"></div>
+  <script>
+    const icons = [
+      "00593ef9fc5ca9ad48e36aa220f9e972_3536_200_200.png",
+      "0618ce739379f8f54fec28fb2b480af9_8439_200_200.png",
+      "07fc2a72c8c4b1b83c3fb1943de71acb_5146_200_200.png",
+      "137e1697978637ac8c07b9e9ce5841df_5884_200_200.png",
+      "1b416e29b66206ffd4956b5a5428dd21_7941_200_200.png",
+      "22385a81d8c4b174577f090978f81ff4_9654_200_200.png",
+      "259e96c909b9c489e4d4f2cf3897fa16_3841_200_200.png",
+      "2640eed340fb000c1ed9e86e3a9b7e0f_8390_200_200.png",
+      "26cb58dce03a3e4de2532b836c309ac4_2573_200_200.png",
+      "288b652dc5ef4578902e0be0a7f6b9f0_9591_200_200.png",
+      "34178c66118decc131c00ba8c375a9b4_6306_200_200.png",
+      "3ed274a1a67cffeb001f21164e678ce9_2924_200_200.png",
+      "3f753f15b1bb750f46ca014482f7ac17_6116_200_200.png",
+      "458523836384a8ab1ed97b324ecaad39_4751_200_200.png",
+      "47246ac2de790c8c333760afea78840a_8929_200_200.png",
+      "478354c3f745db6844a5a4faa5689839_9275_200_200.png",
+      "4bbe51098f1575cb4aa91dea6e9bad78_9715_200_200.png",
+      "4c7a5b78ae43d7f7a15646237bd4a58c_7092_200_200.png",
+      "53f6dd1a9b42c8fc9542891913fd6a3f_6001_200_200.png",
+      "5881ee1cc8bb4bf24f99ef33fb96ce21_9955_200_200.png",
+      "58f13ce34de671e9458a26f038816ad9_7705_200_200.png",
+      "5ad5239d742c4461a44ee4e26a0ca74f_2448_200_200.png",
+      "5f91287da07285f37af22df806776d9c_13609_200_200.png",
+      "687df6b500e2b078fcab560e6e4fcdbf_7372_200_200.png",
+      "6993b027608eb55be14377c6a62336d8_9148_200_200.png",
+      "69e05a1c826afffe03bf9b1648db6599_8144_200_200.png",
+      "7af738ab7a90afd113bc0f95c67a62d6_9694_200_200.png",
+      "7bd53d7f8131ded80262dfe5821a3ace_8758_200_200.png",
+      "7c9e67e6cdec07a13cad59fb897948d5_3767_200_200.png",
+      "7e862c7bed79b4dd0b33049e896f0fbb_8141_200_200.png",
+      "7ed4493caa354402c25723bb76688c87_7599_200_200.png",
+      "801a1f9a12a633a25b40393f72d34c42_8470_200_200.png",
+      "833295925cb706f91500727e9be9e644_6337_200_200.png",
+      "84ff8b31669b1b1d908b3eb86e17d192_6332_200_200.png",
+      "8fcd388bccb2d1d8c1c50ad4caf23ba7_7581_200_200.png",
+      "9550cf1881c64fe083bc865f648c0ce4_4052_200_200.png",
+      "978ef8faaee7742fefa70fe4b90ae094_10327_200_200.png",
+      "984e6b36e99265f140c302fd17a429cd_7509_200_200.png",
+      "99b5d87aff7c396916947b2062cb9214_12177_200_200.png",
+      "9b5634c9da0168e6c642fedf9976c6aa_9677_200_200.png",
+      "a7e3ddd47412148a5711d8459b3e09fc_7332_200_200.png",
+      "af3415b4cfaa34e6e8eb97418fa37dc8_8521_200_200.png",
+      "bda122078401b71d5e5a5bd948cc6135_7311_200_200.png",
+      "c8e66b75aa0e6a08f86017c2a2db96be_5727_200_200.png",
+      "cb57043df159dc7c85fa724c8cbda2b1_7820_200_200.png",
+      "cd718c1d722d42f485696338fa50978d_5776_200_200.png",
+      "d9f786960a02d6ed12a4f581a5993b05_12288_200_200.png",
+      "de8ecbae111c89396b047f9144de88f5_6758_200_200.png",
+      "dec4c9a850fe180a792933bf131f18b8_7179_200_200.png",
+      "dfdec7232fbf8d85c4b5b982fd43a8a2_9682_200_200.png",
+      "ef4b98e5ab32ccd1ee05dfcd050a3f0b_9811_200_200.png",
+      "f58d0702205c9e2b6bc22278af247a49_11322_200_200.png",
+      "f82518a9829ab64dd8ef72464d8b2429_7783_200_200.png",
+      "facdd33dcf1d5c2d1b055df8e756c92d_7678_200_200.png",
+      "fb087a86e71ac506c79848bba4229dff_7719_200_200.png",
+      "fbc88b95b7ae2fc667ef3453f5a2ad7a_5925_200_200.png",
+      "fd481982d446d4782405a77110bea3dd_2576_200_200.png"
+    ];
+    var grid = document.getElementById('grid');
+    icons.forEach(function(name, i) {
+      var div = document.createElement('div');
+      div.className = 'item';
+      div.innerHTML = '<div class="idx">#' + (i+1) + '</div><img src="../edt/u10014130/' + name + '" /><div class="fname">' + name.slice(0, 20) + '...</div>';
+      grid.appendChild(div);
+    });
+  </script>
+</body>
+</html>

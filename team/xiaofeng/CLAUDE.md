@@ -57,11 +57,20 @@
 ### 私有Skills（你自己创建的）
 | Skill | 路径 | 用途 |
 |------|------|------|
-| （暂无） | `skills/` | 根据你的需要自行创建 |
+| `webview-spa-template` | `skills/webview-spa-template/SKILL.md` | 小程序内嵌webview SPA开发模板 |
 
 > **Skill规则**：
 > - `.claude/skills/` 下的全局skill所有人都可以调用
 > - `skills/` 下的私有skill只有你自己能调用，根据需要自行创建
+
+### 私有 Skill 使用规则
+当我接到开发小程序内嵌webview页面的任务时：
+1. 先读取 `skills/webview-spa-template/SKILL.md` 了解三分离架构规范
+2. 按照模板中的 HTML+CSS+JS 三分离模式创建文件
+3. 遵循模板中的生命周期、通信、缓存处理、部署等规范
+4. 参考模板中三个已上线项目的实战经验（shuxiaohe/sxz/youqu）
+
+> **注意**：此 Skill 不在 `.claude/skills/` 全局目录下，不会出现在 `/` 命令列表中。但我在相关场景会主动读取并遵守规范。
 
 ---
 
