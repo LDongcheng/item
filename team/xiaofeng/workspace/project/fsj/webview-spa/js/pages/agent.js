@@ -1123,13 +1123,18 @@ var AgentPage = {
       console.log('[TTS] finished:', text.substring(0, 30));
       self.ttsSentenceIndex++;
       self.ttsProcessing = false;
-      // 继续播放下一句
-      self._processTtsQueue();
+      // 句子之间间隔 200ms，避免移动端音频请求太密集
+      setTimeout(function () {
+        self._processTtsQueue();
+      }, 200);
     }).catch(function (e) {
       console.error('[TTS] play failed:', e);
       self.ttsSentenceIndex++;
       self.ttsProcessing = false;
-      self._processTtsQueue();
+      // 播放失败也等 500ms 再下一句
+      setTimeout(function () {
+        self._processTtsQueue();
+      }, 500);
     });
   },
 

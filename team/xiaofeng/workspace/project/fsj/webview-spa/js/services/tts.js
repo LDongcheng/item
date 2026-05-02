@@ -89,6 +89,7 @@ var TtsService = {
       if (self._currentAudio) {
         self._currentAudio.onended = null;
         self._currentAudio.onerror = null;
+        self._currentAudio.oncanplay = null;
         self._currentAudio.pause();
         self._currentAudio.src = '';
         self._currentAudio = null;
@@ -97,29 +98,60 @@ var TtsService = {
       var audio = new Audio();
       audio.preload = 'auto';
 
-      // 返回一个 Promise：播完才 resolve，失败则 reject
+      // 返回一个 Promise：真正播完才 resolve
       return new Promise(function (resolve, reject) {
+        var settled = false;
+
+        function settle(isResolve, err) {
+          if (settled) return;
+          settled = true;
+          self._currentAudio = null;
+          if (isResolve) {
+            resolve();
+          } else {
+            reject(err);
+          }
+        }
+
+        // 播完才 resolve
         audio.onended = function () {
           console.log('[TtsService] 音频播放完成');
-          self._currentAudio = null;
-          resolve();
+          settle(true);
         };
+
+        // 加载失败则 reject
         audio.onerror = function (e) {
-          console.error('[TtsService] 音频加载失败:', e);
-          self._currentAudio = null;
-          reject(new Error('音频加载失败'));
+          console.error('[TtsService] 音频加载失败');
+          settle(false, new Error('音频加载失败'));
+        };
+
+        // 超时兜底（15秒）
+        audio._timeout = setTimeout(function () {
+          settle(false, new Error('音频播放超时'));
+        }, 15000);
+
+        // 清理 timeout
+        var originalSettle = settle;
+        settle = function (isResolve, err) {
+          if (audio._timeout) clearTimeout(audio._timeout);
+          originalSettle(isResolve, err);
         };
 
         self._currentAudio = audio;
         audio.src = audioUrl;
 
-        audio.play().catch(function (e) {
-          if (e.name !== 'AbortError') {
-            console.error('[TtsService] 播放失败:', e);
-          }
-          self._currentAudio = null;
-          reject(e);
-        });
+        // 移动端：play() 可能秒 reject，不立即触发 settle，等 onended/onerror
+        var playPromise = audio.play();
+        if (playPromise && playPromise.catch) {
+          playPromise.catch(function (e) {
+            if (e.name === 'AbortError') {
+              // AbortError 是被中断，等 onended/onerror 决定
+              return;
+            }
+            // 其他错误（如NotAllowedError）直接 reject
+            settle(false, e);
+          });
+        }
       });
     });
   },
