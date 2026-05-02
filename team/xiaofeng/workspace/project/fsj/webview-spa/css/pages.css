@@ -8,6 +8,8 @@
   background: var(--color-bg-primary);
   flex-shrink: 0;
   border-top: 1px solid var(--color-border);
+  position: relative;
+  z-index: 100;
 }
 
 .tab-item {
@@ -132,13 +134,6 @@
   border-radius: var(--radius-sm);
   transition: all 0.2s;
 }
-  font-size: var(--font-sm);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  transition: all 0.2s;
-}
 
 .agent-top-btn:active {
   background: var(--color-primary-super-light);
@@ -149,6 +144,7 @@
   display: flex;
   flex-direction: column;
   background: #fff;
+  position: relative;
 }
 
 .page-agent-content.has-messages {
@@ -887,4 +883,155 @@
   font-size: var(--font-md);
   color: var(--color-text-secondary);
   margin: 12px 0;
+}
+
+/* ========== Agent 设置弹窗 ========== */
+.agent-settings-modal {
+  width: 100%;
+  max-width: 480px;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  animation: slideUp 0.3s ease;
+}
+
+.agent-settings-body {
+  padding: 16px 20px;
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+}
+
+.settings-section {
+  padding: 8px 0;
+}
+
+.settings-section-title {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+
+.settings-section-desc {
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+
+.settings-action-btn {
+  display: inline-block;
+  padding: 8px 16px;
+  background: var(--color-primary-super-light);
+  color: var(--color-primary);
+  border-radius: 8px;
+  font-size: var(--font-sm);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.settings-action-btn:active {
+  background: rgba(37, 99, 235, 0.2);
+}
+
+.settings-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 12px 0;
+}
+
+.mode-switch-row {
+  display: flex;
+  gap: 12px;
+}
+
+.mode-option {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 12px;
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fff;
+}
+
+.mode-option:active {
+  transform: scale(0.97);
+}
+
+.mode-option.active {
+  border-color: var(--color-primary);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.mode-icon {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.mode-name {
+  font-size: var(--font-sm);
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.mode-option.active .mode-name {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ========== 沉浸模式 ========== */
+.immersive-scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.immersive-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.immersive-agent {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.agent-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 沉浸模式激活时，聊天内容半透明可看 */
+.page-agent-content.immersive-active .bottom-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.page-agent-content.immersive-active #chat-messages {
+  background: transparent;
+}
+
+.page-agent-content.immersive-active .welcome-area {
+  background: transparent;
+}
+
+/* 消息气泡在沉浸模式下调整 */
+.page-agent-content.immersive-active .message-bubble {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }

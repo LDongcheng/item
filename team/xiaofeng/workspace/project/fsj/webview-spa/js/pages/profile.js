@@ -243,7 +243,7 @@ var ProfilePage = {
 
   /**
    * 处理登录结果
-   * @param {object} loginData - 登录返回数据 { name, rowid, shangjia }
+   * @param {object} loginData - 登录返回数据 { name, rowid, shangjia, agent }
    */
   handleLoginResult: function (loginData) {
     // 保存登录信息
@@ -256,6 +256,15 @@ var ProfilePage = {
     if (loginData.shangjia) {
       localStorage.setItem('fsj_shangjia_tabs', JSON.stringify(loginData.shangjia));
     }
+    if (loginData.agent) {
+      localStorage.setItem('fsj_agent_id', loginData.agent);
+    }
+    if (loginData.shuohua) {
+      localStorage.setItem('fsj_shuohua_id', loginData.shuohua);
+    }
+    if (loginData.bushuohua) {
+      localStorage.setItem('fsj_bushuohua_id', loginData.bushuohua);
+    }
 
     // 关闭登录弹窗
     this.closeLoginModal();
@@ -267,6 +276,16 @@ var ProfilePage = {
     // 更新底部导航栏
     if (window.App && window.App.updateTabBar) {
       window.App.updateTabBar(loginData.shangjia);
+    }
+
+    // 更新智能体页面
+    if (window.AgentPage) {
+      window.AgentPage.renderAgentTopBar();
+      // 如果已在沉浸模式，重新加载视频资源
+      if (localStorage.getItem('fsj_agent_mode') === '1') {
+        window.AgentPage.videoResources = null;
+        window.AgentPage.loadVideoResources();
+      }
     }
 
     // 提示登录成功
@@ -287,6 +306,11 @@ var ProfilePage = {
       case 'logout':
         localStorage.removeItem('fsj_token');
         localStorage.removeItem('fsj_user_name');
+        localStorage.removeItem('fsj_shangjia_tabs');
+        localStorage.removeItem('fsj_agent_id');
+        localStorage.removeItem('fsj_agent_mode');
+        localStorage.removeItem('fsj_shuohua_id');
+        localStorage.removeItem('fsj_bushuohua_id');
         this.renderUserCard();
         this.renderSettingsList();
         Bridge.postMessage('logout', {});

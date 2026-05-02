@@ -45,6 +45,7 @@ data: {"debug_url":"..."}
 |------|------|------|
 | `name` | string | 商家名称 |
 | `rowid` | string | 商家唯一标识，用作登录 token |
+| `agent` | string | Agent 唯一标识，用于智能体页面 |
 | `shangjia` | array | 底部导航栏配置数组 |
 
 ### shangjia 数组项
@@ -54,6 +55,7 @@ data: {"debug_url":"..."}
 | `name` | string | 导航项显示名称 |
 | `sort` | string | 排序序号，从小到大排列 |
 | `page` | string | 对应页面标识 |
+| `mode` | string | Agent 页面专属字段，`0`=普通聊天模式，`1`=沉浸模式 |
 
 ### page 支持的值
 
@@ -163,6 +165,8 @@ handleLoginResult(loginData) {
 | `fsj_token` | rowid | 登录状态标识 |
 | `fsj_user_name` | 商家名称 | 用户昵称 |
 | `fsj_shangjia_tabs` | shangjia 数组 JSON | 底部导航栏配置 |
+| `fsj_agent_id` | agent | 当前登录的 Agent ID |
+| `fsj_agent_mode` | `0` 或 `1` | Agent 页面模式：0=普通，1=沉浸 |
 
 ---
 

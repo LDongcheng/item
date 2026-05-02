@@ -3,6 +3,7 @@
  * 参考 embecta chat 页面实现
  */
 import AIService from '../services/ai.js';
+import AgentVideoService from '../services/agentVideo.js';
 
 var AgentPage = {
   messages: [],
@@ -10,6 +11,8 @@ var AgentPage = {
   isAITyping: false,
   hasStreamingMsg: false,
   scrollToView: '',
+  // 沉浸模式视频资源
+  videoResources: null,
 
   /**
    * 初始化
@@ -22,14 +25,75 @@ var AgentPage = {
     this.bindInputEvents();
     this.bindQuickActionEvents();
     this.bindTopBtnEvents();
+    this.restoreAgentMode();
+  },
+
+  /**
+   * 恢复 Agent 模式
+   */
+  restoreAgentMode: function () {
+    var mode = localStorage.getItem('fsj_agent_mode') || '0';
+    if (mode === '1') {
+      this.loadVideoResources();
+    }
+  },
+
+  /**
+   * 加载视频资源（登录后的 Agent 有 shuohua/bushuohua ID）
+   */
+  loadVideoResources: function () {
+    var self = this;
+    var shuohuaId = localStorage.getItem('fsj_shuohua_id');
+    var bushuohuaId = localStorage.getItem('fsj_bushuohua_id');
+
+    console.log('[AgentPage] loadVideoResources, shuohua:', shuohuaId, ', bushuohua:', bushuohuaId);
+
+    if (!shuohuaId || !bushuohuaId) {
+      // 没有视频ID，先渲染默认场景
+      console.log('[AgentPage] 没有视频ID，渲染默认场景');
+      this.renderImmersiveMode();
+      return;
+    }
+
+    AgentVideoService.getAllResources(shuohuaId, bushuohuaId)
+      .then(function (resources) {
+        console.log('[AgentPage] 视频资源加载成功:', resources);
+        self.videoResources = resources;
+        // 渲染沉浸模式（此时已有视频URL）
+        self.renderImmersiveMode();
+      })
+      .catch(function (e) {
+        console.warn('[AgentPage] 视频资源加载失败:', e);
+        self.renderImmersiveMode();
+      });
+  },
+
+  /**
+   * 切换 Agent 说话/不说话视频
+   */
+  switchAgentVideo: function (speaking) {
+    var videoEl = document.getElementById('immersive-agent-video');
+    if (!videoEl || !this.videoResources) return;
+
+    var url = speaking ? this.videoResources.shuohua : this.videoResources.bushuohua;
+    if (!url) return;
+
+    // 如果当前已经在播同一个视频，不切换
+    if (videoEl.src && videoEl.src.indexOf(url.split('?')[0]) !== -1) return;
+
+    videoEl.src = url;
+    videoEl.play().catch(function () {});
   },
 
   /**
    * 渲染顶部 Agent 信息
    */
   renderAgentTopBar: function () {
-    // 默认 Agent 信息
+    // 优先使用登录后的 Agent ID，否则使用默认值
+    var agentId = localStorage.getItem('fsj_agent_id');
+
     this.currentAgent = {
+      id: agentId || '',
       name: '小风',
       avatar: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%232563EB" width="100" height="100"/><text x="50" y="65" font-size="50" fill="white" text-anchor="middle" dominant-baseline="middle">风</text></svg>',
       title: '技术总监'
@@ -67,7 +131,187 @@ var AgentPage = {
         // TODO: 打开任务列表面板
         alert('任务队列：查看和管理智能体任务');
         break;
+      case 'settings':
+        this.renderSettingsModal();
+        break;
     }
+  },
+
+  /**
+   * 渲染设置弹窗
+   */
+  renderSettingsModal: function () {
+    var existing = document.getElementById('agent-settings-modal');
+    if (existing) existing.remove();
+
+    var currentMode = localStorage.getItem('fsj_agent_mode') || '0';
+
+    var modal = document.createElement('div');
+    modal.id = 'agent-settings-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML =
+      '<div class="modal-content agent-settings-modal">' +
+        '<div class="modal-header">' +
+          '<h3 class="modal-title">设置</h3>' +
+          '<span class="modal-close" id="agent-settings-close">✕</span>' +
+        '</div>' +
+        '<div class="agent-settings-body">' +
+          '<div class="settings-section">' +
+            '<div class="settings-section-title">灵魂设置</div>' +
+            '<div class="settings-section-desc">配置智能体的性格、语气和知识库</div>' +
+            '<div class="settings-action-btn" data-action="soul">进入设置 ›</div>' +
+          '</div>' +
+          '<div class="settings-divider"></div>' +
+          '<div class="settings-section">' +
+            '<div class="settings-section-title">模式切换</div>' +
+            '<div class="mode-switch-row">' +
+              '<div class="mode-option' + (currentMode === '0' ? ' active' : '') + '" data-mode="0">' +
+                '<span class="mode-icon">💬</span>' +
+                '<span class="mode-name">普通模式</span>' +
+              '</div>' +
+              '<div class="mode-option' + (currentMode === '1' ? ' active' : '') + '" data-mode="1">' +
+                '<span class="mode-icon">🏠</span>' +
+                '<span class="mode-name">沉浸模式</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(modal);
+    this.bindSettingsModalEvents();
+  },
+
+  /**
+   * 绑定设置弹窗事件
+   */
+  bindSettingsModalEvents: function () {
+    var self = this;
+    var modal = document.getElementById('agent-settings-modal');
+    var closeBtn = document.getElementById('agent-settings-close');
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function () {
+        self.closeSettingsModal();
+      });
+    }
+
+    if (modal) {
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal) {
+          self.closeSettingsModal();
+        }
+      });
+    }
+
+    // 模式切换
+    document.querySelectorAll('.mode-option').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var mode = el.getAttribute('data-mode');
+        self.switchAgentMode(mode);
+      });
+    });
+
+    // 灵魂设置
+    var soulBtn = document.querySelector('.settings-action-btn[data-action="soul"]');
+    if (soulBtn) {
+      soulBtn.addEventListener('click', function () {
+        alert('灵魂设置：配置智能体的性格、语气和知识库（开发中）');
+      });
+    }
+  },
+
+  /**
+   * 关闭设置弹窗
+   */
+  closeSettingsModal: function () {
+    var modal = document.getElementById('agent-settings-modal');
+    if (modal) modal.remove();
+  },
+
+  /**
+   * 切换 Agent 模式
+   */
+  switchAgentMode: function (mode) {
+    localStorage.setItem('fsj_agent_mode', mode);
+
+    // 更新按钮激活态
+    document.querySelectorAll('.mode-option').forEach(function (el) {
+      el.classList.toggle('active', el.getAttribute('data-mode') === mode);
+    });
+
+    // 切换页面渲染
+    if (mode === '1') {
+      // 先清理旧场景，再加载新资源
+      this.removeImmersiveMode();
+      this.loadVideoResources();
+    } else {
+      this.removeImmersiveMode();
+    }
+  },
+
+  /**
+   * 渲染沉浸模式
+   */
+  renderImmersiveMode: function () {
+    var container = document.getElementById('chat-container');
+    if (!container) return;
+
+    // 检查是否已经渲染过
+    var existing = document.getElementById('agent-immersive-scene');
+    if (existing) return;
+
+    var bgStyle = '';
+    var videoSrc = '';
+    var showVideo = false;
+
+    if (this.videoResources) {
+      if (this.videoResources.bgImage) {
+        bgStyle = 'background-image: url(\'' + this.videoResources.bgImage + '\'); background-size: cover; background-position: center;';
+      }
+      if (this.videoResources.bushuohua) {
+        videoSrc = this.videoResources.bushuohua;
+        showVideo = true;
+      }
+    }
+
+    var scene = document.createElement('div');
+    scene.id = 'agent-immersive-scene';
+    scene.className = 'immersive-scene';
+    scene.innerHTML =
+      '<div class="immersive-bg" id="immersive-bg" style="' + bgStyle + '"></div>' +
+      '<div class="immersive-agent" id="immersive-agent">' +
+        (showVideo
+          ? '<video id="immersive-agent-video" class="agent-video" src="' + videoSrc + '" autoplay muted loop playsinline></video>'
+          : '<div class="agent-character"></div>') +
+      '</div>';
+
+    // 插入到聊天容器最前面
+    container.insertBefore(scene, container.firstChild);
+
+    // 标记沉浸模式已激活
+    container.classList.add('immersive-active');
+  },
+
+  /**
+   * 移除沉浸模式
+   */
+  removeImmersiveMode: function () {
+    var container = document.getElementById('chat-container');
+    if (!container) return;
+
+    // 先暂停视频
+    var video = document.getElementById('immersive-agent-video');
+    if (video) {
+      video.pause();
+      video.src = '';
+    }
+
+    var scene = document.getElementById('agent-immersive-scene');
+    if (scene) scene.remove();
+
+    container.classList.remove('immersive-active');
+    this.videoResources = null;
   },
 
   /**
@@ -207,11 +451,15 @@ var AgentPage = {
         if (event.type === 'progress') {
           // 执行进度：显示内容
           self.updateStreamingBubble(event.content || (event.nodeTitle + '...'));
+          // 沉浸模式：切换为说话视频
+          self.switchAgentVideo(true);
         } else if (event.type === 'result') {
           self.updateStreamingBubble(event.content);
           self.finalizeStreamingBubble();
         } else if (event.type === 'done') {
           self.finalizeStreamingBubble();
+          // 沉浸模式：切回不说话视频
+          self.switchAgentVideo(false);
         }
       }
     );
@@ -330,12 +578,16 @@ var AgentPage = {
         if (event.type === 'progress') {
           // 执行进度：显示内容
           self.updateStreamingBubble(event.content || (event.nodeTitle + '...'));
+          // 沉浸模式：切换为说话视频
+          self.switchAgentVideo(true);
         } else if (event.type === 'result') {
           // 最终结果
           self.updateStreamingBubble(event.content);
           self.finalizeStreamingBubble();
         } else if (event.type === 'done') {
           self.finalizeStreamingBubble();
+          // 沉浸模式：切回不说话视频
+          self.switchAgentVideo(false);
         }
       }
     );

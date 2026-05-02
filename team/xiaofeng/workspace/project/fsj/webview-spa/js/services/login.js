@@ -107,6 +107,11 @@ var LoginService = {
       }
     }
 
+    // agent 字段保存（可能是字符串或对象）
+    if (result.agent) {
+      result.agent = result.agent.toString();
+    }
+
     return result;
   },
 };

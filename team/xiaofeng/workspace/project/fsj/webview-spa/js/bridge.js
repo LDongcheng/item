@@ -94,7 +94,7 @@
 
     /**
      * 登录成功回调
-     * @param {object} loginData - 登录返回数据 { rowid, name, shangjia }
+     * @param {object} loginData - 登录返回数据 { rowid, name, shangjia, agent }
      */
     handleLoginSuccess: function (loginData) {
       if (loginData.rowid) {
@@ -106,6 +106,15 @@
       if (loginData.shangjia) {
         localStorage.setItem('fsj_shangjia_tabs', JSON.stringify(loginData.shangjia));
       }
+      if (loginData.agent) {
+        localStorage.setItem('fsj_agent_id', loginData.agent);
+      }
+      if (loginData.shuohua) {
+        localStorage.setItem('fsj_shuohua_id', loginData.shuohua);
+      }
+      if (loginData.bushuohua) {
+        localStorage.setItem('fsj_bushuohua_id', loginData.bushuohua);
+      }
 
       // 通知 App 重新渲染 TabBar
       if (window.App && window.App.updateTabBar) {
@@ -116,6 +125,11 @@
       if (window.ProfilePage) {
         window.ProfilePage.renderUserCard();
         window.ProfilePage.renderSettingsList();
+      }
+
+      // 刷新智能体页面
+      if (window.AgentPage) {
+        window.AgentPage.renderAgentTopBar();
       }
     },
 
