@@ -15,7 +15,7 @@ var AgentPage = {
   // 沉浸模式视频资源
   videoResources: null,
   // TTS 语音
-  ttsEnabled: false,
+  ttsEnabled: true,
   ttsCurrentAudio: null,
 
   /**
