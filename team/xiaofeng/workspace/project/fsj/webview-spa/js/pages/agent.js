@@ -556,8 +556,11 @@ var AgentPage = {
     }
 
     var self = this;
+    var mode = localStorage.getItem('fsj_agent_mode') || '0';
     self.createStreamingBubble();
-    self.updateStreamingBubble('正在处理...');
+    if (mode !== '1') {
+      self.updateStreamingBubble('正在处理...');
+    }
     // 重置 TTS 状态
     self.resetTts();
 
@@ -568,31 +571,38 @@ var AgentPage = {
       function (event) {
         console.log('[AgentPage] event received:', event.type, event.delta || event.content ? (event.content || event.delta).substring(0, 30) : '');
         if (event.type === 'progress') {
-          // 执行进度：显示内容（普通模式用逐字效果）
-          self.updateStreamingBubble(event.content || (event.nodeTitle + '...'));
-          // 沉浸模式：切换为说话视频
-          self.switchAgentVideo(true);
-          // TTS：从累积内容中提取增量，逐句朗读
-          if (event.content) self.streamTts(event.content);
+          if (mode === '1') {
+            self.switchAgentVideo(true);
+            if (event.content) self.streamTts(event.content);
+          } else {
+            self.updateStreamingBubble(event.content || (event.nodeTitle + '...'));
+          }
         } else if (event.type === 'delta') {
-          // 增量片段（兼容未来的 delta 事件）
-          console.log('[AgentPage] appendImmersiveDelta:', event.delta);
-          self.appendImmersiveDelta(event.delta);
-          console.log('[AgentPage] streamTts:', event.delta);
-          self.streamTts(event.delta);
-          self.switchAgentVideo(true);
+          if (mode === '1') {
+            console.log('[AgentPage] streamTts delta:', event.delta);
+            self.streamTts(event.delta);
+            self.switchAgentVideo(true);
+          } else {
+            self.appendImmersiveDelta(event.delta);
+          }
         } else if (event.type === 'result') {
-          // 最终结果
-          console.log('[AgentPage] finalize result');
-          self.updateStreamingBubble(event.content);
-          self.finalizeStreamingBubble();
-          // TTS：完成剩余句子
-          self.finalizeTts();
+          if (mode === '1') {
+            console.log('[AgentPage] finalize result');
+            self.finalizeTts();
+          } else {
+            self.updateStreamingBubble(event.content);
+            self.finalizeStreamingBubble();
+          }
         } else if (event.type === 'done') {
           console.log('[AgentPage] done');
-          self.finalizeStreamingBubble();
-          // 沉浸模式：切回不说话视频
-          self.switchAgentVideo(false);
+          if (mode === '1') {
+            if (!self.ttsEnabled || self.ttsSentenceQueue.length === 0) {
+              self.finalizeStreamingBubble();
+              self.switchAgentVideo(false);
+            }
+          } else {
+            self.finalizeStreamingBubble();
+          }
         }
       }
     );
@@ -634,7 +644,13 @@ var AgentPage = {
     msgEl.innerHTML = this.renderMessageBubble(msg);
 
     list.appendChild(msgEl);
-    this.scrollToBottom();
+
+    // 用户消息：自动定位到顶部导航栏下方
+    if (type === 'user') {
+      msgEl.scrollIntoView({ block: 'start' });
+    } else {
+      this.scrollToBottom();
+    }
   },
 
   /**
@@ -709,43 +725,58 @@ var AgentPage = {
 
     // 立即创建气泡，显示"正在处理..."
     self.createStreamingBubble();
-    self.updateStreamingBubble('正在处理...');
+    // 沉浸模式：不显示"正在处理..."
+    if (mode !== '1') {
+      self.updateStreamingBubble('正在处理...');
+    }
 
     // 重置 TTS 状态
     self.resetTts();
 
     // 调用 Coze 工作流（流式）
-    var mode = localStorage.getItem('fsj_agent_mode') || '0';
     AIService.execute(
       { content: text, mode: mode === '1' ? 'immersive' : 'normal' },
       function (event) {
         console.log('[AgentPage] event received:', event.type, event.delta || event.content ? (event.content || event.delta).substring(0, 30) : '');
         if (event.type === 'progress') {
-          // 执行进度：显示内容（普通模式用逐字效果）
-          self.updateStreamingBubble(event.content || (event.nodeTitle + '...'));
-          // 沉浸模式：切换为说话视频
-          self.switchAgentVideo(true);
-          // TTS：从累积内容中提取增量，逐句朗读
-          if (event.content) self.streamTts(event.content);
+          if (mode === '1') {
+            // 沉浸模式：不显示文字，只缓存给 TTS
+            self.switchAgentVideo(true);
+            if (event.content) self.streamTts(event.content);
+          } else {
+            // 普通模式：逐字快速显示
+            self.updateStreamingBubble(event.content || (event.nodeTitle + '...'));
+          }
         } else if (event.type === 'delta') {
-          // 增量片段（兼容未来的 delta 事件）
-          console.log('[AgentPage] appendImmersiveDelta:', event.delta);
-          self.appendImmersiveDelta(event.delta);
-          console.log('[AgentPage] streamTts:', event.delta);
-          self.streamTts(event.delta);
-          self.switchAgentVideo(true);
+          if (mode === '1') {
+            // 沉浸模式：增量缓存给 TTS
+            console.log('[AgentPage] streamTts delta:', event.delta);
+            self.streamTts(event.delta);
+            self.switchAgentVideo(true);
+          }
+          // 普通模式：由 progress 事件处理完整内容，delta 忽略
         } else if (event.type === 'result') {
-          // 最终结果
-          console.log('[AgentPage] finalize result');
-          self.updateStreamingBubble(event.content);
-          self.finalizeStreamingBubble();
-          // TTS：完成剩余句子
-          self.finalizeTts();
+          if (mode === '1') {
+            // 沉浸模式：等 TTS 播完才显示
+            console.log('[AgentPage] finalize result');
+            self.finalizeTts();
+          } else {
+            // 普通模式：立即显示完整内容
+            self.updateStreamingBubble(event.content);
+            self.finalizeStreamingBubble();
+          }
         } else if (event.type === 'done') {
           console.log('[AgentPage] done');
-          self.finalizeStreamingBubble();
-          // 沉浸模式：切回不说话视频
-          self.switchAgentVideo(false);
+          if (mode === '1') {
+            // 沉浸模式：等 TTS 全部播完才 finalize
+            if (!self.ttsEnabled || self.ttsSentenceQueue.length === 0) {
+              self.finalizeStreamingBubble();
+              self.switchAgentVideo(false);
+            }
+          } else {
+            // 普通模式：直接完成
+            self.finalizeStreamingBubble();
+          }
         }
       }
     );
@@ -760,18 +791,8 @@ var AgentPage = {
 
     var mode = localStorage.getItem('fsj_agent_mode') || '0';
 
-    // 沉浸模式：在 immersiveMessages 中创建流式消息占位
+    // 沉浸模式：不需要创建空气泡，TTS 播完才显示
     if (mode === '1') {
-      // 重置显示位置
-      this.immersiveDisplayPos = 0;
-      this.immersiveMessages.push({
-        type: 'ai',
-        content: '',
-        formattedContent: '',
-        isStreaming: true
-      });
-      this.renderImmersiveMessages();
-      this.scrollToBottom();
       return;
     }
 
@@ -797,7 +818,7 @@ var AgentPage = {
   },
 
   /**
-   * 更新流式气泡内容（普通模式：逐字打字效果）
+   * 更新流式气泡内容（普通模式：直接显示，不逐字效果）
    */
   updateStreamingBubble: function (text) {
     // 沉浸模式：使用独立消息列表，用累积内容更新
@@ -807,35 +828,26 @@ var AgentPage = {
       return;
     }
 
-    var list = document.getElementById('chat-message-list');
     var msgEl = document.getElementById('msg-' + this._currentMsgId);
-    if (!msgEl) return;
+    if (!msgEl) {
+      console.warn('[AgentPage] updateStreamingBubble: bubble not found, msgId:', this._currentMsgId);
+      return;
+    }
 
     var bubble = msgEl.querySelector('.rich-text');
-    if (!bubble) return;
-
-    // 逐字打字效果：每次只增加已显示长度 + 1 个字符
-    var currentLen = (bubble.getAttribute('data-len') || '0') | 0;
-    var targetLen = Math.min(currentLen + 1, text.length);
-    var displayText = text.substring(0, targetLen);
-
-    bubble.setAttribute('data-len', targetLen);
-    bubble.innerHTML = this.parseMarkdown(displayText);
-    this.scrollToBottom();
-
-    // 如果还没显示完，继续逐字输出
-    if (targetLen < text.length) {
-      var self = this;
-      if (!this._typingTimer) {
-        this._typeNextChar = function () {
-          self._typingTimer = requestAnimationFrame(function () {
-            self._typingTimer = null;
-            self.updateStreamingBubble(text);
-          });
-        };
-      }
-      this._typeNextChar();
+    if (!bubble) {
+      console.warn('[AgentPage] updateStreamingBubble: .rich-text not found in bubble');
+      return;
     }
+
+    // 清除打字动画，直接显示最新内容
+    if (this._typingTimer) {
+      cancelAnimationFrame(this._typingTimer);
+      this._typingTimer = null;
+    }
+
+    bubble.innerHTML = this.parseMarkdown(text);
+    this.scrollToBottom();
   },
 
   /**
@@ -975,15 +987,22 @@ var AgentPage = {
    * 滚动到底部
    */
   scrollToBottom: function () {
-    var anchor = document.getElementById('anchor-bottom');
-    if (anchor) {
-      anchor.scrollIntoView({ behavior: 'smooth' });
+    // 普通模式：消息容器有 overflow-y: auto
+    var messages = document.getElementById('chat-messages');
+    if (messages) {
+      messages.scrollTop = messages.scrollHeight;
+    }
+    // 沉浸模式：消息列表也有独立滚动
+    var msgList = document.getElementById('immersive-msg-list');
+    if (msgList) {
+      msgList.scrollTop = msgList.scrollHeight;
     }
   },
 
   /**
    * 流式 TTS：按句子级别逐句朗读（仅沉浸模式使用）
    * 在 progress 事件中调用，接收完整累积内容，提取增量部分拼接句子
+   * 新逻辑：句子入队但不立即显示文字，等 TTS 播完一句后再显示对应文字
    */
     streamTts: function (fullText) {
     if (!fullText) return;
@@ -1014,6 +1033,7 @@ var AgentPage = {
 
     if (plainText && plainText.length >= 2) {
       console.log('[TTS] sentence queued:', plainText);
+      // 加入缓存队列，不显示，等 TTS 播完再显示
       this.ttsSentenceQueue.push(plainText);
       this._processTtsQueue();
     }
@@ -1027,6 +1047,10 @@ var AgentPage = {
   finalizeTts: function () {
     if (!this.ttsEnabled) return;
 
+    // 防止重复调用
+    if (this.ttsFinalized) return;
+    this.ttsFinalized = true;
+
     // 把缓冲区剩余内容作为最后一句
     var remaining = this.ttsCurrentSentence.trim();
     if (remaining) {
@@ -1036,7 +1060,20 @@ var AgentPage = {
         this.ttsSentenceQueue.push(plainText);
         this._processTtsQueue();
       }
+    } else if (this.ttsSentenceQueue.length === 0) {
+      // 没有任何句子，直接完成
+      this._finalizeDisplay();
     }
+  },
+
+  /**
+   * TTS 全部播放完成后，更新 UI 显示
+   */
+  _finalizeDisplay: function () {
+    console.log('[TTS] all sentences finished, finalizing display');
+    this.finalizeStreamingBubble();
+    // 沉浸模式：切回不说话视频
+    this.switchAgentVideo(false);
   },
 
   /**
@@ -1056,7 +1093,7 @@ var AgentPage = {
   },
 
   /**
-   * 处理 TTS 句子队列：顺序播放，一句播完再播下一句
+   * 处理 TTS 句子队列：先显示文字 → 再播放语音 → 播完继续下一句
    */
   _processTtsQueue: function () {
     if (this.ttsProcessing) {
@@ -1065,21 +1102,67 @@ var AgentPage = {
     }
     if (this.ttsSentenceIndex >= this.ttsSentenceQueue.length) {
       console.log('[TTS] _processTtsQueue: no more sentences');
+      // 所有句子播放完成
+      if (this.ttsFinalized) {
+        this._finalizeDisplay();
+      }
       return;
     }
 
     this.ttsProcessing = true;
     var self = this;
     var text = this.ttsSentenceQueue[this.ttsSentenceIndex];
-    console.log('[TTS] playing:', text.substring(0, 30), 'index:', this.ttsSentenceIndex + '/' + this.ttsSentenceQueue.length);
+    console.log('[TTS] displaying:', text.substring(0, 30), 'index:', this.ttsSentenceIndex + '/' + this.ttsSentenceQueue.length);
 
-    TtsService.play(text).finally(function () {
-      console.log('[TTS] finished, index now:', self.ttsSentenceIndex + 1);
+    // 先显示文字
+    self._displayTtsSentence(text);
+
+    // 再播放语音
+    TtsService.play(text).then(function () {
+      console.log('[TTS] finished:', text.substring(0, 30));
       self.ttsSentenceIndex++;
       self.ttsProcessing = false;
       // 继续播放下一句
       self._processTtsQueue();
+    }).catch(function (e) {
+      console.error('[TTS] play failed:', e);
+      self.ttsSentenceIndex++;
+      self.ttsProcessing = false;
+      self._processTtsQueue();
     });
+  },
+
+  /**
+   * TTS 播完一句后，在消息列表显示这句文字（每句一个独立气泡）
+   */
+  _displayTtsSentence: function (text) {
+    console.log('[Display] appending sentence:', text.substring(0, 30));
+
+    var mode = localStorage.getItem('fsj_agent_mode') || '0';
+
+    if (mode === '1') {
+      // 沉浸模式：每句一个独立气泡
+      var msg = {
+        type: 'ai',
+        content: text,
+        formattedContent: this.parseMarkdown(text),
+        isStreaming: false
+      };
+      this.immersiveMessages.push(msg);
+      this.renderImmersiveMessages();
+    } else {
+      // 普通模式：追加到当前流式气泡
+      var msgEl = document.getElementById('msg-' + this._currentMsgId);
+      if (msgEl) {
+        var bubble = msgEl.querySelector('.rich-text');
+        if (bubble) {
+          bubble.innerHTML = this.parseMarkdown((bubble.getAttribute('data-content') || '') + text);
+          bubble.setAttribute('data-content', (bubble.getAttribute('data-content') || '') + text);
+        }
+      }
+    }
+
+    this.scrollToBottom();
   },
 
   /**
@@ -1091,6 +1174,7 @@ var AgentPage = {
     this.ttsCurrentSentence = '';
     this.ttsProcessing = false;
     this.ttsTextPos = 0;
+    this.ttsFinalized = false;
     TtsService.stop();
   },
 

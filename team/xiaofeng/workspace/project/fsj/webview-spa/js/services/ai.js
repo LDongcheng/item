@@ -139,6 +139,7 @@ var AIService = {
               // End 事件：最终结果
               if (data.node_type === 'End' && data.content) {
                 console.log('[AIService] result event');
+                console.log('[AIService] === 完整内容 ===\n' + accumulatedContent);
                 var output = data.content;
                 // 尝试解析 content 内的 JSON
                 try {

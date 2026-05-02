@@ -75,36 +75,52 @@ var TtsService = {
   },
 
   /**
-   * 播放语音（自动获取并播放）
+   * 播放语音
    * @param {string} text - 要播放的文字
-   * @returns {Promise<HTMLAudioElement>}
+   * @returns {Promise<void>} 播完才 resolve，失败则 reject
    */
   play: function (text) {
     var self = this;
     console.log('[TtsService] 准备播放语音:', text.substring(0, 20) + '...');
     return self.textToSpeech(text).then(function (audioUrl) {
       console.log('[TtsService] 音频URL生成:', audioUrl.substring(0, 60) + '...');
+
       // 停止之前正在播放的语音
       if (self._currentAudio) {
+        self._currentAudio.onended = null;
+        self._currentAudio.onerror = null;
         self._currentAudio.pause();
         self._currentAudio.src = '';
+        self._currentAudio = null;
       }
 
-      var audio = new Audio(audioUrl);
-      self._currentAudio = audio;
-      audio.onerror = function () {
-        console.error('[TtsService] 音频加载失败');
-      };
-      audio.onplay = function () {
-        console.log('[TtsService] 音频开始播放');
-      };
-      audio.onended = function () {
-        console.log('[TtsService] 音频播放结束');
-      };
-      audio.play().catch(function (e) {
-        console.error('[TtsService] 语音播放失败:', e);
+      var audio = new Audio();
+      audio.preload = 'auto';
+
+      // 返回一个 Promise：播完才 resolve，失败则 reject
+      return new Promise(function (resolve, reject) {
+        audio.onended = function () {
+          console.log('[TtsService] 音频播放完成');
+          self._currentAudio = null;
+          resolve();
+        };
+        audio.onerror = function (e) {
+          console.error('[TtsService] 音频加载失败:', e);
+          self._currentAudio = null;
+          reject(new Error('音频加载失败'));
+        };
+
+        self._currentAudio = audio;
+        audio.src = audioUrl;
+
+        audio.play().catch(function (e) {
+          if (e.name !== 'AbortError') {
+            console.error('[TtsService] 播放失败:', e);
+          }
+          self._currentAudio = null;
+          reject(e);
+        });
       });
-      return audio;
     });
   },
 
