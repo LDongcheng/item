@@ -7,7 +7,8 @@ var AIService = {
   config: {
     deepApiUrl: 'https://api.coze.cn/v1/workflow/stream_run',
     deepToken: 'sat_PsqZd6JJl9qOPZoT30rPv2gLKAVIMXGMmIp38VzXXIRU77nzgzk09yvcFwNT8Z4h',
-    hapWorkflowId: '7634531869195796499'
+    hapWorkflowId: '7634531869195796499',    // 普通模式
+    immersiveWorkflowId: '7635274334010196020'  // 沉浸模式
   },
 
   /**
@@ -27,11 +28,12 @@ var AIService = {
 
   /**
    * 调用 Coze 工作流
-   * @param {object} params - {content, appkey, org, rowid, sign, flow}
+   * @param {object} params - {content, appkey, org, rowid, sign, flow, mode}
    * @param {function} onChunk - 流式回调 {type: 'progress'|'result'|'done', data: any}
    */
   execute: async function (params, onChunk) {
     var self = this;
+    var isImmersive = params.mode === 'immersive';
 
     // 生气拦截
     if (this.isAngry(params.content || '')) {
@@ -40,6 +42,35 @@ var AIService = {
       return;
     }
 
+    var workflowId = isImmersive ? this.config.immersiveWorkflowId : this.config.hapWorkflowId;
+    var body = {
+      workflow_id: workflowId,
+      parameters: {}
+    };
+
+    if (isImmersive) {
+      // 沉浸模式：带完整参数
+      body.parameters = {
+        appkey: params.appkey || 'c156d7e78368cbc1',
+        content: params.content || '',
+        org: params.org || '35bd022d-fa72-4e7b-8c3b-0de99a4000e5',
+        rowid: params.rowid || '1024efc4-27fd-4522-bf3c-e4ebc998393c',
+        sign: params.sign || 'NmM2NGE0ZTNlN2Y3NjU3ODY5MzMzOTk1NzBjMmMwMzNkNmE5NDU2MWZiYTg4ZWViNDk3MGE3MzU5MjcwNDU2MQ=='
+      };
+    } else {
+      // 普通模式：原有参数
+      body.parameters = {
+        appkey: params.appkey || '',
+        content: params.content || '',
+        org: params.org || '',
+        rowid: params.rowid || '',
+        sign: params.sign || '',
+        flow: params.flow || ''
+      };
+    }
+
+    console.log('[AIService] calling workflow:', workflowId, isImmersive ? '(immersive)' : '(normal)');
+
     try {
       var res = await fetch(this.config.deepApiUrl, {
         method: 'POST',
@@ -47,17 +78,7 @@ var AIService = {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + this.config.deepToken
         },
-        body: JSON.stringify({
-          workflow_id: this.config.hapWorkflowId,
-          parameters: {
-            appkey: params.appkey || '',
-            content: params.content || '',
-            org: params.org || '',
-            rowid: params.rowid || '',
-            sign: params.sign || '',
-            flow: params.flow || ''  // 传入 flow 规划数据（JSON 字符串）
-          }
-        })
+        body: JSON.stringify(body)
       });
 
       if (!res.ok) {
@@ -86,9 +107,25 @@ var AIService = {
             try {
               var data = JSON.parse(line.slice(6));
 
+              // conversation.message.delta 事件：逐 token 增量
+              if (data.event === 'conversation.message.delta') {
+                if (data.content) {
+                  console.log('[AIService] delta event:', data.content);
+                  accumulatedContent += data.content;
+                  // delta 类型：携带原始增量片段和累积内容
+                  if (onChunk) onChunk({
+                    type: 'delta',
+                    delta: data.content,
+                    content: accumulatedContent
+                  });
+                }
+                continue;
+              }
+
               // Message 事件：节点输出（追加到累积内容）
               if (data.node_type === 'Message' || (data.node_type && data.content)) {
                 if (data.content) {
+                  console.log('[AIService] progress event:', data.content.substring(0, 50));
                   var parsedContent = data.content;
                   try {
                     var parsed = JSON.parse(data.content);
@@ -101,6 +138,7 @@ var AIService = {
 
               // End 事件：最终结果
               if (data.node_type === 'End' && data.content) {
+                console.log('[AIService] result event');
                 var output = data.content;
                 // 尝试解析 content 内的 JSON
                 try {
@@ -112,6 +150,7 @@ var AIService = {
 
               // Done 事件：执行完成
               if (data.debug_url !== undefined) {
+                console.log('[AIService] done event');
                 if (onChunk) onChunk({ type: 'done' });
               }
             } catch (e) {

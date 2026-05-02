@@ -12,6 +12,11 @@
   z-index: 100;
 }
 
+/* 沉浸模式下隐藏 TabBar */
+#page-agent.immersive-active ~ .tab-bar {
+  display: none;
+}
+
 .tab-item {
   display: flex;
   flex-direction: column;
@@ -1068,25 +1073,25 @@
   object-fit: cover;
 }
 
-/* 沉浸模式激活时，聊天内容在视频上方 */
+/* 沉浸模式激活时，隐藏普通模式消息列表，只显示底部沉浸消息 */
 .page-agent-content.immersive-active #chat-messages {
-  position: relative;
-  z-index: 10;
-  background: transparent;
+  display: none;
 }
 
 .page-agent-content.immersive-active .bottom-card {
-  position: relative;
-  z-index: 10;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
 }
 
 .page-agent-content.immersive-active .welcome-area {
-  position: relative;
-  z-index: 10;
-  background: transparent;
+  display: none;
 }
 
 /* 消息气泡在沉浸模式下毛玻璃效果 */
@@ -1098,4 +1103,63 @@
 
 .page-agent-content.immersive-active .message-item.user .message-bubble {
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.8) 0%, rgba(96, 165, 250, 0.8) 100%);
+}
+
+/* ========== 沉浸模式底部消息列表 ========== */
+.immersive-msg-list {
+  max-height: 160px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px var(--spacing-md) 4px;
+  display: none;
+}
+
+/* 沉浸模式激活时显示 */
+.page-agent-content.immersive-active .immersive-msg-list {
+  display: block;
+}
+
+.immersive-msg {
+  margin-bottom: 8px;
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.immersive-msg.user {
+  text-align: right;
+}
+
+.immersive-msg.user span {
+  display: inline-block;
+  background: rgba(37, 99, 235, 0.85);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 12px 12px 2px 12px;
+  max-width: 80%;
+  word-break: break-word;
+}
+
+.immersive-msg.ai {
+  text-align: left;
+}
+
+.immersive-msg.ai .rich-text {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #333;
+  padding: 6px 12px;
+  border-radius: 12px 12px 12px 2px;
+  max-width: 85%;
+  word-break: break-word;
+}
+
+.immersive-msg.ai .rich-text p {
+  margin: 0;
+}
+
+.immersive-msg.ai .streaming-cursor {
+  color: var(--color-primary);
+  font-size: var(--font-sm);
 }

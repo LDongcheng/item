@@ -81,7 +81,9 @@ var TtsService = {
    */
   play: function (text) {
     var self = this;
+    console.log('[TtsService] 准备播放语音:', text.substring(0, 20) + '...');
     return self.textToSpeech(text).then(function (audioUrl) {
+      console.log('[TtsService] 音频URL生成:', audioUrl.substring(0, 60) + '...');
       // 停止之前正在播放的语音
       if (self._currentAudio) {
         self._currentAudio.pause();
@@ -90,8 +92,17 @@ var TtsService = {
 
       var audio = new Audio(audioUrl);
       self._currentAudio = audio;
+      audio.onerror = function () {
+        console.error('[TtsService] 音频加载失败');
+      };
+      audio.onplay = function () {
+        console.log('[TtsService] 音频开始播放');
+      };
+      audio.onended = function () {
+        console.log('[TtsService] 音频播放结束');
+      };
       audio.play().catch(function (e) {
-        console.warn('[TtsService] 语音播放失败:', e);
+        console.error('[TtsService] 语音播放失败:', e);
       });
       return audio;
     });

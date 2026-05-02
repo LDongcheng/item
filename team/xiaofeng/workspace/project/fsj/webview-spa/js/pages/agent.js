@@ -14,9 +14,18 @@ var AgentPage = {
   scrollToView: '',
   // 沉浸模式视频资源
   videoResources: null,
-  // TTS 语音
+  // 沉浸模式消息列表
+  immersiveMessages: [],
+  immersiveDisplayPos: 0, // 沉浸模式已显示的文本位置
+  // TTS 语音（仅沉浸模式使用，按句子级别逐句朗读）
   ttsEnabled: true,
   ttsCurrentAudio: null,
+  // TTS 句子队列
+  ttsSentenceQueue: [],   // 完整句子数组
+  ttsSentenceIndex: 0,    // 当前已朗读到的句子索引
+  ttsCurrentSentence: '', // 正在拼接中的当前句子
+  ttsProcessing: false,   // 是否正在播放中
+  ttsTextPos: 0,          // TTS 已处理到的文本位置
 
   /**
    * 初始化
@@ -38,7 +47,11 @@ var AgentPage = {
    */
   loadTtsSetting: function () {
     var stored = localStorage.getItem('fsj_tts_enabled');
-    this.ttsEnabled = stored === '1';
+    // 默认开启（如果从未设置过，强制开启）
+    if (stored === null) {
+      localStorage.setItem('fsj_tts_enabled', '1');
+    }
+    this.ttsEnabled = stored === null ? true : stored === '1';
     // 更新语音按钮样式
     var voiceBtn = document.getElementById('chat-voice-btn');
     if (voiceBtn) {
@@ -149,12 +162,24 @@ var AgentPage = {
    */
   bindTopBtnEvents: function () {
     var self = this;
-    document.querySelectorAll('.agent-top-btn').forEach(function (btn) {
+    document.querySelectorAll('.agent-top-btn[data-panel]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var panel = btn.getAttribute('data-panel');
         self.handleTopPanel(panel);
       });
     });
+
+    // 语音测试按钮
+    var ttsTestBtn = document.getElementById('btn-tts-test');
+    if (ttsTestBtn) {
+      ttsTestBtn.addEventListener('click', function () {
+        TtsService.play('你好呀，我是星宝，很高兴见到你！').then(function () {
+          console.log('[AgentPage] 语音测试播放成功');
+        }).catch(function (e) {
+          console.error('[AgentPage] 语音测试失败:', e);
+        });
+      });
+    }
   },
 
   /**
@@ -317,6 +342,12 @@ var AgentPage = {
     var existing = document.getElementById('agent-immersive-scene');
     if (existing) return;
 
+    // 清空沉浸模式消息列表
+    this.immersiveMessages = [];
+    this.immersiveDisplayPos = 0;
+    var msgList = document.getElementById('immersive-msg-list');
+    if (msgList) msgList.innerHTML = '';
+
     var bgStyle = '';
     var videoSrc = '';
     var showVideo = false;
@@ -347,6 +378,9 @@ var AgentPage = {
 
     // 标记沉浸模式已激活
     container.classList.add('immersive-active');
+    // 给父级也加 class，用于 CSS 选择器隐藏 TabBar
+    var pageAgent = document.getElementById('page-agent');
+    if (pageAgent) pageAgent.classList.add('immersive-active');
 
     // 确保视频自动播放
     var videoEl = document.getElementById('immersive-agent-video');
@@ -375,6 +409,8 @@ var AgentPage = {
     if (scene) scene.remove();
 
     container.classList.remove('immersive-active');
+    var pageAgent = document.getElementById('page-agent');
+    if (pageAgent) pageAgent.classList.remove('immersive-active');
     this.videoResources = null;
   },
 
@@ -510,30 +546,53 @@ var AgentPage = {
     };
 
     var text = actionTexts[action] || action;
-    this.addMessage('user', text);
+
+    // 沉浸模式：使用独立消息列表
+    var mode = localStorage.getItem('fsj_agent_mode') || '0';
+    if (mode === '1') {
+      this.addImmersiveUserMessage(text);
+    } else {
+      this.addMessage('user', text);
+    }
 
     var self = this;
     self.createStreamingBubble();
     self.updateStreamingBubble('正在处理...');
+    // 重置 TTS 状态
+    self.resetTts();
 
     // 调用 Coze 工作流（流式）
+    var mode = localStorage.getItem('fsj_agent_mode') || '0';
     AIService.execute(
-      { content: text },
+      { content: text, mode: mode === '1' ? 'immersive' : 'normal' },
       function (event) {
+        console.log('[AgentPage] event received:', event.type, event.delta || event.content ? (event.content || event.delta).substring(0, 30) : '');
         if (event.type === 'progress') {
-          // 执行进度：显示内容
+          // 执行进度：显示内容（普通模式用逐字效果）
           self.updateStreamingBubble(event.content || (event.nodeTitle + '...'));
           // 沉浸模式：切换为说话视频
           self.switchAgentVideo(true);
+          // TTS：从累积内容中提取增量，逐句朗读
+          if (event.content) self.streamTts(event.content);
+        } else if (event.type === 'delta') {
+          // 增量片段（兼容未来的 delta 事件）
+          console.log('[AgentPage] appendImmersiveDelta:', event.delta);
+          self.appendImmersiveDelta(event.delta);
+          console.log('[AgentPage] streamTts:', event.delta);
+          self.streamTts(event.delta);
+          self.switchAgentVideo(true);
         } else if (event.type === 'result') {
+          // 最终结果
+          console.log('[AgentPage] finalize result');
           self.updateStreamingBubble(event.content);
           self.finalizeStreamingBubble();
+          // TTS：完成剩余句子
+          self.finalizeTts();
         } else if (event.type === 'done') {
+          console.log('[AgentPage] done');
           self.finalizeStreamingBubble();
           // 沉浸模式：切回不说话视频
           self.switchAgentVideo(false);
-          // TTS：播放 AI 回复内容
-          self.playAiVoice(event.content || '');
         }
       }
     );
@@ -634,7 +693,14 @@ var AgentPage = {
     var text = input.value.trim();
     if (!text) return;
 
-    this.addMessage('user', text);
+    // 沉浸模式：使用独立消息列表
+    var mode = localStorage.getItem('fsj_agent_mode') || '0';
+    if (mode === '1') {
+      this.addImmersiveUserMessage(text);
+    } else {
+      this.addMessage('user', text);
+    }
+
     input.value = '';
     this.inputText = '';
     document.getElementById('chat-send-btn').classList.remove('active');
@@ -645,25 +711,41 @@ var AgentPage = {
     self.createStreamingBubble();
     self.updateStreamingBubble('正在处理...');
 
+    // 重置 TTS 状态
+    self.resetTts();
+
     // 调用 Coze 工作流（流式）
+    var mode = localStorage.getItem('fsj_agent_mode') || '0';
     AIService.execute(
-      { content: text },
+      { content: text, mode: mode === '1' ? 'immersive' : 'normal' },
       function (event) {
+        console.log('[AgentPage] event received:', event.type, event.delta || event.content ? (event.content || event.delta).substring(0, 30) : '');
         if (event.type === 'progress') {
-          // 执行进度：显示内容
+          // 执行进度：显示内容（普通模式用逐字效果）
           self.updateStreamingBubble(event.content || (event.nodeTitle + '...'));
           // 沉浸模式：切换为说话视频
           self.switchAgentVideo(true);
+          // TTS：从累积内容中提取增量，逐句朗读
+          if (event.content) self.streamTts(event.content);
+        } else if (event.type === 'delta') {
+          // 增量片段（兼容未来的 delta 事件）
+          console.log('[AgentPage] appendImmersiveDelta:', event.delta);
+          self.appendImmersiveDelta(event.delta);
+          console.log('[AgentPage] streamTts:', event.delta);
+          self.streamTts(event.delta);
+          self.switchAgentVideo(true);
         } else if (event.type === 'result') {
           // 最终结果
+          console.log('[AgentPage] finalize result');
           self.updateStreamingBubble(event.content);
           self.finalizeStreamingBubble();
+          // TTS：完成剩余句子
+          self.finalizeTts();
         } else if (event.type === 'done') {
+          console.log('[AgentPage] done');
           self.finalizeStreamingBubble();
           // 沉浸模式：切回不说话视频
           self.switchAgentVideo(false);
-          // TTS：播放 AI 回复内容
-          self.playAiVoice(event.content || '');
         }
       }
     );
@@ -675,6 +757,23 @@ var AgentPage = {
   createStreamingBubble: function () {
     this.isAITyping = true;
     this.hasStreamingMsg = true;
+
+    var mode = localStorage.getItem('fsj_agent_mode') || '0';
+
+    // 沉浸模式：在 immersiveMessages 中创建流式消息占位
+    if (mode === '1') {
+      // 重置显示位置
+      this.immersiveDisplayPos = 0;
+      this.immersiveMessages.push({
+        type: 'ai',
+        content: '',
+        formattedContent: '',
+        isStreaming: true
+      });
+      this.renderImmersiveMessages();
+      this.scrollToBottom();
+      return;
+    }
 
     var aiMsgId = Date.now();
     this._currentMsgId = aiMsgId;
@@ -698,18 +797,149 @@ var AgentPage = {
   },
 
   /**
-   * 更新流式气泡内容
+   * 更新流式气泡内容（普通模式：逐字打字效果）
    */
   updateStreamingBubble: function (text) {
+    // 沉浸模式：使用独立消息列表，用累积内容更新
+    var mode = localStorage.getItem('fsj_agent_mode') || '0';
+    if (mode === '1') {
+      this.updateImmersiveMessage(text);
+      return;
+    }
+
     var list = document.getElementById('chat-message-list');
     var msgEl = document.getElementById('msg-' + this._currentMsgId);
     if (!msgEl) return;
 
     var bubble = msgEl.querySelector('.rich-text');
-    if (bubble) {
-      bubble.innerHTML = this.parseMarkdown(text);
-    }
+    if (!bubble) return;
+
+    // 逐字打字效果：每次只增加已显示长度 + 1 个字符
+    var currentLen = (bubble.getAttribute('data-len') || '0') | 0;
+    var targetLen = Math.min(currentLen + 1, text.length);
+    var displayText = text.substring(0, targetLen);
+
+    bubble.setAttribute('data-len', targetLen);
+    bubble.innerHTML = this.parseMarkdown(displayText);
     this.scrollToBottom();
+
+    // 如果还没显示完，继续逐字输出
+    if (targetLen < text.length) {
+      var self = this;
+      if (!this._typingTimer) {
+        this._typeNextChar = function () {
+          self._typingTimer = requestAnimationFrame(function () {
+            self._typingTimer = null;
+            self.updateStreamingBubble(text);
+          });
+        };
+      }
+      this._typeNextChar();
+    }
+  },
+
+  /**
+   * 沉浸模式：追加 delta 增量（逐字实时显示）
+   */
+  appendImmersiveDelta: function (delta) {
+    var container = document.getElementById('immersive-msg-list');
+    if (!container) return;
+
+    // 检查最后一条消息是否是 AI 的流式消息
+    var lastMsg = this.immersiveMessages[this.immersiveMessages.length - 1];
+    if (lastMsg && lastMsg.type === 'ai' && lastMsg.isStreaming) {
+      // 追加到当前流式消息
+      lastMsg.content += delta;
+      lastMsg.formattedContent = this.parseMarkdown(lastMsg.content);
+    } else {
+      // 新 AI 消息
+      var msg = {
+        type: 'ai',
+        content: delta,
+        formattedContent: this.parseMarkdown(delta),
+        isStreaming: true
+      };
+      this.immersiveMessages.push(msg);
+    }
+
+    this.renderImmersiveMessages();
+    this.scrollToBottom();
+  },
+
+  /**
+   * 更新沉浸模式消息（增量追加，不重复上一句）
+   */
+  updateImmersiveMessage: function (text) {
+    var container = document.getElementById('immersive-msg-list');
+    if (!container) return;
+
+    // 提取增量部分（从上次显示位置到新内容末尾）
+    var delta = text.substring(this.immersiveDisplayPos);
+    this.immersiveDisplayPos = text.length;
+
+    if (!delta) return;
+
+    // 检查最后一条消息是否是 AI 的流式消息
+    var lastMsg = this.immersiveMessages[this.immersiveMessages.length - 1];
+    if (lastMsg && lastMsg.type === 'ai' && lastMsg.isStreaming) {
+      // 追加增量
+      lastMsg.content += delta;
+      lastMsg.formattedContent = this.parseMarkdown(lastMsg.content);
+    } else {
+      // 新 AI 消息
+      var msg = {
+        type: 'ai',
+        content: delta,
+        formattedContent: this.parseMarkdown(delta),
+        isStreaming: true
+      };
+      this.immersiveMessages.push(msg);
+    }
+
+    // 渲染消息列表
+    this.renderImmersiveMessages();
+    this.scrollToBottom();
+  },
+
+  /**
+   * 渲染沉浸模式消息列表
+   */
+  renderImmersiveMessages: function () {
+    var container = document.getElementById('immersive-msg-list');
+    if (!container) return;
+
+    var html = this.immersiveMessages.map(function (msg, i) {
+      if (msg.type === 'user') {
+        return '<div class="immersive-msg user"><span>' + msg.content + '</span></div>';
+      } else {
+        var cursor = msg.isStreaming ? '<span class="streaming-cursor">▌</span>' : '';
+        return '<div class="immersive-msg ai"><div class="rich-text">' + msg.formattedContent + '</div>' + cursor + '</div>';
+      }
+    }).join('');
+
+    container.innerHTML = html;
+  },
+
+  /**
+   * 完成沉浸模式消息
+   */
+  finalizeImmersiveMessage: function () {
+    var lastMsg = this.immersiveMessages[this.immersiveMessages.length - 1];
+    if (lastMsg && lastMsg.type === 'ai') {
+      lastMsg.isStreaming = false;
+    }
+    this.renderImmersiveMessages();
+  },
+
+  /**
+   * 添加沉浸模式用户消息
+   */
+  addImmersiveUserMessage: function (text) {
+    this.immersiveMessages.push({
+      type: 'user',
+      content: text
+    });
+    this.renderImmersiveMessages();
   },
 
   /**
@@ -718,6 +948,19 @@ var AgentPage = {
   finalizeStreamingBubble: function () {
     this.isAITyping = false;
     this.hasStreamingMsg = false;
+
+    // 清除打字动画定时器
+    if (this._typingTimer) {
+      cancelAnimationFrame(this._typingTimer);
+      this._typingTimer = null;
+    }
+
+    // 沉浸模式：完成流式消息
+    var mode = localStorage.getItem('fsj_agent_mode') || '0';
+    if (mode === '1') {
+      this.finalizeImmersiveMessage();
+      return;
+    }
 
     var msgEl = document.getElementById('msg-' + this._currentMsgId);
     if (!msgEl) return;
@@ -739,14 +982,68 @@ var AgentPage = {
   },
 
   /**
-   * 播放 AI 回复语音（TTS）
-   * @param {string} text - 要播放的文字
+   * 流式 TTS：按句子级别逐句朗读（仅沉浸模式使用）
+   * 在 progress 事件中调用，接收完整累积内容，提取增量部分拼接句子
    */
-  playAiVoice: function (text) {
-    if (!this.ttsEnabled || !text) return;
+    streamTts: function (fullText) {
+    if (!fullText) return;
 
-    // 移除 Markdown 格式，只保留纯文本
-    var plainText = text
+    // 计算增量部分
+    var delta = fullText.substring(this.ttsTextPos);
+    this.ttsTextPos = fullText.length;
+
+    if (!delta) {
+      console.log('[TTS] no delta, skipping');
+      return;
+    }
+
+    // 去掉换行符，避免断句错误
+    delta = delta.replace(/\n/g, '');
+
+    if (!delta) return;
+
+    this.ttsCurrentSentence += delta;
+
+    // 识别所有句子结束标点：。！？
+    var match = this.ttsCurrentSentence.match(/[。！？]/);
+    if (!match) return;
+
+    var idx = match.index;
+    var sentence = this.ttsCurrentSentence.substring(0, idx + 1);
+    var plainText = this._stripMarkdown(sentence);
+
+    if (plainText && plainText.length >= 2) {
+      console.log('[TTS] sentence queued:', plainText);
+      this.ttsSentenceQueue.push(plainText);
+      this._processTtsQueue();
+    }
+
+    this.ttsCurrentSentence = this.ttsCurrentSentence.substring(idx + 1);
+  },
+
+  /**
+   * 完成流式 TTS：将剩余未完成的句子入队
+   */
+  finalizeTts: function () {
+    if (!this.ttsEnabled) return;
+
+    // 把缓冲区剩余内容作为最后一句
+    var remaining = this.ttsCurrentSentence.trim();
+    if (remaining) {
+      var plainText = this._stripMarkdown(remaining);
+      if (plainText) {
+        console.log('[TTS] finalize queued:', plainText);
+        this.ttsSentenceQueue.push(plainText);
+        this._processTtsQueue();
+      }
+    }
+  },
+
+  /**
+   * 移除 Markdown 格式
+   */
+  _stripMarkdown: function (text) {
+    return text
       .replace(/#{1,6}\s?/g, '')
       .replace(/\*\*(.*?)\*\*/g, '$1')
       .replace(/\*(.*?)\*/g, '$1')
@@ -754,15 +1051,47 @@ var AgentPage = {
       .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
       .replace(/>\s?/g, '')
       .replace(/[-*]\s?/g, '')
-      .replace(/\n{2,}/g, '\n')
+      .replace(/\n+/g, ' ')  // 换行符替换为空格（TTS 不需要读换行）
       .trim();
+  },
 
-    if (!plainText) return;
+  /**
+   * 处理 TTS 句子队列：顺序播放，一句播完再播下一句
+   */
+  _processTtsQueue: function () {
+    if (this.ttsProcessing) {
+      console.log('[TTS] _processTtsQueue: already processing, skipping');
+      return;
+    }
+    if (this.ttsSentenceIndex >= this.ttsSentenceQueue.length) {
+      console.log('[TTS] _processTtsQueue: no more sentences');
+      return;
+    }
 
+    this.ttsProcessing = true;
     var self = this;
-    TtsService.play(plainText).then(function (audio) {
-      self.ttsCurrentAudio = audio;
+    var text = this.ttsSentenceQueue[this.ttsSentenceIndex];
+    console.log('[TTS] playing:', text.substring(0, 30), 'index:', this.ttsSentenceIndex + '/' + this.ttsSentenceQueue.length);
+
+    TtsService.play(text).finally(function () {
+      console.log('[TTS] finished, index now:', self.ttsSentenceIndex + 1);
+      self.ttsSentenceIndex++;
+      self.ttsProcessing = false;
+      // 继续播放下一句
+      self._processTtsQueue();
     });
+  },
+
+  /**
+   * 重置 TTS 状态
+   */
+  resetTts: function () {
+    this.ttsSentenceQueue = [];
+    this.ttsSentenceIndex = 0;
+    this.ttsCurrentSentence = '';
+    this.ttsProcessing = false;
+    this.ttsTextPos = 0;
+    TtsService.stop();
   },
 
   /**
