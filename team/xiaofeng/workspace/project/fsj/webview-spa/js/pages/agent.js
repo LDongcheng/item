@@ -4,6 +4,7 @@
  */
 import AIService from '../services/ai.js';
 import AgentVideoService from '../services/agentVideo.js';
+import TtsService from '../services/tts.js';
 
 var AgentPage = {
   messages: [],
@@ -13,6 +14,9 @@ var AgentPage = {
   scrollToView: '',
   // 沉浸模式视频资源
   videoResources: null,
+  // TTS 语音
+  ttsEnabled: false,
+  ttsCurrentAudio: null,
 
   /**
    * 初始化
@@ -26,6 +30,37 @@ var AgentPage = {
     this.bindQuickActionEvents();
     this.bindTopBtnEvents();
     this.restoreAgentMode();
+    this.loadTtsSetting();
+  },
+
+  /**
+   * 加载 TTS 设置
+   */
+  loadTtsSetting: function () {
+    var stored = localStorage.getItem('fsj_tts_enabled');
+    this.ttsEnabled = stored === '1';
+    // 更新语音按钮样式
+    var voiceBtn = document.getElementById('chat-voice-btn');
+    if (voiceBtn) {
+      voiceBtn.classList.toggle('tts-on', this.ttsEnabled);
+    }
+  },
+
+  /**
+   * 切换 TTS
+   */
+  toggleTts: function () {
+    this.ttsEnabled = !this.ttsEnabled;
+    localStorage.setItem('fsj_tts_enabled', this.ttsEnabled ? '1' : '0');
+
+    var voiceBtn = document.getElementById('chat-voice-btn');
+    if (voiceBtn) {
+      voiceBtn.classList.toggle('tts-on', this.ttsEnabled);
+    }
+
+    if (!this.ttsEnabled) {
+      TtsService.stop();
+    }
   },
 
   /**
@@ -145,6 +180,7 @@ var AgentPage = {
     if (existing) existing.remove();
 
     var currentMode = localStorage.getItem('fsj_agent_mode') || '0';
+    var ttsOn = this.ttsEnabled;
 
     var modal = document.createElement('div');
     modal.id = 'agent-settings-modal';
@@ -156,6 +192,17 @@ var AgentPage = {
           '<span class="modal-close" id="agent-settings-close">✕</span>' +
         '</div>' +
         '<div class="agent-settings-body">' +
+          '<div class="settings-section">' +
+            '<div class="settings-section-title">语音朗读</div>' +
+            '<div class="settings-section-desc">AI 回复后用星宝语音朗读</div>' +
+            '<div class="toggle-row">' +
+              '<span class="toggle-label">语音开关</span>' +
+              '<div class="toggle-switch' + (ttsOn ? ' on' : '') + '" id="tts-toggle">' +
+                '<div class="toggle-knob"></div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="settings-divider"></div>' +
           '<div class="settings-section">' +
             '<div class="settings-section-title">灵魂设置</div>' +
             '<div class="settings-section-desc">配置智能体的性格、语气和知识库</div>' +
@@ -201,6 +248,15 @@ var AgentPage = {
         if (e.target === modal) {
           self.closeSettingsModal();
         }
+      });
+    }
+
+    // 语音开关
+    var ttsToggle = document.getElementById('tts-toggle');
+    if (ttsToggle) {
+      ttsToggle.addEventListener('click', function () {
+        self.toggleTts();
+        ttsToggle.classList.toggle('on', self.ttsEnabled);
       });
     }
 
@@ -291,6 +347,14 @@ var AgentPage = {
 
     // 标记沉浸模式已激活
     container.classList.add('immersive-active');
+
+    // 确保视频自动播放
+    var videoEl = document.getElementById('immersive-agent-video');
+    if (videoEl) {
+      videoEl.play().catch(function (e) {
+        console.warn('[AgentPage] 视频自动播放失败:', e);
+      });
+    }
   },
 
   /**
@@ -338,10 +402,10 @@ var AgentPage = {
     if (!container) return;
 
     var actions = [
-      { icon: '📊', text: '聊天记录分析', action: 'analysis', highlight: true },
+      { icon: '📊', text: '错题分析', action: 'analysis', highlight: true },
       { icon: '💬', text: '智能问答', action: 'qa' },
-      { icon: '', text: '复盘分析', action: 'review' },
-      { icon: '📋', text: '创建任务', action: 'task' },
+      { icon: '', text: '数学史', action: 'review' },
+      { icon: '📋', text: '个性化学习', action: 'task' },
       { icon: '', text: '目标拆解', action: 'goal' },
       { icon: '📈', text: '数据分析', action: 'data' },
     ];
@@ -405,6 +469,14 @@ var AgentPage = {
         self.sendText();
       });
     }
+
+    // 语音按钮
+    var voiceBtn = document.getElementById('chat-voice-btn');
+    if (voiceBtn) {
+      voiceBtn.addEventListener('click', function () {
+        self.toggleTts();
+      });
+    }
   },
 
   /**
@@ -429,10 +501,10 @@ var AgentPage = {
    */
   handleQuickAction: function (action) {
     var actionTexts = {
-      analysis: '📊 聊天记录分析',
+      analysis: '📊 错题分析',
       qa: '💬 智能问答',
-      review: '复盘分析',
-      task: '📋 创建任务',
+      review: '数学史',
+      task: '📋 个性化学习',
       goal: '目标拆解',
       data: '📈 数据分析'
     };
@@ -460,6 +532,8 @@ var AgentPage = {
           self.finalizeStreamingBubble();
           // 沉浸模式：切回不说话视频
           self.switchAgentVideo(false);
+          // TTS：播放 AI 回复内容
+          self.playAiVoice(event.content || '');
         }
       }
     );
@@ -588,6 +662,8 @@ var AgentPage = {
           self.finalizeStreamingBubble();
           // 沉浸模式：切回不说话视频
           self.switchAgentVideo(false);
+          // TTS：播放 AI 回复内容
+          self.playAiVoice(event.content || '');
         }
       }
     );
@@ -660,6 +736,33 @@ var AgentPage = {
     if (anchor) {
       anchor.scrollIntoView({ behavior: 'smooth' });
     }
+  },
+
+  /**
+   * 播放 AI 回复语音（TTS）
+   * @param {string} text - 要播放的文字
+   */
+  playAiVoice: function (text) {
+    if (!this.ttsEnabled || !text) return;
+
+    // 移除 Markdown 格式，只保留纯文本
+    var plainText = text
+      .replace(/#{1,6}\s?/g, '')
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/`(.*?)`/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/>\s?/g, '')
+      .replace(/[-*]\s?/g, '')
+      .replace(/\n{2,}/g, '\n')
+      .trim();
+
+    if (!plainText) return;
+
+    var self = this;
+    TtsService.play(plainText).then(function (audio) {
+      self.ttsCurrentAudio = audio;
+    });
   },
 
   /**

@@ -499,6 +499,16 @@
   gap: 6px;
 }
 
+.voice-btn.tts-on .voice-icon {
+  color: var(--color-primary);
+  animation: voicePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes voicePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
 .send-btn {
   padding: 4px 12px;
   background: var(--color-text-weak);
@@ -981,6 +991,49 @@
   font-weight: 600;
 }
 
+/* 语音开关切换 */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.toggle-label {
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+}
+
+.toggle-switch {
+  width: 44px;
+  height: 24px;
+  background: #ccc;
+  border-radius: 12px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle-switch.on {
+  background: var(--color-primary);
+}
+
+.toggle-knob {
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch.on .toggle-knob {
+  transform: translateX(20px);
+}
+
 /* ========== 沉浸模式 ========== */
 .immersive-scene {
   position: absolute;
@@ -989,7 +1042,6 @@
   right: 0;
   bottom: 0;
   z-index: 0;
-  pointer-events: none;
 }
 
 .immersive-bg {
@@ -999,6 +1051,7 @@
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  z-index: 1;
 }
 
 .immersive-agent {
@@ -1006,6 +1059,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
+  z-index: 2;
 }
 
 .agent-video {
@@ -1014,24 +1068,34 @@
   object-fit: cover;
 }
 
-/* 沉浸模式激活时，聊天内容半透明可看 */
-.page-agent-content.immersive-active .bottom-card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+/* 沉浸模式激活时，聊天内容在视频上方 */
+.page-agent-content.immersive-active #chat-messages {
+  position: relative;
+  z-index: 10;
+  background: transparent;
 }
 
-.page-agent-content.immersive-active #chat-messages {
-  background: transparent;
+.page-agent-content.immersive-active .bottom-card {
+  position: relative;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .page-agent-content.immersive-active .welcome-area {
+  position: relative;
+  z-index: 10;
   background: transparent;
 }
 
-/* 消息气泡在沉浸模式下调整 */
+/* 消息气泡在沉浸模式下毛玻璃效果 */
 .page-agent-content.immersive-active .message-bubble {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.page-agent-content.immersive-active .message-item.user .message-bubble {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.8) 0%, rgba(96, 165, 250, 0.8) 100%);
 }
