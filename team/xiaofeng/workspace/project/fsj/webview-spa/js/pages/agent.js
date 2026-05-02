@@ -587,8 +587,7 @@ var AgentPage = {
           }
         } else if (event.type === 'result') {
           if (mode === '1') {
-            console.log('[AgentPage] finalize result');
-            self.finalizeTts();
+            // 沉浸模式：result 不 finalize，等 done 事件
           } else {
             self.updateStreamingBubble(event.content);
             self.finalizeStreamingBubble();
@@ -596,6 +595,7 @@ var AgentPage = {
         } else if (event.type === 'done') {
           console.log('[AgentPage] done');
           if (mode === '1') {
+            self.finalizeTts();
             if (!self.ttsEnabled || self.ttsSentenceQueue.length === 0) {
               self.finalizeStreamingBubble();
               self.switchAgentVideo(false);
@@ -757,9 +757,8 @@ var AgentPage = {
           // 普通模式：由 progress 事件处理完整内容，delta 忽略
         } else if (event.type === 'result') {
           if (mode === '1') {
-            // 沉浸模式：等 TTS 播完才显示
-            console.log('[AgentPage] finalize result');
-            self.finalizeTts();
+            // 沉浸模式：result 不 finalize，等 done 事件
+            // streamTts 继续从 progress 事件解析句子
           } else {
             // 普通模式：立即显示完整内容
             self.updateStreamingBubble(event.content);
@@ -768,7 +767,8 @@ var AgentPage = {
         } else if (event.type === 'done') {
           console.log('[AgentPage] done');
           if (mode === '1') {
-            // 沉浸模式：等 TTS 全部播完才 finalize
+            // 沉浸模式：全部流式完成，推入剩余缓冲，开始 TTS 播放
+            self.finalizeTts();
             if (!self.ttsEnabled || self.ttsSentenceQueue.length === 0) {
               self.finalizeStreamingBubble();
               self.switchAgentVideo(false);
@@ -1053,6 +1053,7 @@ var AgentPage = {
 
     // 把缓冲区剩余内容作为最后一句
     var remaining = this.ttsCurrentSentence.trim();
+    this.ttsCurrentSentence = ''; // 清空缓冲
     if (remaining) {
       var plainText = this._stripMarkdown(remaining);
       if (plainText) {
