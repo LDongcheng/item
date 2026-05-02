@@ -12,12 +12,132 @@ import ProfilePage from './pages/profile.js';
 
   var App = {
     /**
+     * API 页面标识到内部页面 key 的映射
+     */
+    pageMap: {
+      'home': 'home',
+      'agent': 'agent',
+      'message': 'message',
+      'mine': 'profile',
+      'profile': 'profile',
+    },
+
+    /**
+     * 默认底部导航栏配置
+     */
+    defaultTabBar: [
+      { name: '首页', sort: 0, page: 'home' },
+      { name: '智能体', sort: 1, page: 'agent' },
+      { name: '消息', sort: 2, page: 'message' },
+      { name: '我的', sort: 3, page: 'profile' },
+    ],
+
+    /**
      * 应用初始化
      */
     init: function () {
-      this.bindTabBar();
+      this.loadTabBarConfig();
+      this.loadUserName();
       this.bindSearch();
       this.initPages();
+    },
+
+    /**
+     * 加载用户名
+     */
+    loadUserName: function () {
+      var userName = localStorage.getItem('fsj_user_name');
+      if (userName && window.ProfilePage) {
+        window.ProfilePage.renderUserCard();
+      }
+    },
+
+    /**
+     * 加载 TabBar 配置
+     */
+    loadTabBarConfig: function () {
+      var stored = localStorage.getItem('fsj_shangjia_tabs');
+      var config;
+      try {
+        config = stored ? JSON.parse(stored) : null;
+        // 确保是数组
+        if (!Array.isArray(config)) config = null;
+      } catch (e) {
+        config = null;
+      }
+      if (!config) {
+        config = this.defaultTabBar;
+      } else {
+        // 映射 API 页面标识到内部 key
+        var self = this;
+        config = config.map(function (item) {
+          return {
+            name: item.name,
+            sort: item.sort,
+            page: self.pageMap[item.page] || item.page,
+          };
+        });
+      }
+      this.renderTabBar(config);
+    },
+
+    /**
+     * 根据商家配置渲染底部导航栏
+     * @param {Array} tabBarConfig - 导航栏配置数组
+     */
+    renderTabBar: function (tabBarConfig) {
+      var tabBar = document.getElementById('tab-bar');
+      if (!tabBar) return;
+
+      // 按 sort 排序
+      var sorted = tabBarConfig.sort(function (a, b) {
+        return parseInt(a.sort) - parseInt(b.sort);
+      });
+
+      tabBar.innerHTML = sorted.map(function (item, index) {
+        return '<div class="tab-item' + (index === 0 ? ' active' : '') + '" data-page="' + item.page + '">' +
+          '<div class="tab-icon-img"></div>' +
+          '<span class="tab-label">' + item.name + '</span>' +
+          '</div>';
+      }).join('');
+
+      // 重新绑定事件
+      this.bindTabBar();
+
+      // 未登录默认显示"我的"页面，方便用户登录
+      var isLogin = !!localStorage.getItem('fsj_token');
+      var firstPage = isLogin ? sorted[0].page : 'profile';
+
+      // 确保 sorted 中包含 profile 页面
+      var hasProfile = sorted.some(function (item) {
+        return item.page === 'profile';
+      });
+      if (!hasProfile) {
+        firstPage = 'profile';
+      }
+
+      this.switchPage(firstPage);
+    },
+
+    /**
+     * 更新 TabBar 配置（登录成功后调用）
+     * @param {Array} shangjia - 商家页面配置
+     */
+    updateTabBar: function (shangjia) {
+      if (!shangjia || !shangjia.length) return;
+
+      // 映射 API 页面标识到内部 key
+      var self = this;
+      var mapped = shangjia.map(function (item) {
+        return {
+          name: item.name,
+          sort: item.sort,
+          page: self.pageMap[item.page] || item.page,
+        };
+      });
+
+      localStorage.setItem('fsj_shangjia_tabs', JSON.stringify(mapped));
+      this.renderTabBar(mapped);
     },
 
     /**
@@ -125,4 +245,5 @@ import ProfilePage from './pages/profile.js';
 
   // 暴露到全局
   window.App = App;
+  window.ProfilePage = ProfilePage;
 })();

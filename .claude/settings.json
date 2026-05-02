@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "bash E:/Item/fsj/.claude/hooks/on-stop.sh"
+      }
+    ],
+    "SessionEnd": [
+      {
+        "type": "prompt",
+        "prompt": "当前会话即将结束。请检查当前工作目录下 team/*/memory/session-log.md 的最后记录，如有本次会话的工作内容尚未写入，请以你的 Agent 身份署名简要补充写入。"
+      }
+    ]
+  }
+}

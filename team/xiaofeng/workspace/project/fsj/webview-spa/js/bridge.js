@@ -33,6 +33,13 @@
           }
         });
       }
+
+      // 监听小程序发来的消息
+      window.addEventListener('message', function (e) {
+        if (e.data && e.data.type === 'loginSuccess') {
+          self.handleLoginSuccess(e.data.data);
+        }
+      });
     },
 
     /**
@@ -83,6 +90,33 @@
      */
     requestLogin: function (loginType) {
       this.postMessage('requestLogin', { loginType: loginType });
+    },
+
+    /**
+     * 登录成功回调
+     * @param {object} loginData - 登录返回数据 { rowid, name, shangjia }
+     */
+    handleLoginSuccess: function (loginData) {
+      if (loginData.rowid) {
+        localStorage.setItem('fsj_token', loginData.rowid);
+      }
+      if (loginData.name) {
+        localStorage.setItem('fsj_user_name', loginData.name);
+      }
+      if (loginData.shangjia) {
+        localStorage.setItem('fsj_shangjia_tabs', JSON.stringify(loginData.shangjia));
+      }
+
+      // 通知 App 重新渲染 TabBar
+      if (window.App && window.App.updateTabBar) {
+        window.App.updateTabBar(loginData.shangjia);
+      }
+
+      // 刷新我的页面
+      if (window.ProfilePage) {
+        window.ProfilePage.renderUserCard();
+        window.ProfilePage.renderSettingsList();
+      }
     },
 
     /**

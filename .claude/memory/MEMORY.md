@@ -150,7 +150,8 @@
 
 | 文件 | 内容 |
 |------|------|
-| [memory-architecture.md](memory-architecture.md) | Agent双层记忆架构 ⭐ NEW |
+| [team-memory-management.md](../../.docs/team-memory-management.md) | Team 记忆管理规范 ⭐ 2026-05-02 |
+| [memory-architecture.md](memory-architecture.md) | Agent双层记忆架构 |
 | [structure.md](structure.md) | 项目详细结构 |
 | [tech-style.md](tech-style.md) | 技术栈与代码风格 ⭐ API中文乱码解决方案 |
 | [business.md](business.md) | 业务需求要点 |

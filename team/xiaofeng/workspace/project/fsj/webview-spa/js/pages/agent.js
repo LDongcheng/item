@@ -15,12 +15,34 @@ var AgentPage = {
    * 初始化
    */
   init: function () {
+    this.renderAgentTopBar();
     this.renderWelcome();
     this.renderQuickActions();
     this.renderInputArea();
     this.bindInputEvents();
     this.bindQuickActionEvents();
     this.bindTopBtnEvents();
+  },
+
+  /**
+   * 渲染顶部 Agent 信息
+   */
+  renderAgentTopBar: function () {
+    // 默认 Agent 信息
+    this.currentAgent = {
+      name: '小风',
+      avatar: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%232563EB" width="100" height="100"/><text x="50" y="65" font-size="50" fill="white" text-anchor="middle" dominant-baseline="middle">风</text></svg>',
+      title: '技术总监'
+    };
+
+    var avatarEl = document.getElementById('agent-avatar-top');
+    var nameEl = document.getElementById('agent-name-top');
+    if (avatarEl) {
+      avatarEl.src = this.currentAgent.avatar;
+    }
+    if (nameEl) {
+      nameEl.textContent = this.currentAgent.name;
+    }
   },
 
   /**
@@ -44,14 +66,6 @@ var AgentPage = {
       case 'tasks':
         // TODO: 打开任务列表面板
         alert('任务队列：查看和管理智能体任务');
-        break;
-      case 'skills':
-        // TODO: 打开技能列表面板
-        alert('技能列表：智能体具备的 16 个 HAP 技能');
-        break;
-      case 'settings':
-        // TODO: 打开 SOUL.md 设置面板
-        alert('设定：编辑 SOUL.md 个性设置');
         break;
     }
   },
@@ -172,11 +186,11 @@ var AgentPage = {
   handleQuickAction: function (action) {
     var actionTexts = {
       analysis: '📊 聊天记录分析',
-      qa: '请帮我解答一个问题',
-      review: '帮我复盘分析',
-      task: '创建任务',
+      qa: '💬 智能问答',
+      review: '复盘分析',
+      task: '📋 创建任务',
       goal: '目标拆解',
-      data: '数据分析'
+      data: '📈 数据分析'
     };
 
     var text = actionTexts[action] || action;
@@ -184,12 +198,23 @@ var AgentPage = {
 
     var self = this;
     self.createStreamingBubble();
+    self.updateStreamingBubble('正在处理...');
 
-    AIService.quickReply(text, function (fullText) {
-      self.updateStreamingBubble(fullText);
-    }).then(function (fullText) {
-      self.finalizeStreamingBubble();
-    });
+    // 调用 Coze 工作流（流式）
+    AIService.execute(
+      { content: text },
+      function (event) {
+        if (event.type === 'progress') {
+          // 执行进度：显示内容
+          self.updateStreamingBubble(event.content || (event.nodeTitle + '...'));
+        } else if (event.type === 'result') {
+          self.updateStreamingBubble(event.content);
+          self.finalizeStreamingBubble();
+        } else if (event.type === 'done') {
+          self.finalizeStreamingBubble();
+        }
+      }
+    );
   },
 
   /**
@@ -259,48 +284,26 @@ var AgentPage = {
   },
 
   /**
-   * Markdown 简易解析
+   * Markdown 渲染（使用 marked 库）
    */
   parseMarkdown: function (text) {
     if (!text) return '';
-
-    var html = text
+    if (typeof marked !== 'undefined') {
+      return marked.parse(text);
+    }
+    // 降级方案：简易解析
+    return text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-
-    // 标题
-    html = html.replace(/^### (.*)$/gm, '<div class="md-h3">$1</div>');
-    html = html.replace(/^## (.*)$/gm, '<div class="md-h2">$1</div>');
-    html = html.replace(/^# (.*)$/gm, '<div class="md-h1">$1</div>');
-
-    // 分隔线
-    html = html.replace(/^---$/gm, '<div class="md-divider"></div>');
-
-    // 无序列表
-    html = html.replace(/^- (.*)$/gm, '<div class="md-item">• $1</div>');
-
-    // 有序列表
-    html = html.replace(/^(\d+)\. (.*)$/gm, '<div class="md-number-item">$1. $2</div>');
-
-    // 粗体
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-    // 高亮
-    html = html.replace(/【(.*?)】/g, '<span class="md-highlight">【$1】</span>');
-
-    // 代码
-    html = html.replace(/`(.*?)`/g, '<span class="md-code">$1</span>');
-
-    // 换行
-    html = html.replace(/\n/g, '<br/>');
-
-    return html;
+      .replace(/>/g, '&gt;')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`(.*?)`/g, '<code>$1</code>')
+      .replace(/\n/g, '<br/>');
   },
 
   /**
    * 发送文字消息
-   * 双层响应：快速回复（非流式） + 深度执行
+   * 调用 Coze 工作流，流式返回执行进度
    */
   sendText: function () {
     var input = document.getElementById('chat-input');
@@ -316,15 +319,26 @@ var AgentPage = {
 
     var self = this;
 
-    // 先创建气泡，显示"正在处理中..."
+    // 立即创建气泡，显示"正在处理..."
     self.createStreamingBubble();
+    self.updateStreamingBubble('正在处理...');
 
-    // 快速回复（非流式，~800ms）
-    AIService.quickReply(text, function (fullText) {
-      self.updateStreamingBubble(fullText);
-    }).then(function (fullText) {
-      self.finalizeStreamingBubble();
-    });
+    // 调用 Coze 工作流（流式）
+    AIService.execute(
+      { content: text },
+      function (event) {
+        if (event.type === 'progress') {
+          // 执行进度：显示内容
+          self.updateStreamingBubble(event.content || (event.nodeTitle + '...'));
+        } else if (event.type === 'result') {
+          // 最终结果
+          self.updateStreamingBubble(event.content);
+          self.finalizeStreamingBubble();
+        } else if (event.type === 'done') {
+          self.finalizeStreamingBubble();
+        }
+      }
+    );
   },
 
   /**
@@ -384,78 +398,6 @@ var AgentPage = {
     var cursor = msgEl.querySelector('.streaming-cursor');
     if (bubble) bubble.classList.remove('streaming');
     if (cursor) cursor.style.display = 'none';
-  },
-
-  /**
-   * 模拟 AI 回复（流式输出）
-   */
-  simulateAIReply: function (userText) {
-    var self = this;
-
-    var reply = this.getAIReply(userText);
-
-    this.isAITyping = true;
-    this.hasStreamingMsg = true;
-
-    var aiMsgId = Date.now();
-    var list = document.getElementById('chat-message-list');
-
-    var msgEl = document.createElement('div');
-    msgEl.className = 'message-item ai';
-    msgEl.id = 'msg-' + aiMsgId;
-    msgEl.innerHTML =
-      '<div class="message-avatar">🤖</div>' +
-      '<div class="message-content">' +
-        '<div class="message-bubble streaming">' +
-          '<div class="rich-text"></div>' +
-          '<span class="streaming-cursor">▌</span>' +
-        '</div>' +
-        '<div class="message-time">' + this.getCurrentTime() + '</div>' +
-      '</div>';
-
-    list.appendChild(msgEl);
-    this.scrollToBottom();
-
-    // 模拟流式输出
-    var currentIndex = 0;
-    var chunkSize = 2;
-    var interval = 40;
-
-    var timer = setInterval(function () {
-      if (currentIndex < reply.length) {
-        var endIndex = Math.min(currentIndex + chunkSize, reply.length);
-        var displayed = reply.slice(0, endIndex);
-        currentIndex = endIndex;
-
-        var bubble = msgEl.querySelector('.rich-text');
-        if (bubble) {
-          bubble.innerHTML = self.parseMarkdown(displayed);
-        }
-        self.scrollToBottom();
-      } else {
-        clearInterval(timer);
-        self.isAITyping = false;
-        self.hasStreamingMsg = false;
-
-        var bubble = msgEl.querySelector('.message-bubble');
-        var cursor = msgEl.querySelector('.streaming-cursor');
-        if (bubble) bubble.classList.remove('streaming');
-        if (cursor) cursor.style.display = 'none';
-      }
-    }, interval);
-  },
-
-  /**
-   * 获取 AI 回复（简单模拟）
-   */
-  getAIReply: function (userText) {
-    if (userText.includes('你好') || userText.includes('嗨')) {
-      return '你好！我是你的AI助理，很高兴为你服务。请问有什么我可以帮你的吗？\n\n我可以帮你：\n- 智能问答\n- 数据分析\n- 复盘总结\n- 任务管理';
-    }
-    if (userText.includes('数据') || userText.includes('分析')) {
-      return '📊 数据分析报告\n\n根据你提供的数据，我分析出以下要点：\n\n【销售趋势】\n本月销售额较上月增长 15%，主要增长来自新客户贡献。\n\n【客户分布】\n- A类客户：30%\n- B类客户：45%\n- C类客户：25%\n\n【建议】\n1. 加大A类客户维护力度\n2. 制定B类客户升级方案\n3. 优化C类客户服务流程';
-    }
-    return '收到你的消息了！我正在分析中...\n\n基于你的需求，我建议：\n1. 先明确目标\n2. 制定执行计划\n3. 设置关键里程碑\n4. 定期复盘优化\n\n需要我进一步详细说明哪个方面？';
   },
 
   /**

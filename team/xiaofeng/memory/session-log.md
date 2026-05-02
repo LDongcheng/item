@@ -64,3 +64,39 @@
 ---
 
 *更新时间: 2026-04-26*
+[小风] 2026-05-02 06:27:54 - 一次回复完成（hook测试）
+
+---
+
+## 2026-05-02 【小风】
+
+### 记忆管理系统重构
+
+1. **问题诊断**
+   - 发现 session-log 自 4月26日后未更新（6天空白）
+   - 根因：依赖手动写入，没有自动化机制
+   - 记忆写错位置：写到 C盘全局记忆，而非各自独立目录
+
+2. **Hook 自动更新配置** ⭐
+   - 为 6 个 Agent 全部创建 `.claude/settings.json`
+   - `Stop` hook：每次回复后自动追加时间戳
+   - `SessionEnd` hook：会话结束自动生成工作摘要
+   - 删除了项目根目录 `E:\Item\fsj\.claude\settings.json`（避免所有 Agent 都往小风日志写）
+
+3. **记忆路径规范化**
+   - Agent 记忆：`team/{name}/memory/` — 各自独立
+   - 项目公共记忆：`E:\Item\fsj\.claude\memory\` — 林东城专用
+   - C盘自动记忆：Claude Code 管理，Agent 不主动写
+
+4. **创建文档**
+   - `E:\Item\fsj\.claude\memory\team-memory-management.md` — Team 记忆管理规范
+   - `team/xiaofeng/memory/h5-agent-chat.md` — H5 Agent 聊天架构原理（测试写入）
+
+5. **H5 Agent 聊天原理写入记忆**
+   - 架构：用户输入 → agent.js → ai.js → Coze 流式 API
+   - 小程序通信：Bridge 桥接、wx.miniProgram.postMessage
+   - AI 流式：SSE 解析（Message/End/Done 事件）
+   - 愤怒关键词拦截、双层响应策略
+[小风] 2026-05-02 06:59:01 - hook测试2
+[xiaofeng] 2026-05-02 07:03:05 - 一次回复完成
+[小风] 2026-05-02 07:03:25 - 一次回复完成

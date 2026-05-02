@@ -1,86 +1,44 @@
 /**
- * AI 服务 - 快速响应 + 深度执行
- * 快速响应：阿里百炼 qwen3-coder-next（非流式，~800ms）
- * 深度执行：Coze Workflow HAP API（异步执行数据操作）
+ * AI 服务 - Coze 工作流统一智能回复
+ * 规划 + 意图识别 + 执行全部由 Coze 工作流完成
+ * 前端接收流式返回，实时显示执行进度
  */
 var AIService = {
   config: {
-    // 快速响应 - 阿里百炼 OpenAI 兼容接口
-    quickApiUrl: 'https://coding.dashscope.aliyuncs.com/v1/chat/completions',
-    quickApiKey: 'sk-sp-385035c0f01148548165845d5ca6c400',
-    quickModel: 'qwen3-coder-next',
-
-    // 深度执行 - Coze Workflow
     deepApiUrl: 'https://api.coze.cn/v1/workflow/stream_run',
     deepToken: 'sat_PsqZd6JJl9qOPZoT30rPv2gLKAVIMXGMmIp38VzXXIRU77nzgzk09yvcFwNT8Z4h',
     hapWorkflowId: '7634531869195796499'
   },
 
   /**
-   * 第一层：快速响应（非流式，~800ms）
-   * @param {string} userMessage - 用户输入
-   * @param {function} onToken - 收到回复的回调
-   * @returns {Promise<string>} 完整回复
+   * 生气关键词检测（前端快速拦截，不依赖 AI）
    */
-  quickReply: async function (userMessage, onToken) {
-    try {
-      var res = await fetch(this.config.quickApiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + this.config.quickApiKey
-        },
-        body: JSON.stringify({
-          model: this.config.quickModel,
-          stream: false,
-          max_tokens: 50,
-          messages: [
-            {
-              role: 'system',
-              content: '你是一句话回复助手，用户说什么，你只用一句话告诉他你正在做什么工作，不超过30字。不要展开。'
-            },
-            {
-              role: 'user',
-              content: userMessage
-            }
-          ]
-        })
-      });
+  angerKeywords: ['生气', '愤怒', '气死', '垃圾', '废物', '没用', '傻', '蠢', '太差', '太慢', '不行', '会不会', '到底会不会', '你是不是', '你行不行'],
 
-      if (!res.ok) {
-        console.error('[AIService] API returned error:', res.status, res.statusText);
-        var errText = '正在处理中...';
-        if (onToken) onToken(errText);
-        return errText;
+  isAngry: function (userMessage) {
+    var msg = userMessage.toLowerCase();
+    for (var i = 0; i < this.angerKeywords.length; i++) {
+      if (msg.indexOf(this.angerKeywords[i]) !== -1) {
+        return true;
       }
-
-      var data = await res.json();
-      var content = '';
-      if (data.choices && data.choices[0] && data.choices[0].message) {
-        content = data.choices[0].message.content || '正在处理中...';
-      } else {
-        content = '正在处理中...';
-        console.error('[AIService] Unexpected response format:', JSON.stringify(data));
-      }
-
-      if (onToken) onToken(content);
-      return content;
-    } catch (e) {
-      console.error('[AIService] quickReply error:', e);
-      var fallback = '正在处理中...';
-      if (onToken) onToken(fallback);
-      return fallback;
     }
+    return false;
   },
 
   /**
-   * 第二层：深度执行（Coze HAP API）
-   * @param {object} params - 执行参数
-   * @param {function} onChunk - 流式数据块回调
-   * @returns {Promise} 流式执行结果
+   * 调用 Coze 工作流
+   * @param {object} params - {content, appkey, org, rowid, sign, flow}
+   * @param {function} onChunk - 流式回调 {type: 'progress'|'result'|'done', data: any}
    */
-  deepExecute: async function (params, onChunk) {
+  execute: async function (params, onChunk) {
     var self = this;
+
+    // 生气拦截
+    if (this.isAngry(params.content || '')) {
+      if (onChunk) onChunk({ type: 'result', content: '对不起，我马上改进' });
+      if (onChunk) onChunk({ type: 'done' });
+      return;
+    }
 
     try {
       var res = await fetch(this.config.deepApiUrl, {
@@ -96,14 +54,23 @@ var AIService = {
             content: params.content || '',
             org: params.org || '',
             rowid: params.rowid || '',
-            sign: params.sign || ''
+            sign: params.sign || '',
+            flow: params.flow || ''  // 传入 flow 规划数据（JSON 字符串）
           }
         })
       });
 
+      if (!res.ok) {
+        console.error('[AIService] Coze API error:', res.status, res.statusText);
+        if (onChunk) onChunk({ type: 'result', content: '请求失败，请稍后再试' });
+        if (onChunk) onChunk({ type: 'done' });
+        return;
+      }
+
       var reader = res.body.getReader();
       var decoder = new TextDecoder();
       var buffer = '';
+      var accumulatedContent = '';  // 累积内容
 
       while (true) {
         var chunk = await reader.read();
@@ -114,42 +81,50 @@ var AIService = {
         buffer = lines.pop() || '';
 
         for (var i = 0; i < lines.length; i++) {
-          var line = lines[i];
-          if (line.indexOf('data: ') === 0 && onChunk) {
-            onChunk(line.slice(6));
+          var line = lines[i].trim();
+          if (line.indexOf('data: ') === 0) {
+            try {
+              var data = JSON.parse(line.slice(6));
+
+              // Message 事件：节点输出（追加到累积内容）
+              if (data.node_type === 'Message' || (data.node_type && data.content)) {
+                if (data.content) {
+                  var parsedContent = data.content;
+                  try {
+                    var parsed = JSON.parse(data.content);
+                    parsedContent = parsed.output || parsed.content || data.content;
+                  } catch (e) {}
+                  accumulatedContent += parsedContent + '\n';
+                  if (onChunk) onChunk({ type: 'progress', nodeTitle: data.node_title || '', content: accumulatedContent });
+                }
+              }
+
+              // End 事件：最终结果
+              if (data.node_type === 'End' && data.content) {
+                var output = data.content;
+                // 尝试解析 content 内的 JSON
+                try {
+                  var parsed = JSON.parse(data.content);
+                  output = parsed.output || parsed.content || data.content;
+                } catch (e) {}
+                if (onChunk) onChunk({ type: 'result', content: accumulatedContent || output });
+              }
+
+              // Done 事件：执行完成
+              if (data.debug_url !== undefined) {
+                if (onChunk) onChunk({ type: 'done' });
+              }
+            } catch (e) {
+              // JSON 解析失败，跳过
+              console.warn('[AIService] Parse failed:', line.substring(0, 100));
+            }
           }
         }
       }
     } catch (e) {
-      console.error('[AIService] deepExecute error:', e);
-      throw e;
-    }
-  },
-
-  /**
-   * 完整对话流程：快速回复 + 深度执行
-   * @param {string} userMessage - 用户输入
-   * @param {object} hapParams - HAP 执行参数
-   * @param {function} onToken - 快速回复 token 回调
-   * @param {function} onDeepResult - 深度执行结果回调
-   */
-  chat: async function (userMessage, hapParams, onToken, onDeepResult) {
-    var self = this;
-
-    // 第一层：快速响应
-    this.quickReply(userMessage, onToken).then(function (fullText) {
-      if (onDeepResult) {
-        onDeepResult({ type: 'quickReply', content: fullText });
-      }
-    });
-
-    // 第二层：深度执行（同时进行）
-    if (hapParams) {
-      this.deepExecute(hapParams, function (data) {
-        if (onDeepResult) {
-          onDeepResult({ type: 'deepExecute', data: data });
-        }
-      });
+      console.error('[AIService] execute error:', e);
+      if (onChunk) onChunk({ type: 'result', content: '执行出错：' + e.message });
+      if (onChunk) onChunk({ type: 'done' });
     }
   }
 };
