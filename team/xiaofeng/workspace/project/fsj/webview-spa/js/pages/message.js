@@ -24,15 +24,15 @@ var MessagePage = {
     ];
 
     var html = messages.map(function (msg) {
-      return '<div class="message-item">' +
-        '<div class="msg-avatar"><img src="' + (msg.avatar || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect fill="%2300E5D0" width="1" height="1"/></svg>') + '" /></div>' +
+      return '<div class="message-list-item">' +
+        '<div class="msg-avatar"><img src="' + (msg.avatar || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect fill="%232563EB" width="1" height="1"/></svg>') + '" /></div>' +
         '<div class="msg-content">' +
-          '<div class="msg-name">' + msg.name + '</div>' +
+          '<div class="msg-header">' +
+            '<div class="msg-name">' + msg.name + '</div>' +
+            '<div class="msg-time">' + msg.time + '</div>' +
+          '</div>' +
           '<div class="msg-text">' + msg.text + '</div>' +
-        '</div>' +
-        '<div class="msg-meta">' +
-          '<div class="msg-time">' + msg.time + '</div>' +
-          (msg.unread > 0 ? '<span class="msg-badge">' + msg.unread + '</span>' : '') +
+          (msg.unread > 0 ? '<div class="msg-meta"><span class="msg-badge">' + msg.unread + '</span></div>' : '') +
         '</div>' +
         '</div>';
     }).join('');
@@ -40,7 +40,7 @@ var MessagePage = {
     container.innerHTML = html;
 
     // 绑定点击事件
-    var items = container.querySelectorAll('.message-item');
+    var items = container.querySelectorAll('.message-list-item');
     items.forEach(function (item) {
       item.addEventListener('click', function () {
         var name = item.querySelector('.msg-name').textContent;

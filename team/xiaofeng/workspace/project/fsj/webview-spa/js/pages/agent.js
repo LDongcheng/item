@@ -368,6 +368,199 @@ var AgentPage = {
   },
 
   /**
+   * 显示错题分析上传弹窗
+   */
+  showAnalysisUploadModal: function () {
+    var existing = document.getElementById('analysis-upload-modal');
+    if (existing) existing.remove();
+
+    this._analysisImages = [];
+
+    var modal = document.createElement('div');
+    modal.id = 'analysis-upload-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML =
+      '<div class="analysis-modal">' +
+        '<div class="analysis-modal-header">' +
+          '<h3>错题分析</h3>' +
+          '<span class="analysis-modal-close">✕</span>' +
+        '</div>' +
+        '<div class="analysis-modal-body">' +
+          '<p class="analysis-modal-desc">上传错题照片，AI 将为你分析错因并给出解题思路</p>' +
+          '<div class="analysis-upload-area" id="analysis-upload-area">' +
+            '<div class="upload-icon">📷</div>' +
+            '<div class="upload-text">点击拍照或选择图片</div>' +
+            '<input type="file" id="analysis-file-input" accept="image/*" capture="environment" multiple style="display:none" />' +
+          '</div>' +
+          '<div class="analysis-preview-list" id="analysis-preview-list"></div>' +
+          '<div class="analysis-modal-footer">' +
+            '<button class="analysis-btn analysis-btn-cancel" id="analysis-cancel-btn">取消</button>' +
+            '<button class="analysis-btn analysis-btn-submit" id="analysis-submit-btn">开始分析</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(modal);
+    this.bindAnalysisModalEvents();
+  },
+
+  /**
+   * 绑定错题上传弹窗事件
+   */
+  bindAnalysisModalEvents: function () {
+    var self = this;
+    var modal = document.getElementById('analysis-upload-modal');
+    var closeBtn = modal.querySelector('.analysis-modal-close');
+    var cancelBtn = document.getElementById('analysis-cancel-btn');
+    var submitBtn = document.getElementById('analysis-submit-btn');
+    var uploadArea = document.getElementById('analysis-upload-area');
+    var fileInput = document.getElementById('analysis-file-input');
+
+    function closeModal() {
+      var m = document.getElementById('analysis-upload-modal');
+      if (m) m.remove();
+    }
+
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) closeModal();
+    });
+
+    if (uploadArea) {
+      uploadArea.addEventListener('click', function () {
+        if (fileInput) fileInput.click();
+      });
+    }
+
+    if (fileInput) {
+      fileInput.addEventListener('change', function (e) {
+        self.handleAnalysisFiles(e.target.files);
+      });
+    }
+
+    if (submitBtn) {
+      submitBtn.addEventListener('click', function () {
+        self.submitAnalysis();
+        closeModal();
+      });
+    }
+  },
+
+  /**
+   * 处理选择的图片文件
+   */
+  handleAnalysisFiles: function (files) {
+    var self = this;
+    if (!files || files.length === 0) return;
+
+    var previewList = document.getElementById('analysis-preview-list');
+    if (!previewList) return;
+
+    // 隐藏上传区域
+    var uploadArea = document.getElementById('analysis-upload-area');
+    if (uploadArea) uploadArea.style.display = 'none';
+
+    Array.from(files).forEach(function (file) {
+      if (!file.type.startsWith('image/')) return;
+
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        var dataUrl = e.target.result;
+        self._analysisImages.push(dataUrl);
+
+        var item = document.createElement('div');
+        item.className = 'analysis-preview-item';
+        item.innerHTML =
+          '<img src="' + dataUrl + '" />' +
+          '<div class="preview-remove" data-idx="' + (self._analysisImages.length - 1) + '">✕</div>';
+        previewList.appendChild(item);
+
+        // 绑定删除按钮
+        item.querySelector('.preview-remove').addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var idx = parseInt(this.getAttribute('data-idx'));
+          self._analysisImages[idx] = null;
+          item.remove();
+          // 如果全部删除，重新显示上传区域
+          if (self._analysisImages.filter(Boolean).length === 0) {
+            self._analysisImages = [];
+            if (uploadArea) uploadArea.style.display = '';
+          }
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  },
+
+  /**
+   * 提交错题分析
+   */
+  submitAnalysis: function () {
+    var images = this._analysisImages.filter(Boolean);
+
+    // Demo：无论上传什么图片，统一使用内置提示词
+    var demoPrompt = '上面有一道方程题 2x + 3 = 7，学生选了 C. x=5（错误答案，正确应为 x=2），带有红色圈和叉号标记';
+
+    var text = '📊 错题分析';
+    if (images.length > 0) {
+      text = '📊 错题分析（' + images.length + '张图片）';
+    }
+
+    var mode = localStorage.getItem('fsj_agent_mode') || '0';
+    if (mode === '1') {
+      this.addImmersiveUserMessage(text);
+    } else {
+      this.addMessage('user', text);
+    }
+
+    var self = this;
+    self.createStreamingBubble();
+    if (mode !== '1') {
+      self.updateStreamingBubble('正在处理...');
+    }
+    self.resetTts();
+
+    // 统一使用内置提示词调用 AI
+    AIService.execute(
+      { content: demoPrompt, mode: mode === '1' ? 'immersive' : 'normal' },
+      function (event) {
+        console.log('[AgentPage] event received:', event.type, event.delta || event.content ? (event.content || event.delta).substring(0, 30) : '');
+        if (event.type === 'progress') {
+          if (mode === '1') {
+            if (event.content) self.streamTts(event.content);
+          } else {
+            self.updateStreamingBubble(event.content || (event.nodeTitle + '...'));
+          }
+        } else if (event.type === 'delta') {
+          if (mode === '1') {
+            console.log('[AgentPage] streamTts delta:', event.delta);
+            self.streamTts(event.delta);
+          } else {
+            self.appendImmersiveDelta(event.delta);
+          }
+        } else if (event.type === 'result') {
+          if (mode !== '1') {
+            self.updateStreamingBubble(event.content);
+            self.finalizeStreamingBubble();
+          }
+        } else if (event.type === 'done') {
+          console.log('[AgentPage] done');
+          if (mode === '1') {
+            self.finalizeTts();
+            if (!self.ttsEnabled || self.ttsSentenceQueue.length === 0) {
+              self.finalizeStreamingBubble();
+            }
+          } else {
+            self.finalizeStreamingBubble();
+          }
+        }
+      }
+    );
+  },
+
+  /**
    * 切换 Agent 模式
    */
   switchAgentMode: function (mode) {
@@ -596,6 +789,15 @@ var AgentPage = {
    * 处理快捷操作
    */
   handleQuickAction: function (action) {
+    // 解锁音频上下文（移动端需要用户交互后才能播放）
+    TtsService.initAudio();
+
+    // 错题分析：弹出图片上传弹窗
+    if (action === 'analysis') {
+      this.showAnalysisUploadModal();
+      return;
+    }
+
     var actionTexts = {
       analysis: '📊 错题分析',
       qa: '💬 智能问答',
@@ -606,9 +808,6 @@ var AgentPage = {
     };
 
     var text = actionTexts[action] || action;
-
-    // 解锁音频上下文（移动端需要用户交互后才能播放）
-    TtsService.initAudio();
 
     // 沉浸模式：使用独立消息列表
     var mode = localStorage.getItem('fsj_agent_mode') || '0';

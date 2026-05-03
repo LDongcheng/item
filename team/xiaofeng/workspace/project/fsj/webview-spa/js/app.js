@@ -12,7 +12,7 @@ import ProfilePage from './pages/profile.js';
 
   var App = {
     /**
-     * API 页面标识到内部页面 key 的映射
+     * 页面标识映射
      */
     pageMap: {
       'home': 'home',
@@ -31,6 +31,11 @@ import ProfilePage from './pages/profile.js';
       { name: '消息', sort: 2, page: 'message' },
       { name: '我的', sort: 3, page: 'profile' },
     ],
+
+    /**
+     * 当前 TabBar 配置（保存排序后的）
+     */
+    tabBarConfig: [],
 
     /**
      * 应用初始化
@@ -60,7 +65,6 @@ import ProfilePage from './pages/profile.js';
       var config;
       try {
         config = stored ? JSON.parse(stored) : null;
-        // 确保是数组
         if (!Array.isArray(config)) config = null;
       } catch (e) {
         config = null;
@@ -68,47 +72,61 @@ import ProfilePage from './pages/profile.js';
       if (!config) {
         config = this.defaultTabBar;
       } else {
-        // 映射 API 页面标识到内部 key
         var self = this;
         config = config.map(function (item) {
-          return {
+          var mapped = {
             name: item.name,
             sort: item.sort,
             page: self.pageMap[item.page] || item.page,
           };
+          // mode 0 = 原生页面, mode 1 = 内嵌url
+          if (item.mode !== undefined) mapped.mode = item.mode;
+          if (item.url) {
+            mapped.url = item.url;
+            // 统一补全 https 前缀
+            if (!mapped.url.match(/^https?:\/\//)) {
+              mapped.url = 'https://' + mapped.url;
+            }
+          }
+          // 首页 mode 0 时固定显示原生 home 页面
+          if (item.name === '首页' && (item.mode === 0 || item.mode === '0')) {
+            mapped.page = 'home';
+          }
+          return mapped;
         });
       }
       this.renderTabBar(config);
     },
 
     /**
-     * 根据商家配置渲染底部导航栏
-     * @param {Array} tabBarConfig - 导航栏配置数组
+     * 渲染底部导航栏
      */
     renderTabBar: function (tabBarConfig) {
       var tabBar = document.getElementById('tab-bar');
       if (!tabBar) return;
 
-      // 按 sort 排序
       var sorted = tabBarConfig.sort(function (a, b) {
         return parseInt(a.sort) - parseInt(b.sort);
       });
 
+      this.tabBarConfig = sorted;
+
       tabBar.innerHTML = sorted.map(function (item, index) {
-        return '<div class="tab-item' + (index === 0 ? ' active' : '') + '" data-page="' + item.page + '">' +
+        var modeAttr = (item.mode == 1) ? ' data-mode="1"' : '';
+        var urlAttr = item.url ? ' data-url="' + item.url + '"' : '';
+        return '<div class="tab-item' + (index === 0 ? ' active' : '') + '"' +
+          ' data-page="' + item.page + '"' + modeAttr + urlAttr + '>' +
           '<div class="tab-icon-img"></div>' +
           '<span class="tab-label">' + item.name + '</span>' +
           '</div>';
       }).join('');
 
-      // 重新绑定事件
       this.bindTabBar();
 
-      // 未登录默认显示"我的"页面，方便用户登录
       var isLogin = !!localStorage.getItem('fsj_token');
-      var firstPage = isLogin ? sorted[0].page : 'profile';
+      var firstItem = sorted[0];
+      var firstPage = isLogin ? firstItem.page : 'profile';
 
-      // 确保 sorted 中包含 profile 页面
       var hasProfile = sorted.some(function (item) {
         return item.page === 'profile';
       });
@@ -116,24 +134,35 @@ import ProfilePage from './pages/profile.js';
         firstPage = 'profile';
       }
 
-      this.switchPage(firstPage);
+      // 初始加载时判断 mode
+      if (isLogin && firstItem.mode == 1 && firstItem.url) {
+        this.switchToWebview(firstItem.url);
+      } else {
+        this.switchPage(firstPage);
+      }
     },
 
     /**
-     * 更新 TabBar 配置（登录成功后调用）
-     * @param {Array} shangjia - 商家页面配置
+     * 更新 TabBar 配置
      */
     updateTabBar: function (shangjia) {
       if (!shangjia || !shangjia.length) return;
 
-      // 映射 API 页面标识到内部 key
       var self = this;
       var mapped = shangjia.map(function (item) {
-        return {
+        var m = {
           name: item.name,
           sort: item.sort,
           page: self.pageMap[item.page] || item.page,
         };
+        if (item.mode !== undefined) m.mode = item.mode;
+        if (item.url) {
+          m.url = item.url;
+          if (!m.url.match(/^https?:\/\//)) {
+            m.url = 'https://' + m.url;
+          }
+        }
+        return m;
       });
 
       localStorage.setItem('fsj_shangjia_tabs', JSON.stringify(mapped));
@@ -150,17 +179,56 @@ import ProfilePage from './pages/profile.js';
       tabs.forEach(function (tab) {
         tab.addEventListener('click', function () {
           var page = tab.getAttribute('data-page');
-          self.switchPage(page);
+          var mode = tab.getAttribute('data-mode');
+          var url = tab.getAttribute('data-url');
+
+          if (mode === '1' && url) {
+            self.switchToWebview(url);
+          } else {
+            self.switchPage(page);
+          }
         });
       });
     },
 
     /**
+     * 切换到内嵌网页模式
+     */
+    switchToWebview: function (url) {
+      // 补协议头
+      if (url && !url.match(/^https?:\/\//)) {
+        url = 'https://' + url;
+      }
+      var pages = document.querySelectorAll('.page');
+      pages.forEach(function (p) {
+        p.classList.remove('active');
+      });
+
+      var webviewPage = document.getElementById('page-webview');
+      if (webviewPage) {
+        webviewPage.classList.add('active');
+        var iframe = document.getElementById('webview-iframe');
+        if (iframe) {
+          iframe.src = url;
+        }
+      }
+
+      var tabs = document.querySelectorAll('.tab-item');
+      tabs.forEach(function (tab) {
+        if (tab.getAttribute('data-mode') === '1' && tab.getAttribute('data-url') === url) {
+          tab.classList.add('active');
+        } else {
+          tab.classList.remove('active');
+        }
+      });
+
+      Bridge.setNavigationBarTitle('');
+    },
+
+    /**
      * 页面切换
-     * @param {string} pageKey - 页面标识
      */
     switchPage: function (pageKey) {
-      // 切换页面显示
       var pages = document.querySelectorAll('.page');
       pages.forEach(function (p) {
         p.classList.remove('active');
@@ -171,7 +239,6 @@ import ProfilePage from './pages/profile.js';
         targetPage.classList.add('active');
       }
 
-      // 切换 TabBar 激活态
       var tabs = document.querySelectorAll('.tab-item');
       tabs.forEach(function (tab) {
         var tabPage = tab.getAttribute('data-page');
@@ -182,7 +249,6 @@ import ProfilePage from './pages/profile.js';
         }
       });
 
-      // 设置导航栏标题
       var titles = {
         home: '',
         agent: '智能体',
@@ -234,7 +300,6 @@ import ProfilePage from './pages/profile.js';
     }
   };
 
-  // 启动应用
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
       App.init();
@@ -243,7 +308,6 @@ import ProfilePage from './pages/profile.js';
     App.init();
   }
 
-  // 暴露到全局
   window.App = App;
   window.ProfilePage = ProfilePage;
 })();

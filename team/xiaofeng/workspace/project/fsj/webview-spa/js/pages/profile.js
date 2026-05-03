@@ -21,9 +21,9 @@ var ProfilePage = {
     if (!container) return;
 
     var token = localStorage.getItem('fsj_token');
-    var userName = localStorage.getItem('fsj_user_name') || '商家用户';
+    var userName = localStorage.getItem('fsj_user_name') || '学生';
     var isLogin = !!token;
-    var user = isLogin ? { name: userName, role: '销售代表' } : { name: '未登录', role: '请先登录' };
+    var user = isLogin ? { name: userName, role: '四年级' } : { name: '未登录', role: '请先登录' };
 
     container.innerHTML =
       '<div class="avatar"><img src="assets/logo.png" alt="avatar" /></div>' +
@@ -50,9 +50,9 @@ var ProfilePage = {
     if (!container) return;
 
     var stats = [
-      { num: '128', label: '本月拜访' },
-      { num: '23', label: '跟进项目' },
-      { num: '86', label: '完成任务' },
+      { num: '12', label: '错题本' },
+      { num: '36', label: '练习完成' },
+      { num: '8', label: '学习天数' },
     ];
 
     container.innerHTML = stats.map(function (s) {
@@ -77,7 +77,12 @@ var ProfilePage = {
       menu.push({ icon: '', label: '登录', action: 'login', primary: true });
     }
 
-    menu.push({ icon: '', label: '使用指引', action: 'guide' });
+    menu.push({ icon: '', label: '学习指引', action: 'guide' });
+
+    if (token) {
+      menu.push({ icon: '', label: '我的错题', action: 'my-errors' });
+      menu.push({ icon: '', label: '学习报告', action: 'report' });
+    }
 
     if (token) {
       menu.push({ icon: '', label: '退出登录', action: 'logout', logout: true });
@@ -302,6 +307,12 @@ var ProfilePage = {
         break;
       case 'guide':
         Bridge.postMessage('navigate', { page: 'guide' });
+        break;
+      case 'my-errors':
+        Bridge.postMessage('navigate', { page: 'analysis' });
+        break;
+      case 'report':
+        Bridge.postMessage('navigate', { page: 'evaluation' });
         break;
       case 'logout':
         localStorage.removeItem('fsj_token');
