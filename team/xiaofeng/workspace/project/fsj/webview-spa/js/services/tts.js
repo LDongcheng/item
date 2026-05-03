@@ -89,22 +89,20 @@ var TtsService = {
       if (self._currentAudio) {
         self._currentAudio.onended = null;
         self._currentAudio.onerror = null;
-        self._currentAudio.oncanplay = null;
         self._currentAudio.pause();
-        self._currentAudio.src = '';
         self._currentAudio = null;
       }
 
       var audio = new Audio();
-      audio.preload = 'auto';
 
-      // 返回一个 Promise：真正播完才 resolve
       return new Promise(function (resolve, reject) {
         var settled = false;
+        var playTimeout = null;
 
-        function settle(isResolve, err) {
+        function safeSettle(isResolve, err) {
           if (settled) return;
           settled = true;
+          if (playTimeout) clearTimeout(playTimeout);
           self._currentAudio = null;
           if (isResolve) {
             resolve();
@@ -113,43 +111,44 @@ var TtsService = {
           }
         }
 
-        // 播完才 resolve
         audio.onended = function () {
           console.log('[TtsService] 音频播放完成');
-          settle(true);
+          safeSettle(true);
         };
 
-        // 加载失败则 reject
         audio.onerror = function (e) {
-          console.error('[TtsService] 音频加载失败');
-          settle(false, new Error('音频加载失败'));
+          console.error('[TtsService] 音频错误');
+          safeSettle(false, new Error('音频加载失败'));
         };
 
-        // 超时兜底（15秒）
-        audio._timeout = setTimeout(function () {
-          settle(false, new Error('音频播放超时'));
-        }, 15000);
-
-        // 清理 timeout
-        var originalSettle = settle;
-        settle = function (isResolve, err) {
-          if (audio._timeout) clearTimeout(audio._timeout);
-          originalSettle(isResolve, err);
-        };
+        // 动态超时：根据音频长度估算（每字约 300ms）
+        var estimatedDuration = Math.max(text.length * 300, 3000);
+        playTimeout = setTimeout(function () {
+          if (!settled) {
+            console.warn('[TtsService] 音频超时 (' + estimatedDuration + 'ms)');
+            safeSettle(false, new Error('播放超时'));
+          }
+        }, estimatedDuration + 5000);
 
         self._currentAudio = audio;
         audio.src = audioUrl;
+        audio.volume = 1;
 
-        // 移动端：play() 可能秒 reject，不立即触发 settle，等 onended/onerror
         var playPromise = audio.play();
-        if (playPromise && playPromise.catch) {
+        if (playPromise) {
           playPromise.catch(function (e) {
-            if (e.name === 'AbortError') {
-              // AbortError 是被中断，等 onended/onerror 决定
-              return;
+            if (e.name === 'NotAllowedError') {
+              console.warn('[TtsService] 播放被阻止');
+              // 等 onended（有些浏览器在允许后会自动触发）
+            } else if (e.name === 'AbortError') {
+              // 被中断，等待其他事件
+            } else if (e.name === 'NotSupportedError') {
+              console.error('[TtsService] 不支持的音频格式');
+              safeSettle(false, new Error('不支持的音频格式'));
+            } else {
+              console.error('[TtsService] play() 失败:', e.name);
+              safeSettle(false, e);
             }
-            // 其他错误（如NotAllowedError）直接 reject
-            settle(false, e);
           });
         }
       });

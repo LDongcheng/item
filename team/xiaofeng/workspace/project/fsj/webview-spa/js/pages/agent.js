@@ -1103,7 +1103,6 @@ var AgentPage = {
     }
     if (this.ttsSentenceIndex >= this.ttsSentenceQueue.length) {
       console.log('[TTS] _processTtsQueue: no more sentences');
-      // 所有句子播放完成
       if (this.ttsFinalized) {
         this._finalizeDisplay();
       }
@@ -1118,24 +1117,37 @@ var AgentPage = {
     // 先显示文字
     self._displayTtsSentence(text);
 
-    // 再播放语音
-    TtsService.play(text).then(function () {
-      console.log('[TTS] finished:', text.substring(0, 30));
-      self.ttsSentenceIndex++;
-      self.ttsProcessing = false;
-      // 句子之间间隔 200ms，避免移动端音频请求太密集
-      setTimeout(function () {
-        self._processTtsQueue();
-      }, 200);
-    }).catch(function (e) {
-      console.error('[TTS] play failed:', e);
-      self.ttsSentenceIndex++;
-      self.ttsProcessing = false;
-      // 播放失败也等 500ms 再下一句
-      setTimeout(function () {
-        self._processTtsQueue();
-      }, 500);
-    });
+    // 再播放语音（最多重试 3 次）
+    var retryCount = 0;
+    function tryPlay() {
+      TtsService.play(text).then(function () {
+        console.log('[TTS] finished:', text.substring(0, 30));
+        self.ttsSentenceIndex++;
+        self.ttsProcessing = false;
+        setTimeout(function () {
+          self._processTtsQueue();
+        }, 300);
+      }).catch(function (e) {
+        var errName = e.name || e.message || '';
+        console.error('[TTS] play failed:', errName, 'retry:', retryCount);
+        retryCount++;
+        if (retryCount < 3) {
+          // NotAllowedError 重试
+          setTimeout(function () {
+            tryPlay();
+          }, 1000);
+        } else {
+          // 超过最大重试次数，跳过当前句
+          console.warn('[TTS] giving up on sentence:', text.substring(0, 30));
+          self.ttsSentenceIndex++;
+          self.ttsProcessing = false;
+          setTimeout(function () {
+            self._processTtsQueue();
+          }, 500);
+        }
+      });
+    }
+    tryPlay();
   },
 
   /**
