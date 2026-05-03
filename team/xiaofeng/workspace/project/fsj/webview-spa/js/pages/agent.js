@@ -394,8 +394,8 @@ var AgentPage = {
           '</div>' +
           '<div class="analysis-preview-list" id="analysis-preview-list"></div>' +
           '<div class="analysis-modal-footer">' +
-            '<button class="analysis-btn analysis-btn-cancel" id="analysis-cancel-btn">取消</button>' +
-            '<button class="analysis-btn analysis-btn-submit" id="analysis-submit-btn">开始分析</button>' +
+            '<button type="button" class="analysis-btn analysis-btn-cancel" id="analysis-cancel-btn">取消</button>' +
+            '<button type="button" class="analysis-btn analysis-btn-submit" id="analysis-submit-btn">开始分析</button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -424,24 +424,31 @@ var AgentPage = {
     if (closeBtn) closeBtn.addEventListener('click', closeModal);
     if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
 
+    // 阻止弹窗内所有点击事件冒泡，避免触发外层页面的导航
     modal.addEventListener('click', function (e) {
+      e.stopPropagation();
       if (e.target === modal) closeModal();
     });
 
     if (uploadArea) {
-      uploadArea.addEventListener('click', function () {
+      uploadArea.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
         if (fileInput) fileInput.click();
       });
     }
 
     if (fileInput) {
       fileInput.addEventListener('change', function (e) {
+        e.preventDefault();
         self.handleAnalysisFiles(e.target.files);
       });
     }
 
     if (submitBtn) {
-      submitBtn.addEventListener('click', function () {
+      submitBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
         self.submitAnalysis();
         closeModal();
       });

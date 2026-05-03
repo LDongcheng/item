@@ -22,13 +22,16 @@ var AnalysisPage = {
     var collectBtn = document.getElementById('analysis-collect-btn');
 
     if (uploadBtn) {
-      uploadBtn.addEventListener('click', function () {
+      uploadBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
         if (fileInput) fileInput.click();
       });
     }
 
     if (fileInput) {
       fileInput.addEventListener('change', function (e) {
+        e.preventDefault();
         self.handleFiles(e.target.files);
       });
     }
