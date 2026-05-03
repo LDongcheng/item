@@ -7,11 +7,17 @@ Page({
   },
 
   onShow() {
-    this.syncLoginState();
+    // 先清空再设置新 URL，强制 webview 重新加载（同域名缓存问题）
+    this.setData({ webviewUrl: '' }, () => {
+      this.syncLoginState();
+    });
   },
 
   onLoad() {
-    this.syncLoginState();
+    // 延迟一帧设置 URL，确保 webview 组件已完全初始化
+    setTimeout(() => {
+      this.syncLoginState();
+    }, 50);
   },
 
   // 同步登录状态到 webview
