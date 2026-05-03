@@ -25,7 +25,7 @@ var AgentSwitcher = {
     // 模拟数据
     this.agents = [
       { id: 'agent-1', name: '小粽', title: '总经理', avatar: '', status: 'online' },
-      { id: 'agent-2', name: '小风', title: '技术总监', avatar: '', status: 'online' },
+      { id: 'agent-2', name: '童小智', title: '技术总监', avatar: '', status: 'online' },
       { id: 'agent-3', name: '阿说', title: '运营总监', avatar: '', status: 'offline' },
     ];
 

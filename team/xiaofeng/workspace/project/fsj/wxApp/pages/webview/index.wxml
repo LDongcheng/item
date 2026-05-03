@@ -1,2 +1,2 @@
 <!--pages/webview/index.wxml-->
-<web-view wx:if="{{showWebView}}" src="{{webviewUrl}}" bindmessage="onWebviewMessage" bindload="onWebviewLoad"></web-view>
+<web-view src="{{webviewUrl}}" bindmessage="onWebviewMessage" bindload="onWebviewLoad"></web-view>

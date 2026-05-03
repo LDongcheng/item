@@ -3,33 +3,29 @@ const app = getApp();
 
 Page({
   data: {
-    webviewUrl: '',
-    showWebView: false
-  },
-
-  onShow() {
-    const self = this;
-    // 隐藏 webview 再重建，强制完全刷新（销毁 DOM 节点）
-    this.setData({ showWebView: false }, function() {
-      // 确保 setData 完成后再重新设置
-      setTimeout(function() {
-        self.syncLoginState();
-        self.setData({ showWebView: true });
-      }, 200);
-    });
+    webviewUrl: ''
   },
 
   onLoad() {
-    // 首次加载直接显示
-    this.syncLoginState();
-    this.setData({ showWebView: true });
+    // 首次加载直接设置 URL
+    app.globalData.webviewUrl = app.buildWebviewUrl();
+    this.setData({ webviewUrl: app.globalData.webviewUrl });
   },
 
-  // 同步登录状态到 webview
+  onShow() {
+    // 每次显示都重新设置 URL，强制 webview 重新加载
+    this.syncLoginState();
+  },
+
+  // 同步登录状态到 webview（用于 onShow 刷新）
   syncLoginState() {
     app.globalData.webviewUrl = app.buildWebviewUrl();
-    this.setData({
-      webviewUrl: app.globalData.webviewUrl
+    // 先清空，再设置新 URL，强制 webview 完全重新加载
+    var self = this;
+    this.setData({ webviewUrl: '' }, function() {
+      setTimeout(function() {
+        self.setData({ webviewUrl: app.globalData.webviewUrl });
+      }, 100);
     });
   },
 

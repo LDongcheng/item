@@ -164,8 +164,8 @@ var AgentPage = {
 
     this.currentAgent = {
       id: agentId || '',
-      name: '小风',
-      avatar: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%232563EB" width="100" height="100"/><text x="50" y="65" font-size="50" fill="white" text-anchor="middle" dominant-baseline="middle">风</text></svg>',
+      name: '童小智',
+      avatar: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%232563EB" width="100" height="100"/><text x="50" y="65" font-size="50" fill="white" text-anchor="middle" dominant-baseline="middle">智</text></svg>',
       title: '技术总监'
     };
 
