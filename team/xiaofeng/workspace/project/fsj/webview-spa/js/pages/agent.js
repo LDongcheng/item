@@ -31,6 +31,26 @@ var AgentPage = {
    * 初始化
    */
   init: function () {
+    // 劫持 console 方法，收集日志
+    if (!window._consoleLogs) {
+      window._consoleLogs = [];
+      var origLog = console.log;
+      var origWarn = console.warn;
+      var origErr = console.error;
+      console.log = function () {
+        window._consoleLogs.push({ type: 'log', msg: Array.prototype.map.call(arguments, String).join(' ') });
+        origLog.apply(console, arguments);
+      };
+      console.warn = function () {
+        window._consoleLogs.push({ type: 'warn', msg: Array.prototype.map.call(arguments, String).join(' ') });
+        origWarn.apply(console, arguments);
+      };
+      console.error = function () {
+        window._consoleLogs.push({ type: 'error', msg: Array.prototype.map.call(arguments, String).join(' ') });
+        origErr.apply(console, arguments);
+      };
+    }
+
     this.renderAgentTopBar();
     this.renderWelcome();
     this.renderQuickActions();
@@ -169,17 +189,52 @@ var AgentPage = {
       });
     });
 
-    // 语音测试按钮
-    var ttsTestBtn = document.getElementById('btn-tts-test');
-    if (ttsTestBtn) {
-      ttsTestBtn.addEventListener('click', function () {
-        TtsService.play('你好呀，我是星宝，很高兴见到你！').then(function () {
-          console.log('[AgentPage] 语音测试播放成功');
-        }).catch(function (e) {
-          console.error('[AgentPage] 语音测试失败:', e);
-        });
+    // 日志按钮
+    var logViewBtn = document.getElementById('btn-log-view');
+    if (logViewBtn) {
+      logViewBtn.addEventListener('click', function () {
+        self.showLogViewer();
       });
     }
+  },
+
+  /**
+   * 显示日志查看器
+   */
+  showLogViewer: function () {
+    var existing = document.getElementById('log-viewer-overlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'log-viewer-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;flex-direction:column;';
+
+    // 顶部栏
+    var header = document.createElement('div');
+    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#1a1a2e;color:#fff;flex-shrink:0;';
+    header.innerHTML = '<span style="font-size:16px;font-weight:600;">日志</span><button id="log-viewer-close" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:0 8px;">✕</button>';
+
+    // 日志内容区
+    var logContent = document.createElement('div');
+    logContent.id = 'log-viewer-content';
+    logContent.style.cssText = 'flex:1;overflow:auto;padding:12px 16px;font-family:monospace;font-size:12px;color:#e0e0e0;line-height:1.5;';
+
+    // 收集所有 console 输出（通过劫持）
+    var logs = window._consoleLogs || [];
+    logContent.innerHTML = logs.map(function (l) {
+      var color = '#e0e0e0';
+      if (l.type === 'error') color = '#ff6b6b';
+      else if (l.type === 'warn') color = '#ffa94d';
+      return '<div style="color:' + color + ';border-bottom:1px solid #333;padding:2px 0;">' + l.msg + '</div>';
+    }).join('') || '<div style="color:#666;">暂无日志</div>';
+
+    overlay.appendChild(header);
+    overlay.appendChild(logContent);
+    document.body.appendChild(overlay);
+
+    document.getElementById('log-viewer-close').addEventListener('click', function () {
+      overlay.remove();
+    });
   },
 
   /**
@@ -1032,10 +1087,15 @@ var AgentPage = {
     var plainText = this._stripMarkdown(sentence);
 
     if (plainText && plainText.length >= 2) {
-      console.log('[TTS] sentence queued:', plainText);
-      // 加入缓存队列，不显示，等 TTS 播完再显示
-      this.ttsSentenceQueue.push(plainText);
-      this._processTtsQueue();
+      // 去重：避免重复入队
+      var lastQueued = this.ttsSentenceQueue[this.ttsSentenceQueue.length - 1];
+      if (lastQueued !== plainText) {
+        console.log('[TTS] sentence queued:', plainText);
+        this.ttsSentenceQueue.push(plainText);
+        this._processTtsQueue();
+      } else {
+        console.log('[TTS] duplicate sentence, skipping');
+      }
     }
 
     this.ttsCurrentSentence = this.ttsCurrentSentence.substring(idx + 1);
@@ -1048,7 +1108,10 @@ var AgentPage = {
     if (!this.ttsEnabled) return;
 
     // 防止重复调用
-    if (this.ttsFinalized) return;
+    if (this.ttsFinalized) {
+      console.log('[TTS] finalizeTts: already finalized, skipping');
+      return;
+    }
     this.ttsFinalized = true;
 
     // 把缓冲区剩余内容作为最后一句
@@ -1057,7 +1120,7 @@ var AgentPage = {
     if (remaining) {
       var plainText = this._stripMarkdown(remaining);
       if (plainText) {
-        console.log('[TTS] finalize queued:', plainText);
+        console.log('[TTS] finalize queued:', plainText, '| queue size:', this.ttsSentenceQueue.length);
         this.ttsSentenceQueue.push(plainText);
         this._processTtsQueue();
       }
