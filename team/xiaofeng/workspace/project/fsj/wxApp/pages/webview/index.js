@@ -45,6 +45,19 @@ Page({
         // H5 要求返回
         wx.navigateBack({ delta: 1 });
         break;
+      case 'switchWebview':
+        // H5 要求切换 webview 加载的 URL
+        if (last.url) {
+          // 加上身份信息和缓存破坏参数
+          const v = Date.now();
+          const r = Math.random().toString(36).substr(2, 8);
+          let targetUrl = last.url + '?v=' + v + '&_r=' + r;
+          if (app.globalData.openid) {
+            targetUrl += `#openid=${app.globalData.openid}&userId=${app.globalData.userId}`;
+          }
+          this.setData({ webviewUrl: targetUrl });
+        }
+        break;
     }
   },
 

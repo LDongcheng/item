@@ -24,12 +24,13 @@ App({
   },
 
   // 构建 webview URL（带身份信息和缓存破坏）
-  buildWebviewUrl() {
+  buildWebviewUrl(forceRefresh) {
     // TODO: 替换为实际部署地址
     const baseUrl = 'https://100000whys.cn/fsj_webview/';
     const v = Date.now();
     const r = Math.random().toString(36).substr(2, 8);
-    let url = `${baseUrl}?v=${v}&_r=${r}`;
+    // forceRefresh 时额外加 ts 参数，确保小程序每次都重新加载
+    let url = `${baseUrl}?v=${v}&_r=${r}${forceRefresh ? '&_ts=' + v : ''}`;
 
     // 通过 hash 传递身份信息
     if (this.globalData.openid) {

@@ -96,6 +96,21 @@ html, body {
   line-height: 1;
 }
 
+.back-to-main-btn {
+  font-size: var(--font-sm);
+  color: var(--primary);
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: var(--primary-super-light);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.back-to-main-btn:active {
+  opacity: 0.7;
+}
+
 .mode-toggle {
   font-size: var(--font-sm);
   color: var(--text-secondary);
