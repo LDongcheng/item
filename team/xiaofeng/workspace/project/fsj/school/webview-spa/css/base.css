@@ -105,6 +105,7 @@ html, body {
   background: var(--primary-super-light);
   font-weight: 600;
   white-space: nowrap;
+  text-decoration: none;
 }
 
 .back-to-main-btn:active {

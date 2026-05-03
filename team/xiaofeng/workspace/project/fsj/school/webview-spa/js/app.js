@@ -9,7 +9,6 @@ var App = {
     this.renderFuncGrid();
     this.bindTabEvents();
     this.bindModeToggle();
-    this.bindBackToMainBtn();
   },
 
   /**
@@ -86,42 +85,6 @@ var App = {
     // 恢复上次模式
     if (!isStudent) {
       toggle.textContent = '教师 ▾';
-    }
-  },
-
-  /**
-   * 绑定返回主站按钮
-   */
-  bindBackToMainBtn: function () {
-    var btn = document.getElementById('btn-back-to-main');
-    if (!btn) return;
-
-    var self = this;
-    btn.addEventListener('click', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      self.goBackToMain();
-    });
-  },
-
-  /**
-   * 通知小程序切换回主 webview-spa
-   */
-  goBackToMain: function () {
-    // 主 webview-spa 的部署地址
-    var mainUrl = 'https://100000whys.cn/fsj_webview/';
-
-    // 通过 Bridge 通知小程序切换 webview URL
-    if (typeof Bridge !== 'undefined' && Bridge.postMessage) {
-      Bridge.postMessage({
-        type: 'switchWebview',
-        url: mainUrl
-      });
-    }
-
-    // H5 环境也支持：直接跳转
-    if (typeof wx === 'undefined') {
-      window.location.href = mainUrl;
     }
   },
 
