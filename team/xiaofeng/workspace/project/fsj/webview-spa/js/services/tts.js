@@ -23,6 +23,33 @@ var TtsService = {
   _token: null,
   _tokenExpire: 0,
 
+  // 共享音频元素（移动端 autoplay policy 关键）
+  _audioElement: null,
+
+  /**
+   * 初始化共享 Audio 元素（必须在用户手势后立即调用）
+   */
+  initAudio: function () {
+    if (!this._audioElement) {
+      this._audioElement = new Audio();
+      this._audioElement.preload = 'auto';
+    }
+    // 尝试播放静音音频来解锁
+    var silent = 'data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
+    this._audioElement.src = silent;
+    this._audioElement.volume = 0;
+    this._audioElement.play().catch(function () {});
+    // AudioContext 也解锁
+    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      try {
+        var ctx = new AudioCtx();
+        if (ctx.state === 'suspended') ctx.resume().catch(function () {});
+      } catch (e) {}
+    }
+    console.log('[TtsService] audio unlocked');
+  },
+
   /**
    * 获取 Token
    */
@@ -85,18 +112,13 @@ var TtsService = {
     return self.textToSpeech(text).then(function (audioUrl) {
       console.log('[TtsService] 音频URL生成:', audioUrl.substring(0, 60) + '...');
 
-      // 停止之前正在播放的语音
-      if (self._currentAudio) {
-        self._currentAudio.onended = null;
-        self._currentAudio.onerror = null;
-        self._currentAudio.onloadedmetadata = null;
-        self._currentAudio.pause();
-        self._currentAudio.src = '';
-        self._currentAudio = null;
+      // 使用共享音频元素
+      var audio = self._audioElement;
+      if (!audio) {
+        console.warn('[TtsService] 音频未解锁，尝试初始化');
+        self.initAudio();
+        audio = self._audioElement;
       }
-
-      var audio = new Audio();
-      audio.preload = 'metadata';
 
       return new Promise(function (resolve, reject) {
         var settled = false;
@@ -106,7 +128,6 @@ var TtsService = {
           if (settled) return;
           settled = true;
           if (timer) clearTimeout(timer);
-          self._currentAudio = null;
           if (isResolve) {
             resolve();
           } else {
@@ -149,13 +170,19 @@ var TtsService = {
           }
         }, maxTimeout);
 
-        self._currentAudio = audio;
         audio.src = audioUrl;
         audio.volume = 1;
 
         audio.play().catch(function (e) {
           if (e.name === 'NotAllowedError' || e.name === 'AbortError') {
             console.warn('[TtsService] 播放被阻止:', e.name);
+            // 尝试重新解锁
+            self.initAudio();
+            // 重新播放
+            audio.play().catch(function (e2) {
+              console.error('[TtsService] play() 再次失败:', e2.name);
+              safeSettle(false, e2);
+            });
           } else {
             console.error('[TtsService] play() 失败:', e.name);
             safeSettle(false, e);
@@ -169,10 +196,9 @@ var TtsService = {
    * 停止当前播放
    */
   stop: function () {
-    if (this._currentAudio) {
-      this._currentAudio.pause();
-      this._currentAudio.src = '';
-      this._currentAudio = null;
+    if (this._audioElement) {
+      this._audioElement.pause();
+      this._audioElement.src = '';
     }
   }
 };

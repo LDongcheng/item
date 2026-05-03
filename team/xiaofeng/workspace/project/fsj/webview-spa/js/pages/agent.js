@@ -602,6 +602,9 @@ var AgentPage = {
 
     var text = actionTexts[action] || action;
 
+    // 解锁音频上下文（移动端需要用户交互后才能播放）
+    TtsService.initAudio();
+
     // 沉浸模式：使用独立消息列表
     var mode = localStorage.getItem('fsj_agent_mode') || '0';
     if (mode === '1') {
@@ -760,19 +763,30 @@ var AgentPage = {
     if (this.audioUnlocked) return;
     this.audioUnlocked = true;
 
+    var self = this;
+
+    // 方式1：创建静音 Audio 元素播放（最兼容）
+    var silent = new Audio('data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
+    silent.volume = 0;
+    var unlockPromise = silent.play();
+    if (unlockPromise) {
+      unlockPromise.then(function () {
+        console.log('[AudioUnlock] audio unlocked (silent mp3)');
+        self.audioUnlocked = true;
+      }).catch(function () {});
+    }
+
+    // 方式2：同时创建 AudioContext（备用）
     var AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (AudioCtx) {
-      var ctx = new AudioCtx();
-      var oscillator = ctx.createOscillator();
-      var gain = ctx.createGain();
-      gain.gain.setValueAtTime(0, ctx.currentTime);
-      oscillator.connect(gain);
-      gain.connect(ctx.destination);
-      oscillator.start();
-      oscillator.stop();
-      oscillator.onended = function () {
-        console.log('[AudioUnlock] context unlocked');
-      };
+      try {
+        var ctx = new AudioCtx();
+        if (ctx.state === 'suspended') {
+          ctx.resume().then(function () {
+            console.log('[AudioUnlock] context resumed');
+          }).catch(function () {});
+        }
+      } catch (e) {}
     }
   },
 
@@ -788,7 +802,7 @@ var AgentPage = {
     if (!text) return;
 
     // 解锁音频上下文（移动端需要用户交互后才能播放）
-    this.unlockAudio();
+    TtsService.initAudio();
 
     // 沉浸模式：使用独立消息列表
     var mode = localStorage.getItem('fsj_agent_mode') || '0';
@@ -1206,7 +1220,7 @@ var AgentPage = {
     // 先显示文字
     self._displayTtsSentence(text);
 
-    // 再播放语音（最多重试 3 次）
+    // 再播放语音（最多重试 2 次）
     var retryCount = 0;
     function tryPlay() {
       TtsService.play(text).then(function () {
@@ -1219,13 +1233,14 @@ var AgentPage = {
       }).catch(function (e) {
         var errName = e.name || e.message || '';
         console.error('[TTS] play failed:', errName, 'retry:', retryCount);
+
         retryCount++;
-        if (retryCount < 3) {
-          // 解锁后再重试
-          self.unlockAudio();
+        if (retryCount < 2) {
+          // 重试前先解锁
+          TtsService.initAudio();
           setTimeout(function () {
             tryPlay();
-          }, 300);
+          }, 500);
         } else {
           // 超过最大重试次数，跳过当前句
           console.warn('[TTS] giving up on sentence:', text.substring(0, 30));
