@@ -764,6 +764,8 @@ var AgentPage = {
     if (AudioCtx) {
       var ctx = new AudioCtx();
       var oscillator = ctx.createOscillator();
+      var gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, ctx.currentTime);
       oscillator.connect(gain);
       gain.connect(ctx.destination);
       oscillator.start();
@@ -787,12 +789,6 @@ var AgentPage = {
 
     // 解锁音频上下文（移动端需要用户交互后才能播放）
     this.unlockAudio();
-  sendText: function () {
-    var input = document.getElementById('chat-input');
-    if (!input) return;
-
-    var text = input.value.trim();
-    if (!text) return;
 
     // 沉浸模式：使用独立消息列表
     var mode = localStorage.getItem('fsj_agent_mode') || '0';
