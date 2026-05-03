@@ -3,21 +3,26 @@ const app = getApp();
 
 Page({
   data: {
-    webviewUrl: ''
+    webviewUrl: '',
+    showWebView: false
   },
 
   onShow() {
-    // 先清空再设置新 URL，强制 webview 重新加载（同域名缓存问题）
-    this.setData({ webviewUrl: '' }, () => {
-      this.syncLoginState();
+    const self = this;
+    // 隐藏 webview 再重建，强制完全刷新（销毁 DOM 节点）
+    this.setData({ showWebView: false }, function() {
+      // 确保 setData 完成后再重新设置
+      setTimeout(function() {
+        self.syncLoginState();
+        self.setData({ showWebView: true });
+      }, 200);
     });
   },
 
   onLoad() {
-    // 延迟一帧设置 URL，确保 webview 组件已完全初始化
-    setTimeout(() => {
-      this.syncLoginState();
-    }, 50);
+    // 首次加载直接显示
+    this.syncLoginState();
+    this.setData({ showWebView: true });
   },
 
   // 同步登录状态到 webview
