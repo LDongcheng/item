@@ -138,16 +138,18 @@ var AgentPage = {
 
   /**
    * 切换 Agent 说话/不说话视频
+   * speaking: true = 说话视频, false = 不说话视频
    */
   switchAgentVideo: function (speaking) {
     var videoEl = document.getElementById('immersive-agent-video');
     if (!videoEl || !this.videoResources) return;
 
-    var url = speaking ? this.videoResources.shuohua : this.videoResources.bushuohua;
-    if (!url) return;
+    // 如果当前状态一致，不重复切换
+    if (this._videoSpeaking === speaking) return;
+    this._videoSpeaking = speaking;
 
-    // 如果当前已经在播同一个视频，不切换
-    if (videoEl.src && videoEl.src.indexOf(url.split('?')[0]) !== -1) return;
+    var url = speaking ? this.videoResources.bushuohua : this.videoResources.shuohua;
+    if (!url) return;
 
     videoEl.src = url;
     videoEl.play().catch(function () {});
@@ -411,8 +413,8 @@ var AgentPage = {
       if (this.videoResources.bgImage) {
         bgStyle = 'background-image: url(\'' + this.videoResources.bgImage + '\'); background-size: cover; background-position: center;';
       }
-      if (this.videoResources.bushuohua) {
-        videoSrc = this.videoResources.bushuohua;
+      if (this.videoResources.shuohua) {
+        videoSrc = this.videoResources.shuohua;
         showVideo = true;
       }
     }
@@ -440,6 +442,8 @@ var AgentPage = {
     // 确保视频自动播放
     var videoEl = document.getElementById('immersive-agent-video');
     if (videoEl) {
+      // 初始状态：不说话
+      this._videoSpeaking = undefined; // 重置状态
       videoEl.play().catch(function (e) {
         console.warn('[AgentPage] 视频自动播放失败:', e);
       });
@@ -466,6 +470,7 @@ var AgentPage = {
     container.classList.remove('immersive-active');
     var pageAgent = document.getElementById('page-agent');
     if (pageAgent) pageAgent.classList.remove('immersive-active');
+    this._videoSpeaking = undefined;
     this.videoResources = null;
   },
 
@@ -630,7 +635,6 @@ var AgentPage = {
         console.log('[AgentPage] event received:', event.type, event.delta || event.content ? (event.content || event.delta).substring(0, 30) : '');
         if (event.type === 'progress') {
           if (mode === '1') {
-            self.switchAgentVideo(true);
             if (event.content) self.streamTts(event.content);
           } else {
             self.updateStreamingBubble(event.content || (event.nodeTitle + '...'));
@@ -639,7 +643,6 @@ var AgentPage = {
           if (mode === '1') {
             console.log('[AgentPage] streamTts delta:', event.delta);
             self.streamTts(event.delta);
-            self.switchAgentVideo(true);
           } else {
             self.appendImmersiveDelta(event.delta);
           }
@@ -656,7 +659,6 @@ var AgentPage = {
             self.finalizeTts();
             if (!self.ttsEnabled || self.ttsSentenceQueue.length === 0) {
               self.finalizeStreamingBubble();
-              self.switchAgentVideo(false);
             }
           } else {
             self.finalizeStreamingBubble();
@@ -836,7 +838,6 @@ var AgentPage = {
         if (event.type === 'progress') {
           if (mode === '1') {
             // 沉浸模式：不显示文字，只缓存给 TTS
-            self.switchAgentVideo(true);
             if (event.content) self.streamTts(event.content);
           } else {
             // 普通模式：逐字快速显示
@@ -847,7 +848,6 @@ var AgentPage = {
             // 沉浸模式：增量缓存给 TTS
             console.log('[AgentPage] streamTts delta:', event.delta);
             self.streamTts(event.delta);
-            self.switchAgentVideo(true);
           }
           // 普通模式：由 progress 事件处理完整内容，delta 忽略
         } else if (event.type === 'result') {
@@ -866,7 +866,6 @@ var AgentPage = {
             self.finalizeTts();
             if (!self.ttsEnabled || self.ttsSentenceQueue.length === 0) {
               self.finalizeStreamingBubble();
-              self.switchAgentVideo(false);
             }
           } else {
             // 普通模式：直接完成
@@ -1176,8 +1175,6 @@ var AgentPage = {
   _finalizeDisplay: function () {
     console.log('[TTS] all sentences finished, finalizing display');
     this.finalizeStreamingBubble();
-    // 沉浸模式：切回不说话视频
-    this.switchAgentVideo(false);
   },
 
   /**
@@ -1223,8 +1220,13 @@ var AgentPage = {
     // 再播放语音（最多重试 2 次）
     var retryCount = 0;
     function tryPlay() {
+      // 开始播放前：切换到说话视频
+      self.switchAgentVideo(true);
+
       TtsService.play(text).then(function () {
         console.log('[TTS] finished:', text.substring(0, 30));
+        // 播放完成：切换回不说话视频
+        self.switchAgentVideo(false);
         self.ttsSentenceIndex++;
         self.ttsProcessing = false;
         setTimeout(function () {
@@ -1244,6 +1246,7 @@ var AgentPage = {
         } else {
           // 超过最大重试次数，跳过当前句
           console.warn('[TTS] giving up on sentence:', text.substring(0, 30));
+          self.switchAgentVideo(false);
           self.ttsSentenceIndex++;
           self.ttsProcessing = false;
           setTimeout(function () {

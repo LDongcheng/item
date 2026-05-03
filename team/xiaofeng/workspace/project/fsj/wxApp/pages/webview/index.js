@@ -1,0 +1,55 @@
+// pages/webview/index.js
+const app = getApp();
+
+Page({
+  data: {
+    webviewUrl: ''
+  },
+
+  onShow() {
+    this.syncLoginState();
+  },
+
+  onLoad() {
+    this.syncLoginState();
+  },
+
+  // 同步登录状态到 webview
+  syncLoginState() {
+    app.globalData.webviewUrl = app.buildWebviewUrl();
+    this.setData({
+      webviewUrl: app.globalData.webviewUrl
+    });
+  },
+
+  // 接收 webview 发来的消息
+  onWebviewMessage(e) {
+    const msg = e.detail.data;
+    if (!msg || msg.length === 0) return;
+
+    const last = msg[msg.length - 1];
+    console.log('[WebView] message:', last);
+
+    switch (last.type) {
+      case 'login':
+        // H5 需要登录，跳转登录页
+        wx.navigateTo({ url: '/pages/login/index' });
+        break;
+      case 'navigate':
+        // H5 要求跳转到小程序页面
+        if (last.url) {
+          wx.navigateTo({ url: last.url });
+        }
+        break;
+      case 'back':
+        // H5 要求返回
+        wx.navigateBack({ delta: 1 });
+        break;
+    }
+  },
+
+  // webview 加载完成
+  onWebviewLoad() {
+    console.log('[WebView] loaded');
+  }
+});

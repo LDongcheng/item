@@ -1,0 +1,22 @@
+<!--pages/login/index.wxml-->
+<view class="login-container">
+  <view class="login-card">
+    <view class="logo-wrap">
+      <image class="logo" src="/images/logo.png" mode="aspectFit"></image>
+    </view>
+    <text class="title">AI赋能商家平台</text>
+    <text class="subtitle">登录后开始使用</text>
+
+    <view class="login-btn {{loginLoading ? 'loading' : ''}}" bindtap="handleLogin">
+      <text wx:if="{{!loginLoading}}">微信一键登录</text>
+      <text wx:else>登录中...</text>
+    </view>
+
+    <view class="tip-text">
+      <text>登录即代表同意</text>
+      <text class="link">《用户协议》</text>
+      <text>和</text>
+      <text class="link">《隐私政策》</text>
+    </view>
+  </view>
+</view>
