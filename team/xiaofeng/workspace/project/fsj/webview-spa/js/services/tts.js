@@ -121,8 +121,8 @@ var TtsService = {
           safeSettle(false, new Error('音频加载失败'));
         };
 
-        // 动态超时：根据音频长度估算（每字约 300ms）
-        var estimatedDuration = Math.max(text.length * 300, 3000);
+        // 动态超时：根据音频长度估算（每字约 250ms），最少 5 秒
+        var estimatedDuration = Math.max(text.length * 250, 5000);
         playTimeout = setTimeout(function () {
           if (!settled) {
             console.warn('[TtsService] 音频超时 (' + estimatedDuration + 'ms)');
@@ -133,6 +133,8 @@ var TtsService = {
         self._currentAudio = audio;
         audio.src = audioUrl;
         audio.volume = 1;
+        audio.preload = 'auto';
+        audio.load();
 
         var playPromise = audio.play();
         if (playPromise) {

@@ -754,9 +754,39 @@ var AgentPage = {
   },
 
   /**
+   * 解锁音频上下文（移动端需要用户交互后才能播放）
+   */
+  unlockAudio: function () {
+    if (this.audioUnlocked) return;
+    this.audioUnlocked = true;
+
+    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      var ctx = new AudioCtx();
+      var oscillator = ctx.createOscillator();
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start();
+      oscillator.stop();
+      oscillator.onended = function () {
+        console.log('[AudioUnlock] context unlocked');
+      };
+    }
+  },
+
+  /**
    * 发送文字消息
    * 调用 Coze 工作流，流式返回执行进度
    */
+  sendText: function () {
+    var input = document.getElementById('chat-input');
+    if (!input) return;
+
+    var text = input.value.trim();
+    if (!text) return;
+
+    // 解锁音频上下文（移动端需要用户交互后才能播放）
+    this.unlockAudio();
   sendText: function () {
     var input = document.getElementById('chat-input');
     if (!input) return;
@@ -1195,10 +1225,11 @@ var AgentPage = {
         console.error('[TTS] play failed:', errName, 'retry:', retryCount);
         retryCount++;
         if (retryCount < 3) {
-          // NotAllowedError 重试
+          // 解锁后再重试
+          self.unlockAudio();
           setTimeout(function () {
             tryPlay();
-          }, 1000);
+          }, 300);
         } else {
           // 超过最大重试次数，跳过当前句
           console.warn('[TTS] giving up on sentence:', text.substring(0, 30));
@@ -1206,7 +1237,7 @@ var AgentPage = {
           self.ttsProcessing = false;
           setTimeout(function () {
             self._processTtsQueue();
-          }, 500);
+          }, 300);
         }
       });
     }
