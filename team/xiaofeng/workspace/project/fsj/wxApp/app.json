@@ -4,7 +4,7 @@
     "pages/login/index"
   ],
   "window": {
-    "navigationBarTitleText": "AI赋能商家平台",
+    "navigationBarTitleText": "童小智",
     "navigationBarBackgroundColor": "#ffffff",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f5f6fa"
