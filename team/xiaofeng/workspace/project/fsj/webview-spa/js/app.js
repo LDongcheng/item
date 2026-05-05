@@ -42,6 +42,7 @@ import ProfilePage from './pages/profile.js';
      */
     init: function () {
       this.loadTabBarConfig();
+      this.loadInitialPage();
       this.loadUserName();
       this.bindSearch();
       this.initPages();
@@ -100,6 +101,7 @@ import ProfilePage from './pages/profile.js';
 
     /**
      * 渲染底部导航栏
+     * 注意：此方法只渲染 TabBar，不切换页面
      */
     renderTabBar: function (tabBarConfig) {
       var tabBar = document.getElementById('tab-bar');
@@ -114,7 +116,11 @@ import ProfilePage from './pages/profile.js';
       tabBar.innerHTML = sorted.map(function (item, index) {
         var modeAttr = (item.mode == 1) ? ' data-mode="1"' : '';
         var urlAttr = item.url ? ' data-url="' + item.url + '"' : '';
-        return '<div class="tab-item' + (index === 0 ? ' active' : '') + '"' +
+        // 保留当前激活的 tab，不强制第一个为 active
+        var activeTab = tabBar.querySelector('.tab-item.active');
+        var activePage = activeTab ? activeTab.getAttribute('data-page') : '';
+        var isFirst = (!activePage && index === 0) || (item.page === activePage);
+        return '<div class="tab-item' + (isFirst ? ' active' : '') + '"' +
           ' data-page="' + item.page + '"' + modeAttr + urlAttr + '>' +
           '<div class="tab-icon-img"></div>' +
           '<span class="tab-label">' + item.name + '</span>' +
@@ -122,12 +128,18 @@ import ProfilePage from './pages/profile.js';
       }).join('');
 
       this.bindTabBar();
+    },
 
+    /**
+     * 初始页面加载
+     * 只在应用启动时调用，决定首次显示哪个页面
+     */
+    loadInitialPage: function () {
       var isLogin = !!localStorage.getItem('fsj_token');
-      var firstItem = sorted[0];
+      var firstItem = this.tabBarConfig[0];
       var firstPage = isLogin ? firstItem.page : 'profile';
 
-      var hasProfile = sorted.some(function (item) {
+      var hasProfile = this.tabBarConfig.some(function (item) {
         return item.page === 'profile';
       });
       if (!hasProfile) {
@@ -167,6 +179,16 @@ import ProfilePage from './pages/profile.js';
 
       localStorage.setItem('fsj_shangjia_tabs', JSON.stringify(mapped));
       this.renderTabBar(mapped);
+
+      // 登录后自动切换到首页
+      var firstItem = mapped[0];
+      if (firstItem) {
+        if (firstItem.mode == 1 && firstItem.url) {
+          this.switchToWebview(firstItem.url);
+        } else {
+          this.switchPage(firstItem.page);
+        }
+      }
     },
 
     /**
