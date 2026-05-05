@@ -44,6 +44,7 @@
     loadTabBarConfig: function () {
       var stored = localStorage.getItem('fsj_shangjia_tabs');
       var config;
+      var self = this;
       try {
         config = stored ? JSON.parse(stored) : null;
         if (!Array.isArray(config)) config = null;
@@ -52,18 +53,17 @@
       }
       if (!config) {
         config = this.defaultTabBar;
-      } else {
-        var self = this;
-        config = config.map(function (item) {
-          return {
-            name: item.name,
-            sort: item.sort,
-            page: self.pageMap[item.page] || item.page,
-            mode: item.mode,
-            url: item.url ? (item.url.match(/^https?:\/\//) ? item.url : 'https://' + item.url) : null,
-          };
-        });
       }
+      // 统一做 pageMap 映射
+      config = config.map(function (item) {
+        return {
+          name: item.name,
+          sort: item.sort,
+          page: self.pageMap[item.page] || item.page,
+          mode: item.mode,
+          url: item.url ? (item.url.match(/^https?:\/\//) ? item.url : 'https://' + item.url) : null,
+        };
+      });
       this.renderTabBar(config);
     },
 
