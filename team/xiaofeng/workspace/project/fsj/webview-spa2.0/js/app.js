@@ -45,6 +45,7 @@
     initPages: function () {
       if (window.MessagePage) MessagePage.init();
       if (window.ProfilePage) ProfilePage.init();
+      if (window.AgentPage) AgentPage.init();
     },
 
     /**
@@ -241,6 +242,15 @@
           '<div class="avatar">👤</div>' +
           '<div class="nickname">' + (loginData.name || '用户') + '</div>' +
           '<div class="role">已登录</div>';
+      }
+
+      // 更新智能体页面
+      if (window.AgentPage) {
+        AgentPage.renderAgentTopBar();
+        if (localStorage.getItem('fsj_agent_mode') === '1') {
+          AgentPage.videoResources = null;
+          AgentPage.loadVideoResources();
+        }
       }
 
       console.log('[App] 登录成功:', loginData.name);

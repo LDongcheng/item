@@ -43,8 +43,26 @@
 
     <!-- 智能体页面 -->
     <div id="page-agent" class="page">
-      <main class="page-content">
-        <p>智能体页面</p>
+      <header class="top-bar agent-topbar">
+        <div class="top-bar-left">
+          <img class="agent-avatar-top" id="agent-avatar-top" src="" />
+          <span class="agent-name-top" id="agent-name-top"></span>
+        </div>
+        <div class="top-bar-right">
+          <span class="agent-top-btn" id="btn-log-view">日志</span>
+          <span class="agent-top-btn" data-panel="tasks">任务</span>
+          <span class="agent-top-btn" data-panel="settings">设置</span>
+        </div>
+      </header>
+      <main class="page-content page-agent-content" id="chat-container">
+        <div id="chat-messages"></div>
+        <div class="bottom-card">
+          <div class="immersive-msg-list" id="immersive-msg-list"></div>
+          <div class="quick-actions-scroll">
+            <div class="quick-actions" id="quick-actions"></div>
+          </div>
+          <div class="input-area" id="chat-input-area"></div>
+        </div>
       </main>
     </div>
 
@@ -94,9 +112,14 @@
   </div>
 
   <script src="js/bridge.js?v=20260505"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="js/services/login.js?v=20260505"></script>
+  <script src="js/services/ai.js?v=20260505"></script>
+  <script src="js/services/tts.js?v=20260505"></script>
+  <script src="js/services/agentVideo.js?v=20260505"></script>
   <script src="js/pages/message.js?v=20260505"></script>
   <script src="js/pages/profile.js?v=20260505"></script>
+  <script src="js/pages/agent.js?v=20260505"></script>
   <script src="js/app.js?v=20260505"></script>
   <script>
     // 登录测试按钮
