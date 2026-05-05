@@ -17,6 +17,10 @@ var AgentPage = {
   ttsProcessing: false,
   ttsTextPos: 0,
 
+  // 内容类型检测（HTML/DOC/PPT/TEXT）
+  _contentType: 'text',
+  _contentRaw: '',
+
   init: function () {
     this._init(true);
   },
@@ -375,6 +379,62 @@ var AgentPage = {
     });
   },
 
+  /**
+   * 统一的 AI 回调处理器
+   */
+  _handleAiEvent: function (event, mode) {
+    var self = this;
+    var isImmersive = mode === '1';
+
+    if (event.type === 'progress') {
+      if (isImmersive) {
+        if (event.content) self.streamTts(event.content);
+      } else {
+        // 检测内容类型
+        self._detectContentType(event.content);
+        if (self._contentType === 'text') {
+          self.updateStreamingBubble(event.content || (event.nodeTitle + '...'));
+        }
+        // HTML/DOC/PPT：流式时不显示内容，等 result 再渲染
+      }
+    } else if (event.type === 'delta') {
+      if (isImmersive) {
+        self.streamTts(event.delta);
+      } else {
+        self._detectContentType(event.content || '');
+        if (self._contentType === 'text') {
+          self.appendImmersiveDelta(event.delta);
+        }
+      }
+    } else if (event.type === 'result') {
+      self._contentRaw = event.content || '';
+      if (isImmersive) {
+        // 沉浸模式：渲染富内容
+        if (self._contentType !== 'text') {
+          self.addImmersiveUserMessage(self._renderRichContent(self._contentType, event.content));
+        }
+      } else {
+        // 普通模式：渲染最终内容
+        if (self._contentType === 'text') {
+          self.updateStreamingBubble(event.content);
+          self.finalizeStreamingBubble();
+        } else {
+          self.updateStreamingBubble(self._renderRichContent(self._contentType, event.content));
+          self.finalizeStreamingBubble();
+        }
+      }
+    } else if (event.type === 'done') {
+      if (isImmersive) {
+        self.finalizeTts();
+        if (!self.ttsEnabled || self.ttsSentenceQueue.length === 0) self.finalizeStreamingBubble();
+      } else {
+        self.finalizeStreamingBubble();
+      }
+      // 重置类型状态
+      self._resetContentType();
+    }
+  },
+
   submitAnalysis: function () {
     var images = this._analysisImages.filter(Boolean);
     var demoPrompt = '上面有一道方程题 2x + 3 = 7，学生选了 C. x=5（错误答案，正确应为 x=2），带有红色圈和叉号标记';
@@ -391,22 +451,7 @@ var AgentPage = {
 
     AIService.execute(
       { content: demoPrompt, mode: mode === '1' ? 'immersive' : 'normal' },
-      function (event) {
-        if (event.type === 'progress') {
-          if (mode === '1') { if (event.content) self.streamTts(event.content); }
-          else { self.updateStreamingBubble(event.content || (event.nodeTitle + '...')); }
-        } else if (event.type === 'delta') {
-          if (mode === '1') { self.streamTts(event.delta); }
-          else { self.appendImmersiveDelta(event.delta); }
-        } else if (event.type === 'result') {
-          if (mode !== '1') { self.updateStreamingBubble(event.content); self.finalizeStreamingBubble(); }
-        } else if (event.type === 'done') {
-          if (mode === '1') {
-            self.finalizeTts();
-            if (!self.ttsEnabled || self.ttsSentenceQueue.length === 0) self.finalizeStreamingBubble();
-          } else { self.finalizeStreamingBubble(); }
-        }
-      }
+      function (event) { self._handleAiEvent(event, mode); }
     );
   },
 
@@ -596,23 +641,7 @@ var AgentPage = {
 
     AIService.execute(
       { content: text, mode: mode === '1' ? 'immersive' : 'normal' },
-      function (event) {
-        if (event.type === 'progress') {
-          if (mode === '1') { if (event.content) self.streamTts(event.content); }
-          else { self.updateStreamingBubble(event.content || (event.nodeTitle + '...')); }
-        } else if (event.type === 'delta') {
-          if (mode === '1') { self.streamTts(event.delta); }
-          else { self.appendImmersiveDelta(event.delta); }
-        } else if (event.type === 'result') {
-          if (mode === '1') {}
-          else { self.updateStreamingBubble(event.content); self.finalizeStreamingBubble(); }
-        } else if (event.type === 'done') {
-          if (mode === '1') {
-            self.finalizeTts();
-            if (!self.ttsEnabled || self.ttsSentenceQueue.length === 0) self.finalizeStreamingBubble();
-          } else { self.finalizeStreamingBubble(); }
-        }
-      }
+      function (event) { self._handleAiEvent(event, mode); }
     );
   },
 
@@ -712,22 +741,7 @@ var AgentPage = {
 
     AIService.execute(
       { content: text, mode: mode === '1' ? 'immersive' : 'normal' },
-      function (event) {
-        if (event.type === 'progress') {
-          if (mode === '1') { if (event.content) self.streamTts(event.content); }
-          else { self.updateStreamingBubble(event.content || (event.nodeTitle + '...')); }
-        } else if (event.type === 'delta') {
-          if (mode === '1') { self.streamTts(event.delta); }
-        } else if (event.type === 'result') {
-          if (mode === '1') {}
-          else { self.updateStreamingBubble(event.content); self.finalizeStreamingBubble(); }
-        } else if (event.type === 'done') {
-          if (mode === '1') {
-            self.finalizeTts();
-            if (!self.ttsEnabled || self.ttsSentenceQueue.length === 0) self.finalizeStreamingBubble();
-          } else { self.finalizeStreamingBubble(); }
-        }
-      }
+      function (event) { self._handleAiEvent(event, mode); }
     );
   },
 
@@ -991,5 +1005,174 @@ var AgentPage = {
     var h = now.getHours().toString().padStart(2, '0');
     var m = now.getMinutes().toString().padStart(2, '0');
     return h + ':' + m;
+  },
+
+  // ===== 内容类型检测与富内容渲染 =====
+
+  /**
+   * 检测并解析内容类型标记
+   * 格式：[HTML]...[END] / [DOC]...[END] / [PPT]...[END] / [TEXT]...[END]
+   */
+  _detectContentType: function (content) {
+    if (this._contentType !== 'text') return;
+    var match = content.match(/^\[(HTML|DOC|PPT|TEXT)\]/);
+    if (match) {
+      this._contentType = match[1].toLowerCase();
+      console.log('[AgentPage] 检测到内容类型:', this._contentType);
+      if (this._contentType !== 'text') this._switchToContentLoading();
+    }
+  },
+
+  /**
+   * 切换到内容加载状态（HTML/DOC/PPT）
+   */
+  _switchToContentLoading: function () {
+    var msgEl = document.getElementById('msg-' + this._currentMsgId);
+    if (!msgEl) return;
+    var bubble = msgEl.querySelector('.rich-text');
+    if (bubble) bubble.innerHTML = '<span class="loading-text">正在生成内容<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></span>';
+  },
+
+  /**
+   * 提取纯净内容（去掉类型标记）
+   */
+  _extractContent: function (content) {
+    return content.replace(/^\[(HTML|DOC|PPT|TEXT)\]/, '');
+  },
+
+  /**
+   * 检查内容是否完成（包含 [END] 标记）
+   */
+  _isContentComplete: function (content) {
+    return content.indexOf('[END]') !== -1;
+  },
+
+  /**
+   * 提取最终内容（去掉 [END] 及之后的内容）
+   */
+  _extractFinalContent: function (content) {
+    var idx = content.indexOf('[END]');
+    if (idx !== -1) return content.substring(0, idx);
+    return content;
+  },
+
+  /**
+   * 渲染富内容（HTML/DOC/PPT）
+   */
+  _renderRichContent: function (type, content) {
+    content = this._extractContent(content);
+    var endIdx = content.indexOf('[END]');
+    if (endIdx !== -1) content = content.substring(0, endIdx);
+    content = content.trim();
+    this._contentRaw = this._extractContent(this._contentRaw);
+
+    if (type === 'html') return this._renderHtmlPreview(content);
+    if (type === 'doc') return this._renderDocPreview(content);
+    if (type === 'ppt') return this._renderPptPreview(content);
+    return this.parseMarkdown(content);
+  },
+
+  /**
+   * 渲染 HTML 预览
+   */
+  _renderHtmlPreview: function (html) {
+    var previewId = 'html-preview-' + Date.now();
+    return '<div class="rich-content-card html-card">' +
+      '<div class="rich-content-header"><span class="rich-content-icon">🌐</span><span class="rich-content-title">HTML 预览</span></div>' +
+      '<div class="rich-content-body">' +
+        '<div class="html-preview-frame" id="' + previewId + '">' +
+          '<iframe class="html-iframe" srcdoc="' + html.replace(/"/g, '&quot;') + '" sandbox="allow-scripts allow-same-origin"></iframe>' +
+        '</div>' +
+        '<div class="rich-content-actions">' +
+          '<button class="rich-action-btn" onclick="AgentPage._openHtmlPreview(\'' + previewId + '\')">全屏预览</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  },
+
+  /**
+   * 打开全屏 HTML 预览
+   */
+  _openHtmlPreview: function (previewId) {
+    var frame = document.getElementById(previewId);
+    if (!frame) return;
+    var iframe = frame.querySelector('.html-iframe');
+    if (!iframe) return;
+
+    var overlay = document.createElement('div');
+    overlay.id = 'html-fullscreen-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:10000;display:flex;flex-direction:column;';
+    overlay.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#1a1a2e;color:#fff;flex-shrink:0;">' +
+        '<span style="font-size:16px;font-weight:600;">HTML 预览</span>' +
+        '<button id="html-fullscreen-close" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:0 8px;">✕</button>' +
+      '</div>' +
+      '<div style="flex:1;"><iframe srcdoc="' + iframe.srcdoc.replace(/"/g, '&quot;') + '" sandbox="allow-scripts allow-same-origin" style="width:100%;height:100%;border:none;"></iframe></div>';
+
+    document.body.appendChild(overlay);
+    document.getElementById('html-fullscreen-close').addEventListener('click', function () { overlay.remove(); });
+  },
+
+  /**
+   * 渲染文档预览
+   */
+  _renderDocPreview: function (content) {
+    return '<div class="rich-content-card doc-card">' +
+      '<div class="rich-content-header"><span class="rich-content-icon">📄</span><span class="rich-content-title">学习文档</span></div>' +
+      '<div class="rich-content-body">' +
+        '<div class="doc-preview-text">' + this.parseMarkdown(content) + '</div>' +
+        '<div class="rich-content-actions">' +
+          '<button class="rich-action-btn" onclick="AgentPage._copyDocContent()">复制内容</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  },
+
+  /**
+   * 复制文档内容
+   */
+  _copyDocContent: function () {
+    var text = AgentPage._contentRaw || '';
+    text = text.replace(/^\[(HTML|DOC|PPT|TEXT)\]/, '');
+    var endIdx = text.indexOf('[END]');
+    if (endIdx !== -1) text = text.substring(0, endIdx);
+    text = text.trim();
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(function () { alert('内容已复制'); });
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      alert('内容已复制');
+    }
+  },
+
+  /**
+   * 渲染 PPT 预览
+   */
+  _renderPptPreview: function (content) {
+    var slides = content.split(/\n---\n/);
+    var html = slides.map(function (slide) {
+      return '<div class="ppt-slide">' + AgentPage.parseMarkdown(slide) + '</div>';
+    }).join('');
+
+    return '<div class="rich-content-card ppt-card">' +
+      '<div class="rich-content-header"><span class="rich-content-icon">📊</span><span class="rich-content-title">演示文稿（' + slides.length + ' 页）</span></div>' +
+      '<div class="rich-content-body">' +
+        '<div class="ppt-slides-scroll">' + html + '</div>' +
+      '</div>' +
+    '</div>';
+  },
+
+  /**
+   * 重置内容类型状态
+   */
+  _resetContentType: function () {
+    this._contentType = 'text';
+    this._contentRaw = '';
   }
 };
