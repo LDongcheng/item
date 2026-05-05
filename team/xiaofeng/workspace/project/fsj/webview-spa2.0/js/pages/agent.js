@@ -18,6 +18,21 @@ var AgentPage = {
   ttsTextPos: 0,
 
   init: function () {
+    this._init(true);
+  },
+
+  /**
+   * 初始化（不恢复沉浸模式）- 用于全局 init 调用
+   */
+  initWithoutRestore: function () {
+    this._init(false);
+  },
+
+  /**
+   * 内部初始化
+   * @param {boolean} restoreMode - 是否恢复沉浸模式
+   */
+  _init: function (restoreMode) {
     if (!window._consoleLogs) {
       window._consoleLogs = [];
       var origLog = console.log;
@@ -44,7 +59,7 @@ var AgentPage = {
     this.bindInputEvents();
     this.bindQuickActionEvents();
     this.bindTopBtnEvents();
-    this.restoreAgentMode();
+    if (restoreMode) this.restoreAgentMode();
     this.loadTtsSetting();
   },
 

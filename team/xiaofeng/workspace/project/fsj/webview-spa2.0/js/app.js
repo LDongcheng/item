@@ -34,9 +34,21 @@
 
     init: function () {
       console.log('[App] 初始化');
+      // 清理沉浸模式残留状态（防止 CSS 隐藏 tab bar）
+      this.clearImmersiveResidue();
       this.loadTabBarConfig();
       this.initPages();
       this.loadInitialPage();
+    },
+
+    /**
+     * 清理沉浸模式残留状态
+     */
+    clearImmersiveResidue: function () {
+      var pageAgent = document.getElementById('page-agent');
+      if (pageAgent) pageAgent.classList.remove('immersive-active');
+      var container = document.getElementById('chat-container');
+      if (container) container.classList.remove('immersive-active');
     },
 
     /**
@@ -45,7 +57,7 @@
     initPages: function () {
       if (window.MessagePage) MessagePage.init();
       if (window.ProfilePage) ProfilePage.init();
-      if (window.AgentPage) AgentPage.init();
+      if (window.AgentPage) AgentPage.initWithoutRestore();
     },
 
     /**
@@ -269,19 +281,9 @@
   // bfcache 恢复：手机浏览器切回来时重新初始化
   window.addEventListener('pageshow', function (event) {
     if (event.persisted) {
-      // 从 bfcache 恢复，先清理沉浸模式残留状态
-      var pageAgent = document.getElementById('page-agent');
-      if (pageAgent) {
-        pageAgent.classList.remove('immersive-active');
-      }
-      var container = document.getElementById('chat-container');
-      if (container) {
-        container.classList.remove('immersive-active');
-      }
+      App.clearImmersiveResidue();
       var tabBar = document.getElementById('tab-bar');
-      if (tabBar) {
-        tabBar.style.display = '';
-      }
+      if (tabBar) tabBar.style.display = '';
       App.init();
     }
   });
