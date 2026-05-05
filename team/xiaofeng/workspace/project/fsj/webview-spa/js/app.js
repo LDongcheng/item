@@ -41,11 +41,33 @@ import ProfilePage from './pages/profile.js';
      * 应用初始化
      */
     init: function () {
+      // 清理沉浸模式残留状态（防止 CSS 隐藏 tab bar）
+      this.clearImmersiveResidue();
       this.loadTabBarConfig();
       this.loadInitialPage();
       this.loadUserName();
       this.bindSearch();
-      this.initPages();
+      // 不再全局初始化 AgentPage（只有切换到智能体 tab 时才初始化）
+      this.initPagesWithoutAgent();
+    },
+
+    /**
+     * 清理沉浸模式残留状态
+     */
+    clearImmersiveResidue: function () {
+      var pageAgent = document.getElementById('page-agent');
+      if (pageAgent) pageAgent.classList.remove('immersive-active');
+      var container = document.getElementById('chat-container');
+      if (container) container.classList.remove('immersive-active');
+    },
+
+    /**
+     * 初始化各页面（不含智能体）
+     */
+    initPagesWithoutAgent: function () {
+      if (window.HomePage) HomePage.init();
+      if (window.MessagePage) MessagePage.init();
+      if (window.ProfilePage) ProfilePage.init();
     },
 
     /**
@@ -333,10 +355,7 @@ import ProfilePage from './pages/profile.js';
   // bfcache 恢复：手机浏览器切回来时重新初始化
   window.addEventListener('pageshow', function (event) {
     if (event.persisted) {
-      var pageAgent = document.getElementById('page-agent');
-      if (pageAgent) pageAgent.classList.remove('immersive-active');
-      var container = document.getElementById('chat-container');
-      if (container) container.classList.remove('immersive-active');
+      App.clearImmersiveResidue();
       var tabBar = document.getElementById('tab-bar');
       if (tabBar) tabBar.style.display = '';
       App.init();
