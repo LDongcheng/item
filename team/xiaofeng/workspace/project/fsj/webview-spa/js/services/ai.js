@@ -74,6 +74,7 @@ var AIService = {
     try {
       var res = await fetch(this.config.deepApiUrl, {
         method: 'POST',
+        cache: 'no-store',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + this.config.deepToken

@@ -60,7 +60,7 @@ var TtsService = {
       return Promise.resolve(self._token);
     }
 
-    return fetch(self.config.tokenUrl)
+    return fetch(self.config.tokenUrl, { cache: 'no-store' })
       .then(function (res) { return res.json(); })
       .then(function (data) {
         self._token = data.output;

@@ -52,6 +52,7 @@ var LoginService = {
 
     return fetch(cfg.url, {
       method: 'POST',
+      cache: 'no-store',
       headers: {
         'Authorization': 'Bearer ' + cfg.token,
         'Content-Type': 'application/json',

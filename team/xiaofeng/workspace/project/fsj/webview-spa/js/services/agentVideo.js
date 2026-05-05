@@ -86,6 +86,7 @@ var AgentVideoService = {
     var cfg = this.config;
     return fetch(cfg.baseUrl, {
       method: 'POST',
+      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json'
       },
