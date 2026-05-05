@@ -330,6 +330,19 @@ import ProfilePage from './pages/profile.js';
     App.init();
   }
 
+  // bfcache 恢复：手机浏览器切回来时重新初始化
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) {
+      var pageAgent = document.getElementById('page-agent');
+      if (pageAgent) pageAgent.classList.remove('immersive-active');
+      var container = document.getElementById('chat-container');
+      if (container) container.classList.remove('immersive-active');
+      var tabBar = document.getElementById('tab-bar');
+      if (tabBar) tabBar.style.display = '';
+      App.init();
+    }
+  });
+
   window.App = App;
   window.ProfilePage = ProfilePage;
 })();

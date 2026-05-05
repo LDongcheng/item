@@ -19,7 +19,7 @@
 
 /* ========== TabBar 底部导航 ========== */
 .tab-bar {
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: space-around;
   height: var(--tabbar-height);
@@ -33,7 +33,7 @@
 
 /* 沉浸模式下隐藏 TabBar */
 #page-agent.immersive-active ~ .tab-bar {
-  display: none;
+  display: none !important;
 }
 
 .tab-item {
