@@ -45,15 +45,23 @@ pages/项目名/
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <!-- 禁用缓存 -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>页面名称</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
-    <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="index.css?v=__VERSION__">
 </head>
 <body>
     <div id="app">
         <!-- 页面内容 -->
     </div>
-    <script type="module" src="index.js"></script>
+    <script>
+        // 全局版本号，每次加载自动刷新缓存
+        window.__VERSION__ = Date.now();
+    </script>
+    <script type="module" src="index.js?v=__VERSION__"></script>
 </body>
 </html>
 ```
@@ -67,11 +75,14 @@ class 页面名 {
     constructor(container) {
         this.container = container;
         this.timer = null;
+        this.version = window.__VERSION__ || Date.now();
     }
 
     async init() {
-        // 1. 加载 HTML 模板
-        const html = await fetch('index.html').then(res => res.text());
+        // 1. 加载 HTML 模板（禁用缓存）
+        const html = await fetch(`index.html?v=${this.version}`, {
+            cache: 'no-store'
+        }).then(res => res.text());
         this.container.innerHTML = html;
 
         // 2. 绑定事件
@@ -147,6 +158,7 @@ window.addEventListener('message', (event) => {
 4. **清理资源**：每个页面的 `destroy()` 必须清理定时器和事件监听
 5. **CDN 回退**：如果使用 CDN，考虑离线场景的降级方案
 6. **小程序 webview 限制**：不能使用 localStorage（会被清除），数据通过 postMessage 传递
+7. **禁用缓存**：模板已内置三层缓存禁用机制（meta 头 + URL 版本号 + fetch no-store），每次进入自动刷新
 
 ---
 
@@ -200,10 +212,23 @@ webview → 小程序：通过 wx.miniProgram.postMessage()
 
 ## 关键可复用模式
 
-### webview 缓存刷新方案（sxz 经验）
+### webview 缓存禁用方案（三层防护）
+
+模板已内置以下三层缓存禁用机制，每次进入自动刷新：
+
 ```javascript
-// URL 参数版本号强制刷新
-const url = `index.html?v=${Date.now()}_${Math.random().toString(36).slice(2)}`;
+// 第一层：HTML meta 头禁用
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
+// 第二层：URL 版本号参数（每次加载时间戳不同）
+window.__VERSION__ = Date.now();
+<link rel="stylesheet" href="index.css?v=__VERSION__">
+<script type="module" src="index.js?v=__VERSION__"></script>
+
+// 第三层：fetch 请求 no-store
+fetch(`index.html?v=${this.version}`, { cache: 'no-store' })
 ```
 
 ### JWT 认证模式（shuxiaohe 经验）
