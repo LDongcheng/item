@@ -21,10 +21,10 @@
      * 默认底部导航栏配置（未登录/通用）
      */
     defaultTabBar: [
-      { name: '首页', sort: 0, page: 'home' },
-      { name: '智能体', sort: 1, page: 'agent' },
-      { name: '消息', sort: 2, page: 'message' },
-      { name: '我的', sort: 3, page: 'profile' },
+      { name: '首页', sort: '0', page: 'home', mode: '1', url: 'https://100000whys.cn/fsj_school/' },
+      { name: '智能体', sort: '1', page: 'agent', mode: '0' },
+      { name: '消息', sort: '2', page: 'message' },
+      { name: '我的', sort: '3', page: 'mine' },
     ],
 
     /**
