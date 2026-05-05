@@ -4,11 +4,14 @@ class ExamplePage {
     constructor(container) {
         this.container = container;
         this.timer = null;
+        this.version = window.__VERSION__ || Date.now();
     }
 
     async init() {
-        // 1. 加载 HTML 模板
-        const html = await fetch('index.html').then(res => res.text());
+        // 1. 加载 HTML 模板（禁用缓存）
+        const html = await fetch(`index.html?v=${this.version}`, {
+            cache: 'no-store'
+        }).then(res => res.text());
         this.container.innerHTML = html;
 
         // 2. 绑定事件
