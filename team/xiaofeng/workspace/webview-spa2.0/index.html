@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- 禁用缓存 -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>童小智</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+  <link rel="stylesheet" href="css/base.css?v=20260505">
+  <link rel="stylesheet" href="css/components.css?v=20260505">
+  <link rel="stylesheet" href="css/components-login.css?v=20260505">
+  <link rel="stylesheet" href="css/pages.css?v=20260505">
+</head>
+<body>
+  <div id="app">
+    <div id="page-home" class="page">
+      <header class="top-bar">
+        <div class="top-bar-left">
+          <span class="scope-selector">组织 ▾</span>
+        </div>
+        <div class="top-bar-center">
+          <div class="search-box"><input type="text" placeholder="搜索" /></div>
+        </div>
+        <div class="top-bar-right">
+          <span class="btn-task">任务</span>
+        </div>
+      </header>
+      <main class="page-content" id="home-content">
+        <p>首页 - 登录测试</p>
+        <button id="test-login-btn" style="margin:20px;padding:10px 20px;">点击登录</button>
+        <div id="login-result"></div>
+      </main>
+    </div>
+
+    <div id="page-agent" class="page">
+      <p>智能体页面</p>
+    </div>
+
+    <div id="page-message" class="page">
+      <p>消息页面</p>
+    </div>
+
+    <div id="page-profile" class="page active">
+      <main class="page-content">
+        <div class="user-card" id="profile-user-card">
+          <div class="avatar">👤</div>
+          <div class="nickname">未登录</div>
+          <div class="role">请先登录</div>
+        </div>
+      </main>
+    </div>
+
+    <nav class="tab-bar" id="tab-bar">
+      <div class="tab-item active" data-page="home">
+        <div class="tab-icon-img"></div>
+        <span class="tab-label">首页</span>
+      </div>
+      <div class="tab-item" data-page="agent">
+        <div class="tab-icon-img"></div>
+        <span class="tab-label">智能体</span>
+      </div>
+      <div class="tab-item" data-page="message">
+        <div class="tab-icon-img"></div>
+        <span class="tab-label">消息</span>
+      </div>
+      <div class="tab-item" data-page="profile">
+        <div class="tab-icon-img"></div>
+        <span class="tab-label">我的</span>
+      </div>
+    </nav>
+  </div>
+
+  <script src="js/bridge.js?v=20260505"></script>
+  <script src="js/app.js?v=20260505" type="module"></script>
+</body>
+</html>
