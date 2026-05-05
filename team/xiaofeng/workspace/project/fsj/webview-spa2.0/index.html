@@ -51,7 +51,7 @@
     <!-- 消息页面 -->
     <div id="page-message" class="page">
       <main class="page-content">
-        <p>消息页面</p>
+        <div class="message-list" id="message-list"></div>
       </main>
     </div>
 
@@ -59,10 +59,11 @@
     <div id="page-profile" class="page">
       <main class="page-content">
         <div class="user-card" id="profile-user-card">
-          <div class="avatar">👤</div>
+          <div class="avatar"><img src="assets/logo.png" alt="avatar" /></div>
           <div class="nickname">未登录</div>
           <div class="role">请先登录</div>
         </div>
+        <div class="stats-card" id="profile-stats"></div>
       </main>
     </div>
 
@@ -93,7 +94,10 @@
   </div>
 
   <script src="js/bridge.js?v=20260505"></script>
-  <script src="js/app.js?v=20260505" type="module"></script>
+  <script src="js/services/login.js?v=20260505"></script>
+  <script src="js/pages/message.js?v=20260505"></script>
+  <script src="js/pages/profile.js?v=20260505"></script>
+  <script src="js/app.js?v=20260505"></script>
   <script>
     // 登录测试按钮
     document.getElementById('mock-login-btn').addEventListener('click', function () {

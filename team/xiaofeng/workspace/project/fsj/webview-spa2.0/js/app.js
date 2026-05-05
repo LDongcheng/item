@@ -35,7 +35,16 @@
     init: function () {
       console.log('[App] 初始化');
       this.loadTabBarConfig();
+      this.initPages();
       this.loadInitialPage();
+    },
+
+    /**
+     * 初始化各页面
+     */
+    initPages: function () {
+      if (window.MessagePage) MessagePage.init();
+      if (window.ProfilePage) ProfilePage.init();
     },
 
     /**
