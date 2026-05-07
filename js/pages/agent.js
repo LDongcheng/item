@@ -539,31 +539,28 @@ var AgentPage = {
         self.finalizeStreamingBubble();
       }
 
-      // 流式输出完成后，判断是否需要生成 HTML
+      // AI 回复完成后，检查是否需要触发 HTML 生成
       if (self._contentType === 'text' && self._contentRaw) {
-        console.log('[AgentPage] _contentRaw 前100字符:', self._contentRaw.substring(0, 100));
-        console.log('[AgentPage] _lastUserInput:', self._lastUserInput);
         var donePrefix = self._detectFormatPrefix(self._contentRaw);
-        console.log('[AgentPage] 检测到的前缀:', donePrefix);
-
-        // 检查用户输入和 AI 回复是否包含 HTML 关键词
         var userInputHas = self._shouldGenHtml(self._lastUserInput || '');
         var aiResponseHas = self._shouldGenHtml(self._contentRaw);
-        console.log('[AgentPage] 用户输入含HTML关键词:', userInputHas, '| AI回复含HTML关键词:', aiResponseHas);
-
         var shouldGen = donePrefix === '1' || userInputHas || aiResponseHas;
-        console.log('[AgentPage] 是否生成 HTML:', shouldGen);
 
         if (shouldGen) {
-          var taskId = self._createHtmlTask('generating');
-          self._currentTaskId = taskId;
-          self._updateTaskBadge();
-          self._insertHtmlCard(taskId);
-          self._triggerHtmlGeneration(taskId);
-          console.log('[AgentPage] 触发 HTML 生成，任务 ID:', taskId);
+          // 如果卡片已经存在（用户输入触发），触发 HTML 生成
+          if (self._currentTaskId) {
+            self._triggerHtmlGeneration(self._currentTaskId);
+            console.log('[AgentPage] 触发已有卡片 HTML 生成, taskId:', self._currentTaskId);
+          } else {
+            // 兼容：AI 回复才含 HTML 意图但用户输入没有，创建新卡片
+            var taskId = self._createHtmlTask('generating');
+            self._currentTaskId = taskId;
+            self._updateTaskBadge();
+            self._insertHtmlCard(taskId);
+            self._triggerHtmlGeneration(taskId);
+            console.log('[AgentPage] AI回复含HTML意图，创建新卡片并触发生成, taskId:', taskId);
+          }
         }
-      } else {
-        console.log('[AgentPage] done 事件触发但未进入判断: _contentType=', self._contentType, ' _contentRaw=', self._contentRaw ? '有' : '无');
       }
 
       // 重置类型状态
@@ -896,6 +893,15 @@ var AgentPage = {
 
     // 保存用户消息到历史
     self.addMessageToHistory('user', text);
+
+    // 用户输入含 HTML 意图，立即创建卡片
+    if (self._shouldGenHtml(text)) {
+      var taskId = self._createHtmlTask('generating');
+      self._currentTaskId = taskId;
+      self._updateTaskBadge();
+      self._insertHtmlCard(taskId);
+      console.log('[AgentPage] 用户输入含HTML意图，立即创建卡片, taskId:', taskId);
+    }
 
     AIService.execute(
       { content: self.buildContentWithContext(text), mode: mode === '1' ? 'immersive' : 'normal' },
