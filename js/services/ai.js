@@ -55,7 +55,6 @@ var AIService = {
     }
 
     console.log('[AIService] calling workflow:', workflowId, isImmersive ? '(immersive)' : '(normal)');
-    console.log('[AIService] content 长度:', body.parameters.content.length, '前200字:', body.parameters.content.substring(0, 200));
 
     try {
       var res = await fetch(this.config.deepApiUrl, {

@@ -141,6 +141,14 @@ var AgentPage = {
     return finalContent;
   },
 
+  toggleTts: function () {
+    this.ttsEnabled = !this.ttsEnabled;
+    localStorage.setItem('fsj_tts_enabled', this.ttsEnabled ? '1' : '0');
+    var voiceBtn = document.getElementById('chat-voice-btn');
+    if (voiceBtn) voiceBtn.classList.toggle('tts-on', this.ttsEnabled);
+    if (!this.ttsEnabled) TtsService.stop();
+  },
+
   /** 开始新对话 */
   startNewChat: function () {
     var mode = localStorage.getItem('fsj_agent_mode') || '0';
@@ -162,14 +170,6 @@ var AgentPage = {
       var container = document.getElementById('chat-container');
       if (container) container.classList.remove('has-messages');
     }
-  },
-
-  toggleTts: function () {
-    this.ttsEnabled = !this.ttsEnabled;
-    localStorage.setItem('fsj_tts_enabled', this.ttsEnabled ? '1' : '0');
-    var voiceBtn = document.getElementById('chat-voice-btn');
-    if (voiceBtn) voiceBtn.classList.toggle('tts-on', this.ttsEnabled);
-    if (!this.ttsEnabled) TtsService.stop();
   },
 
   restoreAgentMode: function () {
@@ -481,21 +481,19 @@ var AgentPage = {
     var isImmersive = mode === '1';
 
     if (event.type === 'progress') {
-      self._detectFormatTag(event.content);
       if (isImmersive) {
-        var cleanContent = self._stripFormatTag(event.content);
-        if (cleanContent) self.streamTts(cleanContent);
+        if (event.content) self.streamTts(event.content);
       } else {
+        self._detectContentType(event.content);
         if (self._contentType === 'text') {
-          self.updateStreamingBubble(event.content.substring(3) || (event.nodeTitle + '...'));
+          self.updateStreamingBubble(self._stripFormatTag(event.content) || (event.nodeTitle + '...'));
         }
       }
     } else if (event.type === 'delta') {
-      self._detectFormatTag(event.content || '');
       if (isImmersive) {
-        var cleanContent = self._stripFormatTag(event.content || '');
-        if (cleanContent) self.streamTts(cleanContent);
+        self.streamTts(event.delta);
       } else {
+        self._detectContentType(event.content || '');
         if (self._contentType === 'text') {
           self.appendImmersiveDelta(event.delta);
         }
@@ -503,22 +501,24 @@ var AgentPage = {
     } else if (event.type === 'result') {
       self._contentRaw = event.content || '';
       // 去掉前缀标签 [0] 或 [1]
-      var cleanContent = event.content.substring(3);
+      var cleanContent = self._stripFormatTag(event.content || '');
       // 保存 AI 回复到历史（保存纯净内容）
       if (cleanContent) {
         self.addMessageToHistory('assistant', cleanContent);
         console.log('[AgentPage] AI 回复已入库，当前历史总条数:', self.chatHistory.length);
       }
       if (isImmersive) {
-        if (self._contentType === 'html') {
-          self.addImmersiveUserMessage(self._renderHtmlPreview(cleanContent));
+        // 沉浸模式：渲染富内容
+        if (self._contentType !== 'text') {
+          self.addImmersiveUserMessage(self._renderRichContent(self._contentType, event.content));
         }
       } else {
+        // 普通模式：渲染最终内容
         if (self._contentType === 'text') {
           self.updateStreamingBubble(cleanContent);
           self.finalizeStreamingBubble();
         } else {
-          self.updateStreamingBubble(self._renderHtmlPreview(cleanContent));
+          self.updateStreamingBubble(self._renderRichContent(self._contentType, event.content));
           self.finalizeStreamingBubble();
         }
       }
@@ -529,6 +529,7 @@ var AgentPage = {
       } else {
         self.finalizeStreamingBubble();
       }
+      // 重置类型状态
       self._resetContentType();
     }
   },
@@ -598,8 +599,8 @@ var AgentPage = {
       '<div class="immersive-bg" id="immersive-bg" style="' + bgStyle + '"></div>' +
       '<div class="immersive-agent" id="immersive-agent">' +
         (showVideo
-          ? '<video id="immersive-agent-video" class="agent-video" src="' + videoSrc + '" autoplay muted loop playsinline></video>'
-          : '<div class="agent-character"></div>') +
+          ? '<video id="immersive-agent-video" class="agent-video" src="' + videoSrc + '" muted loop playsinline></video>'
+          : '<div class="agent-character" style="position:absolute;inset:0;background:url(assets/logo.png) center center no-repeat;background-size:contain;"></div>') +
       '</div>';
 
     container.insertBefore(scene, container.firstChild);
@@ -610,7 +611,17 @@ var AgentPage = {
     var videoEl = document.getElementById('immersive-agent-video');
     if (videoEl) {
       this._videoSpeaking = undefined;
-      videoEl.play().catch(function (e) { console.warn('[AgentPage] 视频自动播放失败:', e); });
+      videoEl.muted = true;
+      // Chrome 需要等 loadeddata 后再播放
+      videoEl.addEventListener('loadeddata', function () {
+        videoEl.play().catch(function (e) {
+          console.warn('[AgentPage] 视频播放失败:', e);
+        });
+      }, { once: true });
+      // 兜底：超时后强制触发 play
+      setTimeout(function () {
+        videoEl.play().catch(function () {});
+      }, 500);
     }
   },
 
@@ -845,7 +856,6 @@ var AgentPage = {
 
     // 保存用户消息到历史
     self.addMessageToHistory('user', text);
-    console.log('[AgentPage] 用户消息已入库，当前历史总条数:', self.chatHistory.length);
 
     AIService.execute(
       { content: self.buildContentWithContext(text), mode: mode === '1' ? 'immersive' : 'normal' },
@@ -985,8 +995,11 @@ var AgentPage = {
   streamTts: function (fullText) {
     if (!fullText) return;
 
-    var delta = fullText.substring(this.ttsTextPos);
-    this.ttsTextPos = fullText.length;
+    var cleanText = this._stripFormatTag(fullText);
+    if (cleanText === null) return; // 标签不完整，跳过
+
+    var delta = cleanText.substring(this.ttsTextPos);
+    this.ttsTextPos = cleanText.length;
     if (!delta) return;
 
     delta = delta.replace(/\n/g, '');
@@ -1118,33 +1131,29 @@ var AgentPage = {
   // ===== 内容类型检测与富内容渲染 =====
 
   /**
-   * 检测并解析内容类型标记
-   * 格式：[HTML]...[END] / [DOC]...[END] / [PPT]...[END] / [TEXT]...[END]
-   */
-  /**
    * 剥离内容中的格式标签 [0] 或 [1]
    */
   _stripFormatTag: function (text) {
-    if (!text || text.length < 3) return text;
-    var tag = text.substring(0, 3);
-    if (tag === '[0]' || tag === '[1]') return text.substring(3);
+    if (!text) return text;
+    // 匹配 [0] 或 [1]，允许标签内有换行
+    var match = text.match(/^[\s]*\[\s*([01])\s*\]\s*/);
+    if (match) return text.substring(match[0].length);
+    // 内容以 [ 开头但标签不完整，暂不处理
+    if (/^[\s]*\[/.test(text)) return null;
     return text;
   },
 
   /**
-   * 检测格式标签 [0] 或 [1]
-   * [0] = 普通文本，[1] = HTML
+   * 检测并解析内容类型标记
+   * 格式：[HTML]...[END] / [DOC]...[END] / [PPT]...[END] / [TEXT]...[END]
    */
-  _detectFormatTag: function (content) {
-    if (!content || content.length < 3) return;
-    var tag = content.substring(0, 3);
-    if (tag === '[0]') {
-      this._contentType = 'text';
-      console.log('[AgentPage] 检测到格式标签: [0] 普通文本');
-    } else if (tag === '[1]') {
-      this._contentType = 'html';
-      console.log('[AgentPage] 检测到格式标签: [1] HTML');
-      this._switchToContentLoading();
+  _detectContentType: function (content) {
+    if (this._contentType !== 'text') return;
+    var match = content.match(/^\[(HTML|DOC|PPT|TEXT)\]/);
+    if (match) {
+      this._contentType = match[1].toLowerCase();
+      console.log('[AgentPage] 检测到内容类型:', this._contentType);
+      if (this._contentType !== 'text') this._switchToContentLoading();
     }
   },
 
@@ -1156,6 +1165,45 @@ var AgentPage = {
     if (!msgEl) return;
     var bubble = msgEl.querySelector('.rich-text');
     if (bubble) bubble.innerHTML = '<span class="loading-text">正在生成内容<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></span>';
+  },
+
+  /**
+   * 提取纯净内容（去掉类型标记）
+   */
+  _extractContent: function (content) {
+    return content.replace(/^\[(HTML|DOC|PPT|TEXT)\]/, '');
+  },
+
+  /**
+   * 检查内容是否完成（包含 [END] 标记）
+   */
+  _isContentComplete: function (content) {
+    return content.indexOf('[END]') !== -1;
+  },
+
+  /**
+   * 提取最终内容（去掉 [END] 及之后的内容）
+   */
+  _extractFinalContent: function (content) {
+    var idx = content.indexOf('[END]');
+    if (idx !== -1) return content.substring(0, idx);
+    return content;
+  },
+
+  /**
+   * 渲染富内容（HTML/DOC/PPT）
+   */
+  _renderRichContent: function (type, content) {
+    content = this._extractContent(content);
+    var endIdx = content.indexOf('[END]');
+    if (endIdx !== -1) content = content.substring(0, endIdx);
+    content = content.trim();
+    this._contentRaw = this._extractContent(this._contentRaw);
+
+    if (type === 'html') return this._renderHtmlPreview(content);
+    if (type === 'doc') return this._renderDocPreview(content);
+    if (type === 'ppt') return this._renderPptPreview(content);
+    return this.parseMarkdown(content);
   },
 
   /**
@@ -1219,7 +1267,11 @@ var AgentPage = {
    */
   _copyDocContent: function () {
     var text = AgentPage._contentRaw || '';
-    text = text.substring(3); // 去掉前缀标签
+    text = text.replace(/^\[(HTML|DOC|PPT|TEXT)\]/, '');
+    var endIdx = text.indexOf('[END]');
+    if (endIdx !== -1) text = text.substring(0, endIdx);
+    text = text.trim();
+
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text).then(function () { alert('内容已复制'); });
     } else {
@@ -1256,5 +1308,6 @@ var AgentPage = {
   _resetContentType: function () {
     this._contentType = 'text';
     this._contentRaw = '';
+    this.ttsTextPos = 0;
   }
 };
