@@ -16,6 +16,10 @@ var AgentPage = {
   ttsCurrentSentence: '',
   ttsProcessing: false,
   ttsTextPos: 0,
+  // 聊天历史（localStorage 持久化，格式: [{role, content}]）
+  chatHistory: [],
+  maxHistoryCount: 20,
+  historyKey: 'fsj_chat_history',
 
   // 内容类型检测（HTML/DOC/PPT/TEXT）
   _contentType: 'text',
@@ -57,6 +61,7 @@ var AgentPage = {
     }
 
     this.renderAgentTopBar();
+    this.loadChatHistory();
     this.renderWelcome();
     this.renderQuickActions();
     this.renderInputArea();
@@ -75,12 +80,96 @@ var AgentPage = {
     if (voiceBtn) voiceBtn.classList.toggle('tts-on', this.ttsEnabled);
   },
 
+  /** 加载聊天历史 */
+  loadChatHistory: function () {
+    try {
+      var stored = localStorage.getItem(this.historyKey);
+      if (stored) this.chatHistory = JSON.parse(stored);
+    } catch (e) { this.chatHistory = []; }
+  },
+
+  /** 保存聊天历史 */
+  saveChatHistory: function () {
+    try {
+      localStorage.setItem(this.historyKey, JSON.stringify(this.chatHistory));
+    } catch (e) {
+      if (this.chatHistory.length > 4) {
+        this.chatHistory = this.chatHistory.slice(-this.maxHistoryCount / 2);
+        localStorage.setItem(this.historyKey, JSON.stringify(this.chatHistory));
+      }
+    }
+  },
+
+  /** 添加消息到历史 */
+  addMessageToHistory: function (role, content) {
+    this.chatHistory.push({ role: role, content: content });
+    if (this.chatHistory.length > this.maxHistoryCount) {
+      this.chatHistory = this.chatHistory.slice(-this.maxHistoryCount);
+    }
+    this.saveChatHistory();
+  },
+
+  /** 清空聊天历史 */
+  clearChatHistory: function () {
+    this.chatHistory = [];
+    localStorage.removeItem(this.historyKey);
+  },
+
+  /** 将历史消息拼接到当前输入内容前 */
+  buildContentWithContext: function (currentContent) {
+    if (this.chatHistory.length === 0) {
+      console.log('[AgentPage] 无历史记录，直接发送当前内容:', currentContent);
+      return currentContent;
+    }
+
+    var parts = [];
+    var history = this.chatHistory.slice(-20);
+
+    console.log('[AgentPage] 当前历史记录条数:', history.length);
+    console.log('[AgentPage] 历史记录:', JSON.stringify(history));
+
+    parts.push('以下是之前的对话历史，请根据上下文继续回答：\n');
+    for (var i = 0; i < history.length; i++) {
+      var msg = history[i];
+      var role = msg.role === 'user' ? '用户' : '助手';
+      parts.push(role + '：' + msg.content);
+    }
+    parts.push('\n---\n当前问题：\n' + currentContent);
+
+    var finalContent = parts.join('\n\n');
+    console.log('[AgentPage] 拼接后的完整 content:', finalContent.substring(0, 200) + '...');
+    return finalContent;
+  },
+
   toggleTts: function () {
     this.ttsEnabled = !this.ttsEnabled;
     localStorage.setItem('fsj_tts_enabled', this.ttsEnabled ? '1' : '0');
     var voiceBtn = document.getElementById('chat-voice-btn');
     if (voiceBtn) voiceBtn.classList.toggle('tts-on', this.ttsEnabled);
     if (!this.ttsEnabled) TtsService.stop();
+  },
+
+  /** 开始新对话 */
+  startNewChat: function () {
+    var mode = localStorage.getItem('fsj_agent_mode') || '0';
+    if (!confirm('确定要开始新对话吗？当前对话记录将被清除。')) return;
+
+    this.clearChatHistory();
+    this.resetTts();
+
+    if (mode === '1') {
+      this.immersiveMessages = [];
+      this.immersiveDisplayPos = 0;
+      this.renderImmersiveMessages();
+    } else {
+      var list = document.getElementById('chat-message-list');
+      if (list) list.innerHTML = '';
+      this.messages = [];
+      var welcome = document.getElementById('chat-welcome');
+      if (welcome) welcome.style.display = '';
+      var container = document.getElementById('chat-container');
+      if (container) container.classList.remove('has-messages');
+    }
   },
 
   restoreAgentMode: function () {
@@ -148,6 +237,11 @@ var AgentPage = {
     var logViewBtn = document.getElementById('btn-log-view');
     if (logViewBtn) {
       logViewBtn.addEventListener('click', function () { self.showLogViewer(); });
+    }
+
+    var newChatBtn = document.getElementById('btn-new-chat');
+    if (newChatBtn) {
+      newChatBtn.addEventListener('click', function () { self.startNewChat(); });
     }
   },
 
@@ -408,6 +502,13 @@ var AgentPage = {
       }
     } else if (event.type === 'result') {
       self._contentRaw = event.content || '';
+      // 去掉前缀标签 [0] 或 [1]
+      var cleanContent = self._stripFormatTag(event.content || '');
+      // 保存 AI 回复到历史（保存纯净内容）
+      if (cleanContent) {
+        self.addMessageToHistory('assistant', cleanContent);
+        console.log('[AgentPage] AI 回复已入库，当前历史总条数:', self.chatHistory.length);
+      }
       if (isImmersive) {
         // 沉浸模式：渲染富内容
         if (self._contentType !== 'text') {
@@ -449,8 +550,11 @@ var AgentPage = {
     if (mode !== '1') self.updateStreamingBubble('正在处理...');
     self.resetTts();
 
+    // 保存用户消息到历史
+    self.addMessageToHistory('user', text);
+
     AIService.execute(
-      { content: demoPrompt, mode: mode === '1' ? 'immersive' : 'normal' },
+      { content: self.buildContentWithContext(demoPrompt), mode: mode === '1' ? 'immersive' : 'normal' },
       function (event) { self._handleAiEvent(event, mode); }
     );
   },
@@ -497,8 +601,8 @@ var AgentPage = {
       '<div class="immersive-bg" id="immersive-bg" style="' + bgStyle + '"></div>' +
       '<div class="immersive-agent" id="immersive-agent">' +
         (showVideo
-          ? '<video id="immersive-agent-video" class="agent-video" src="' + videoSrc + '" autoplay muted loop playsinline></video>'
-          : '<div class="agent-character"></div>') +
+          ? '<video id="immersive-agent-video" class="agent-video" src="' + videoSrc + '" muted loop playsinline></video>'
+          : '<div class="agent-character" style="position:absolute;inset:0;background:url(assets/logo.png) center center no-repeat;background-size:contain;"></div>') +
       '</div>';
 
     container.insertBefore(scene, container.firstChild);
@@ -509,7 +613,17 @@ var AgentPage = {
     var videoEl = document.getElementById('immersive-agent-video');
     if (videoEl) {
       this._videoSpeaking = undefined;
-      videoEl.play().catch(function (e) { console.warn('[AgentPage] 视频自动播放失败:', e); });
+      videoEl.muted = true;
+      // Chrome 需要等 loadeddata 后再播放
+      videoEl.addEventListener('loadeddata', function () {
+        videoEl.play().catch(function (e) {
+          console.warn('[AgentPage] 视频播放失败:', e);
+        });
+      }, { once: true });
+      // 兜底：超时后强制触发 play
+      setTimeout(function () {
+        videoEl.play().catch(function () {});
+      }, 500);
     }
   },
 
@@ -639,8 +753,11 @@ var AgentPage = {
     if (mode !== '1') self.updateStreamingBubble('正在处理...');
     self.resetTts();
 
+    // 保存用户消息到历史
+    self.addMessageToHistory('user', text);
+
     AIService.execute(
-      { content: text, mode: mode === '1' ? 'immersive' : 'normal' },
+      { content: self.buildContentWithContext(text), mode: mode === '1' ? 'immersive' : 'normal' },
       function (event) { self._handleAiEvent(event, mode); }
     );
   },
@@ -739,8 +856,11 @@ var AgentPage = {
     if (mode !== '1') self.updateStreamingBubble('正在处理...');
     self.resetTts();
 
+    // 保存用户消息到历史
+    self.addMessageToHistory('user', text);
+
     AIService.execute(
-      { content: text, mode: mode === '1' ? 'immersive' : 'normal' },
+      { content: self.buildContentWithContext(text), mode: mode === '1' ? 'immersive' : 'normal' },
       function (event) { self._handleAiEvent(event, mode); }
     );
   },
@@ -1008,6 +1128,19 @@ var AgentPage = {
   },
 
   // ===== 内容类型检测与富内容渲染 =====
+
+  /**
+   * 剥离内容中的格式标签 [0] 或 [1]
+   */
+  _stripFormatTag: function (text) {
+    if (!text) return text;
+    // 匹配 [0] 或 [1]，允许标签内有换行
+    var match = text.match(/^[\s]*\[\s*([01])\s*\]\s*/);
+    if (match) return text.substring(match[0].length);
+    // 内容以 [ 开头但标签不完整，暂不处理
+    if (/^[\s]*\[/.test(text)) return null;
+    return text;
+  },
 
   /**
    * 检测并解析内容类型标记
