@@ -495,22 +495,30 @@ var AgentPage = {
       } else {
         self._detectContentType(event.content);
         if (self._contentType === 'text') {
-          self.updateStreamingBubble(self._stripFormatTag(event.content) || (event.nodeTitle + '...'));
+          var stripped = self._stripFormatTag(event.content);
+          if (stripped === null) return; // 标签不完整，跳过
+          self.updateStreamingBubble(stripped || (event.nodeTitle + '...'));
         }
       }
     } else if (event.type === 'delta') {
       if (isImmersive) {
-        self.streamTts(event.delta);
+        var strippedDelta = self._stripFormatTag(event.delta);
+        if (strippedDelta === null) return; // 标签不完整，跳过
+        self.streamTts(strippedDelta);
       } else {
         self._detectContentType(event.content || '');
         if (self._contentType === 'text') {
-          self.appendImmersiveDelta(event.delta);
+          var strippedDelta = self._stripFormatTag(event.delta || '');
+          if (strippedDelta === null) return; // 标签不完整，跳过
+          if (strippedDelta) self.appendImmersiveDelta(strippedDelta);
         }
       }
     } else if (event.type === 'result') {
       self._contentRaw = event.content || '';
       // 去掉前缀标签 [0] 或 [1]
       var cleanContent = self._stripFormatTag(event.content || '');
+      if (cleanContent === null) return; // 标签不完整，跳过渲染
+
       // 保存 AI 回复到历史（保存纯净内容）
       if (cleanContent) {
         self.addMessageToHistory('assistant', cleanContent);
@@ -539,7 +547,7 @@ var AgentPage = {
         self.finalizeStreamingBubble();
       }
 
-      // AI 回复完成后，检查是否需要触发 HTML 生成
+      // AI 回复完成后，检查是否需要生成 HTML
       if (self._contentType === 'text' && self._contentRaw) {
         var donePrefix = self._detectFormatPrefix(self._contentRaw);
         var userInputHas = self._shouldGenHtml(self._lastUserInput || '');
@@ -547,6 +555,12 @@ var AgentPage = {
         var shouldGen = donePrefix === '1' || userInputHas || aiResponseHas;
 
         if (shouldGen) {
+          // HTML 任务不需要显示文字回复，移除 AI 气泡
+          if (!isImmersive) {
+            var msgEl = document.getElementById('msg-' + self._currentMsgId);
+            if (msgEl) msgEl.remove();
+          }
+
           // 如果卡片已经存在（用户输入触发），触发 HTML 生成
           if (self._currentTaskId) {
             self._triggerHtmlGeneration(self._currentTaskId);
