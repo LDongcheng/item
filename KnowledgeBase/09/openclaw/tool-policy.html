@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw tool-policy.ts 技术解析</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;600;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg-primary: #05080c;
+      --bg-secondary: #0b1016;
+      --bg-card: #111920;
+      --bg-elevated: #182028;
+      --fg-primary: #e4ecf4;
+      --fg-secondary: #7a8c9c;
+      --fg-muted: #3d4d5d;
+      --accent-cyan: #00e0c0;
+      --accent-orange: #ff7848;
+      --accent-gold: #ffbb30;
+      --accent-rose: #ff5880;
+      --border: #1a2a3a;
+      --glow-cyan: rgba(0, 224, 192, 0.1);
+      --glow-orange: rgba(255, 120, 72, 0.1);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg-primary);
+      color: var(--fg-primary);
+      overflow-x: hidden;
+      line-height: 1.7;
+    }
+
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* 背景 */
+    .bg-atmosphere {
+      background:
+        radial-gradient(ellipse 140% 90% at 90% 0%, rgba(0, 224, 192, 0.04) 0%, transparent 50%),
+        radial-gradient(ellipse 100% 80% at 0% 100%, rgba(255, 120, 72, 0.03) 0%, transparent 50%),
+        var(--bg-primary);
+    }
+
+    .grid-lines {
+      background-image:
+        linear-gradient(rgba(0, 224, 192, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 224, 192, 0.02) 1px, transparent 1px);
+      background-size: 35px 35px;
+    }
+
+    /* 动画 */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.94); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes slideRight {
+      from { opacity: 0; transform: translateX(-35px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes flowPulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+
+    .anim-fade-up { animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+    .anim-scale-in { animation: scaleIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+    .anim-slide-right { animation: slideRight 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+
+    .delay-1 { animation-delay: 0.08s; }
+    .delay-2 { animation-delay: 0.16s; }
+    .delay-3 { animation-delay: 0.24s; }
+    .delay-4 { animation-delay: 0.32s; }
+    .delay-5 { animation-delay: 0.4s; }
+    .delay-6 { animation-delay: 0.48s; }
+    .delay-7 { animation-delay: 0.56s; }
+
+    /* 卡片 */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .card:hover {
+      border-color: var(--accent-cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 14px 28px -7px var(--glow-cyan);
+    }
+
+    .card-orange:hover {
+      border-color: var(--accent-orange);
+      box-shadow: 0 14px 28px -7px var(--glow-orange);
+    }
+
+    /* 流程节点 */
+    .flow-step {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      transition: all 0.25s ease;
+      cursor: pointer;
+    }
+
+    .flow-step:hover {
+      border-color: var(--accent-cyan);
+      transform: scale(1.02);
+    }
+
+    .flow-step.active {
+      border-color: var(--accent-cyan);
+      background: var(--glow-cyan);
+    }
+
+    /* 工具项 */
+    .tool-item {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      margin: 3px;
+    }
+
+    .tool-item.allowed {
+      background: var(--glow-cyan);
+      color: var(--accent-cyan);
+      border: 1px solid var(--accent-cyan);
+    }
+
+    .tool-item.denied {
+      background: rgba(255, 88, 128, 0.1);
+      color: var(--accent-rose);
+      border: 1px solid var(--accent-rose);
+    }
+
+    .tool-item.neutral {
+      background: var(--bg-elevated);
+      color: var(--fg-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .tool-item.owner-only {
+      background: var(--glow-orange);
+      color: var(--accent-orange);
+      border: 1px solid var(--accent-orange);
+    }
+
+    /* 开关 */
+    .toggle-switch {
+      position: relative;
+      width: 48px;
+      height: 26px;
+      background: var(--bg-elevated);
+      border-radius: 13px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      border: 1px solid var(--border);
+    }
+
+    .toggle-switch.active {
+      background: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      background: var(--fg-primary);
+      border-radius: 50%;
+      transition: transform 0.3s ease;
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(22px);
+      background: var(--bg-primary);
+    }
+
+    /* 代码块 */
+    .code-window {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .code-content {
+      padding: 14px;
+      font-size: 12px;
+      line-height: 1.65;
+      overflow-x: auto;
+    }
+
+    .code-line {
+      padding: 2px 6px;
+      margin: 0 -6px;
+      border-radius: 4px;
+      transition: background 0.2s ease;
+    }
+
+    .code-line:hover { background: rgba(0, 224, 192, 0.04); }
+
+    /* 标签 */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 11px;
+      border-radius: 14px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    /* 连接线 */
+    .flow-connector {
+      position: relative;
+    }
+
+    .flow-connector::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: -20px;
+      width: 20px;
+      height: 2px;
+      background: linear-gradient(90deg, var(--border), var(--accent-cyan));
+      animation: flowPulse 1.5s ease-in-out infinite;
+    }
+
+    /* 滚动条 */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-atmosphere grid-lines min-h-screen">
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative">
+
+    <!-- 头部 -->
+    <header class="text-center mb-14">
+      <div class="anim-fade-up">
+        <span class="tag" style="background: var(--glow-orange); color: var(--accent-orange);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          Permission System
+        </span>
+      </div>
+      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black mt-5 mb-3 anim-fade-up delay-1">
+        <span style="color: var(--fg-primary);">tool-policy</span><span style="color: var(--accent-cyan);">.ts</span>
+      </h1>
+      <p class="text-lg sm:text-xl max-w-3xl mx-auto anim-fade-up delay-2" style="color: var(--fg-secondary);">
+        OpenClaw 的「工具权限管家」—— 管理 AI 工具的访问控制、所有者限制和策略扩展
+      </p>
+    </header>
+
+    <!-- 核心比喻 -->
+    <section class="mb-14 anim-scale-in delay-3">
+      <div class="card p-7">
+        <h2 class="text-xl font-bold mb-5 flex items-center gap-3">
+          <span class="w-9 h-9 rounded-lg flex items-center justify-center" style="background: var(--glow-cyan);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00e0c0" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4M12 8h.01"/>
+            </svg>
+          </span>
+          用生活场景理解它
+        </h2>
+        <div class="grid md:grid-cols-3 gap-5">
+          <div class="card card-orange p-5">
+            <div class="text-2xl mb-2">🏢</div>
+            <h3 class="font-semibold mb-2" style="color: var(--accent-cyan);">像公司门禁系统</h3>
+            <p class="text-sm" style="color: var(--fg-secondary);">
+              工具就像公司里的房间，普通员工（非所有者）只能进入公共区域，老板（所有者）可以进入所有房间包括机密室
+            </p>
+          </div>
+          <div class="card card-orange p-5">
+            <div class="text-2xl mb-2">🎫</div>
+            <h3 class="font-semibold mb-2" style="color: var(--accent-orange);">像演唱会门票</h3>
+            <p class="text-sm" style="color: var(--fg-secondary);">
+              allowlist 是白名单门票，决定你能看哪些区域；denylist 是黑名单，禁止你进入某些区域；VIP 通行证（owner）可以全场通行
+            </p>
+          </div>
+          <div class="card card-orange p-5">
+            <div class="text-2xl mb-2">🔌</div>
+            <h3 class="font-semibold mb-2" style="color: var(--accent-gold);">像应用插件系统</h3>
+            <p class="text-sm" style="color: var(--fg-secondary);">
+              插件工具就像手机 App，可以单独授权，也可以一次性授权所有插件。「group:plugins」就像「允许所有 App」
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 所有者策略演示 -->
+    <section class="mb-14 anim-fade-up delay-4">
+      <h2 class="text-xl font-bold mb-5 flex items-center gap-3">
+        <span class="w-9 h-9 rounded-lg flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff7848" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </span>
+        所有者专用工具策略
+      </h2>
+
+      <div class="card p-6">
+        <div class="flex flex-wrap items-center gap-6 mb-6">
+          <div class="flex items-center gap-3">
+            <span class="text-sm" style="color: var(--fg-secondary);">发送者身份：</span>
+            <div class="flex gap-2">
+              <button class="role-btn px-4 py-2 rounded-lg text-sm font-semibold transition-all" data-role="owner" style="background: var(--glow-cyan); border: 1px solid var(--accent-cyan); color: var(--accent-cyan);">
+                所有者
+              </button>
+              <button class="role-btn px-4 py-2 rounded-lg text-sm font-semibold transition-all" data-role="guest" style="background: var(--bg-elevated); border: 1px solid var(--border); color: var(--fg-secondary);">
+                访客
+              </button>
+            </div>
+          </div>
+          <div class="text-sm" style="color: var(--fg-muted);" id="role-hint">
+            所有者可以使用所有工具，包括敏感工具
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-5">
+          <!-- 工具列表 -->
+          <div>
+            <h3 class="font-semibold mb-3 text-sm" style="color: var(--fg-secondary);">可用工具列表</h3>
+            <div id="tools-display" class="p-4 rounded-lg min-h-[200px]" style="background: var(--bg-secondary);">
+              <!-- 由 JS 渲染 -->
+            </div>
+          </div>
+
+          <!-- 处理流程 -->
+          <div>
+            <h3 class="font-semibold mb-3 text-sm" style="color: var(--fg-secondary);">处理流程</h3>
+            <div id="flow-display" class="space-y-3">
+              <!-- 由 JS 渲染 -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 策略扩展系统 -->
+    <section class="mb-14 anim-fade-up delay-5">
+      <h2 class="text-xl font-bold mb-5 flex items-center gap-3">
+        <span class="w-9 h-9 rounded-lg flex items-center justify-center" style="background: var(--glow-cyan);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00e0c0" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <polyline points="3.27,6.96 12,12.01 20.73,6.96"/>
+            <line x1="12" y1="22.08" x2="12" y2="12"/>
+          </svg>
+        </span>
+        策略扩展系统
+      </h2>
+
+      <div class="grid md:grid-cols-2 gap-5">
+        <!-- 插件组扩展 -->
+        <div class="card p-5">
+          <h3 class="font-semibold mb-4 flex items-center gap-2" style="color: var(--accent-cyan);">
+            <span class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--glow-cyan);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
+              </svg>
+            </span>
+            插件工具组扩展
+          </h3>
+          
+          <div class="code-window mb-4">
+            <div class="code-content font-mono text-xs">
+              <div class="code-line"><span style="color: var(--fg-muted);">// 输入: group:plugins</span></div>
+              <div class="code-line"><span style="color: var(--accent-orange);">expandPluginGroups</span><span style="color: var(--fg-secondary);">([</span></div>
+              <div class="code-line">  <span style="color: var(--accent-gold);">"group:plugins"</span></div>
+              <div class="code-line"><span style="color: var(--fg-secondary);">], groups)</span></div>
+              <div class="code-line"></div>
+              <div class="code-line"><span style="color: var(--fg-muted);">// 输出: 所有插件工具</span></div>
+              <div class="code-line"><span style="color: var(--fg-secondary);">[</span><span style="color: var(--accent-gold);">"weather"</span><span style="color: var(--fg-secondary);">, </span><span style="color: var(--accent-gold);">"translate"</span><span style="color: var(--fg-secondary);">, </span><span style="color: var(--accent-gold);">"search"</span><span style="color: var(--fg-secondary);">]</span></div>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 p-2 rounded" style="background: var(--bg-secondary);">
+              <span class="tool-item neutral">group:plugins</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2">
+                <polyline points="9,18 15,12 9,6"/>
+              </svg>
+              <span class="tool-item allowed">weather</span>
+              <span class="tool-item allowed">translate</span>
+              <span class="tool-item allowed">search</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 允许列表剥离 -->
+        <div class="card p-5">
+          <h3 class="font-semibold mb-4 flex items-center gap-2" style="color: var(--accent-orange);">
+            <span class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--glow-orange);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+            </span>
+            仅插件允许列表剥离
+          </h3>
+
+          <p class="text-sm mb-4" style="color: var(--fg-secondary);">
+            当允许列表只包含插件工具时，系统会自动剥离它，避免意外禁用核心工具
+          </p>
+
+          <div id="strip-demo" class="space-y-3">
+            <!-- 由 JS 渲染 -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 交互式策略配置器 -->
+    <section class="mb-14 anim-fade-up delay-6">
+      <h2 class="text-xl font-bold mb-5 flex items-center gap-3">
+        <span class="w-9 h-9 rounded-lg flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff7848" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </span>
+        交互式策略配置器
+      </h2>
+
+      <div class="card p-6">
+        <div class="grid lg:grid-cols-3 gap-6">
+          <!-- 配置面板 -->
+          <div>
+            <h3 class="font-semibold mb-4" style="color: var(--accent-cyan);">配置选项</h3>
+            
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm mb-2" style="color: var(--fg-secondary);">允许列表</label>
+                <select id="allowlist-select" class="w-full px-3 py-2 rounded-lg text-sm" style="background: var(--bg-secondary); border: 1px solid var(--border); color: var(--fg-primary);">
+                  <option value="all">全部允许 (*)</option>
+                  <option value="core">核心工具</option>
+                  <option value="plugins">group:plugins</option>
+                  <option value="mixed">核心 + 插件</option>
+                  <option value="plugin-only">仅插件工具</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm mb-2" style="color: var(--fg-secondary);">额外允许</label>
+                <select id="also-allow-select" class="w-full px-3 py-2 rounded-lg text-sm" style="background: var(--bg-secondary); border: 1px solid var(--border); color: var(--fg-primary);">
+                  <option value="none">无</option>
+                  <option value="browser">+ browser</option>
+                  <option value="tts">+ tts</option>
+                  <option value="both">+ browser, tts</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm mb-2" style="color: var(--fg-secondary);">拒绝列表</label>
+                <select id="denylist-select" class="w-full px-3 py-2 rounded-lg text-sm" style="background: var(--bg-secondary); border: 1px solid var(--border); color: var(--fg-primary);">
+                  <option value="none">无</option>
+                  <option value="exec">exec</option>
+                  <option value="web">web 相关</option>
+                </select>
+              </div>
+
+              <button id="apply-policy-btn" class="w-full py-3 rounded-lg font-semibold text-sm transition-all" style="background: linear-gradient(135deg, var(--accent-cyan), #00c0a0); color: var(--bg-primary);">
+                应用策略
+              </button>
+            </div>
+          </div>
+
+          <!-- 结果展示 -->
+          <div class="lg:col-span-2">
+            <h3 class="font-semibold mb-4" style="color: var(--accent-orange);">策略执行结果</h3>
+            <div id="policy-result" class="space-y-4">
+              <!-- 由 JS 渲染 -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 核心函数一览 -->
+    <section class="mb-12 anim-fade-up delay-7">
+      <h2 class="text-xl font-bold mb-5 flex items-center gap-3">
+        <span class="w-9 h-9 rounded-lg flex items-center justify-center" style="background: var(--glow-cyan);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00e0c0" stroke-width="2">
+            <polyline points="16,18 22,12 16,6"/>
+            <polyline points="8,6 2,12 8,18"/>
+          </svg>
+        </span>
+        核心函数一览
+      </h2>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="card p-4">
+          <h4 class="font-mono font-semibold text-sm mb-2" style="color: var(--accent-cyan);">applyOwnerOnlyToolPolicy</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">根据发送者身份过滤/包装所有者专用工具</p>
+        </div>
+        <div class="card p-4">
+          <h4 class="font-mono font-semibold text-sm mb-2" style="color: var(--accent-orange);">expandPluginGroups</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">将 group:plugins 展开为具体工具列表</p>
+        </div>
+        <div class="card p-4">
+          <h4 class="font-mono font-semibold text-sm mb-2" style="color: var(--accent-gold);">stripPluginOnlyAllowlist</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">剥离仅含插件的允许列表，保护核心工具</p>
+        </div>
+        <div class="card p-4">
+          <h4 class="font-mono font-semibold text-sm mb-2" style="color: var(--accent-cyan);">mergeAlsoAllowPolicy</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">合并额外允许项到现有策略</p>
+        </div>
+        <div class="card p-4">
+          <h4 class="font-mono font-semibold text-sm mb-2" style="color: var(--accent-orange);">buildPluginToolGroups</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">从工具列表构建插件分组映射</p>
+        </div>
+        <div class="card p-4">
+          <h4 class="font-mono font-semibold text-sm mb-2" style="color: var(--accent-gold);">collectExplicitAllowlist</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">从多个策略收集显式允许列表</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="text-center py-6" style="color: var(--fg-muted);">
+      <p>OpenClaw tool-policy.ts 工具权限管家技术解析</p>
+    </footer>
+  </div>
+
+  <script>
+    // ========== 数据定义 ==========
+    const MOCK_TOOLS = [
+      { id: 'read', name: 'read', ownerOnly: false },
+      { id: 'write', name: 'write', ownerOnly: false },
+      { id: 'edit', name: 'edit', ownerOnly: false },
+      { id: 'exec', name: 'exec', ownerOnly: false },
+      { id: 'web_search', name: 'web_search', ownerOnly: false },
+      { id: 'web_fetch', name: 'web_fetch', ownerOnly: false },
+      { id: 'cron', name: 'cron', ownerOnly: true },
+      { id: 'gateway', name: 'gateway', ownerOnly: true },
+      { id: 'whatsapp_login', name: 'whatsapp_login', ownerOnly: true },
+      { id: 'browser', name: 'browser', ownerOnly: false },
+      { id: 'tts', name: 'tts', ownerOnly: false },
+      { id: 'image', name: 'image', ownerOnly: false }
+    ];
+
+    const PLUGIN_TOOLS = [
+      { name: 'weather', pluginId: 'weather-plugin' },
+      { name: 'translate', pluginId: 'translate-plugin' },
+      { name: 'search', pluginId: 'search-plugin' }
+    ];
+
+    const CORE_TOOLS = new Set(['read', 'write', 'edit', 'exec', 'web_search', 'web_fetch', 'browser', 'tts', 'image', 'cron', 'gateway']);
+
+    // ========== 状态变量 ==========
+    let currentRole = 'owner';
+    let currentPolicy = {
+      allow: ['*'],
+      deny: []
+    };
+
+    // ========== DOM 元素 ==========
+    const roleBtns = document.querySelectorAll('.role-btn');
+    const roleHint = document.getElementById('role-hint');
+    const toolsDisplay = document.getElementById('tools-display');
+    const flowDisplay = document.getElementById('flow-display');
+    const stripDemo = document.getElementById('strip-demo');
+    const allowlistSelect = document.getElementById('allowlist-select');
+    const alsoAllowSelect = document.getElementById('also-allow-select');
+    const denylistSelect = document.getElementById('denylist-select');
+    const applyPolicyBtn = document.getElementById('apply-policy-btn');
+    const policyResult = document.getElementById('policy-result');
+
+    // ========== 工具函数 ==========
+    function getRoleColor(role) {
+      return role === 'owner' ? 'var(--accent-cyan)' : 'var(--fg-secondary)';
+    }
+
+    function getToolStatus(tool, role) {
+      if (tool.ownerOnly && role !== 'owner') {
+        return 'denied';
+      }
+      if (tool.ownerOnly) {
+        return 'owner-only';
+      }
+      return 'allowed';
+    }
+
+    // ========== 渲染函数 ==========
+    function renderToolsDisplay() {
+      if (!toolsDisplay) return;
+
+      const filtered = currentRole === 'owner' 
+        ? MOCK_TOOLS 
+        : MOCK_TOOLS.filter(t => !t.ownerOnly);
+
+      toolsDisplay.innerHTML = `
+        <div class="flex flex-wrap gap-2 mb-4">
+          ${MOCK_TOOLS.map(tool => {
+            const status = getToolStatus(tool, currentRole);
+            const isVisible = currentRole === 'owner' || !tool.ownerOnly;
+            if (!isVisible) return '';
+            
+            const labels = {
+              'allowed': 'core',
+              'denied': 'blocked',
+              'owner-only': 'owner-only'
+            };
+            
+            return `<span class="tool-item ${status}" title="${labels[status]}">${tool.name}</span>`;
+          }).join('')}
+        </div>
+        <div class="text-xs" style="color: var(--fg-muted);">
+          当前身份: <span style="color: ${getRoleColor(currentRole)};">${currentRole === 'owner' ? '所有者' : '访客'}</span>
+          | 可用工具: ${filtered.length} / ${MOCK_TOOLS.length}
+        </div>
+      `;
+    }
+
+    function renderFlowDisplay() {
+      if (!flowDisplay) return;
+
+      const steps = [
+        { label: '检查工具列表', active: true },
+        { label: '识别 ownerOnly 工具', active: true },
+        { 
+          label: currentRole === 'owner' 
+            ? '所有者身份 → 保留全部' 
+            : '非所有者 → 过滤敏感工具',
+          active: true,
+          highlight: true
+        },
+        { 
+          label: currentRole === 'owner' 
+            ? '包装执行函数' 
+            : '移除 ownerOnly 工具',
+          active: true
+        },
+        { label: '返回处理后列表', active: true }
+      ];
+
+      flowDisplay.innerHTML = steps.map((step, i) => `
+        <div class="flow-step ${step.highlight ? 'active' : ''}">
+          <div class="flex items-center gap-3">
+            <span class="w-5 h-5 rounded flex items-center justify-center text-xs font-mono" 
+                  style="background: var(--bg-elevated); color: var(--fg-muted);">${i + 1}</span>
+            <span class="text-sm">${step.label}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderStripDemo() {
+      if (!stripDemo) return;
+
+      const scenarios = [
+        {
+          title: '包含核心工具',
+          input: ['read', 'write', 'weather'],
+          output: { stripped: false, result: ['read', 'write', 'weather'] }
+        },
+        {
+          title: '仅插件工具',
+          input: ['weather', 'translate'],
+          output: { stripped: true, result: undefined }
+        },
+        {
+          title: 'group:plugins',
+          input: ['group:plugins'],
+          output: { stripped: true, result: undefined }
+        }
+      ];
+
+      stripDemo.innerHTML = scenarios.map(s => `
+        <div class="p-3 rounded-lg" style="background: var(--bg-secondary);">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold" style="color: var(--fg-secondary);">${s.title}</span>
+            <span class="text-xs px-2 py-1 rounded" style="background: ${s.output.stripped ? 'var(--glow-orange)' : 'var(--glow-cyan)'}; color: ${s.output.stripped ? 'var(--accent-orange)' : 'var(--accent-cyan)'};">
+              ${s.output.stripped ? '已剥离' : '保留'}
+            </span>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <span style="color: var(--fg-muted);">输入:</span>
+            ${s.input.map(t => `<span class="tool-item neutral">${t}</span>`).join('')}
+          </div>
+          <div class="flex items-center gap-2 text-xs mt-2">
+            <span style="color: var(--fg-muted);">输出:</span>
+            ${s.output.result 
+              ? s.output.result.map(t => `<span class="tool-item allowed">${t}</span>`).join('') 
+              : '<span style="color: var(--accent-orange);">undefined (已剥离)</span>'}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderPolicyResult() {
+      if (!policyResult) return;
+
+      const allowValue = allowlistSelect?.value || 'all';
+      const alsoAllowValue = alsoAllowSelect?.value || 'none';
+      const denyValue = denylistSelect?.value || 'none';
+
+      // 模拟策略解析
+      let allowList = [];
+      switch (allowValue) {
+        case 'all': allowList = ['*']; break;
+        case 'core': allowList = ['read', 'write', 'edit', 'exec']; break;
+        case 'plugins': allowList = ['group:plugins']; break;
+        case 'mixed': allowList = ['read', 'write', 'group:plugins']; break;
+        case 'plugin-only': allowList = ['weather', 'translate']; break;
+      }
+
+      let alsoAllowList = [];
+      switch (alsoAllowValue) {
+        case 'browser': alsoAllowList = ['browser']; break;
+        case 'tts': alsoAllowList = ['tts']; break;
+        case 'both': alsoAllowList = ['browser', 'tts']; break;
+      }
+
+      let denyList = [];
+      switch (denyValue) {
+        case 'exec': denyList = ['exec']; break;
+        case 'web': denyList = ['web_search', 'web_fetch']; break;
+      }
+
+      // 模拟 stripPluginOnlyAllowlist
+      const hasCoreEntry = allowList.some(t => t === '*' || CORE_TOOLS.has(t));
+      const stripped = !hasCoreEntry && allowList.length > 0;
+
+      // 合并 alsoAllow
+      if (alsoAllowList.length > 0) {
+        allowList = [...allowList, ...alsoAllowList];
+      }
+
+      policyResult.innerHTML = `
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="p-4 rounded-lg" style="background: var(--bg-secondary);">
+            <h4 class="text-sm font-semibold mb-3" style="color: var(--fg-secondary);">策略状态</h4>
+            <div class="space-y-2">
+              <div class="flex justify-between items-center">
+                <span class="text-xs" style="color: var(--fg-muted);">允许列表</span>
+                <span class="text-xs font-mono" style="color: ${stripped ? 'var(--accent-orange)' : 'var(--accent-cyan)'};">
+                  ${stripped ? '已剥离' : JSON.stringify(allowList)}
+                </span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-xs" style="color: var(--fg-muted);">拒绝列表</span>
+                <span class="text-xs font-mono" style="color: ${denyList.length > 0 ? 'var(--accent-rose)' : 'var(--fg-secondary)'};">
+                  ${denyList.length > 0 ? JSON.stringify(denyList) : '空'}
+                </span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-xs" style="color: var(--fg-muted);">额外允许</span>
+                <span class="text-xs font-mono" style="color: ${alsoAllowList.length > 0 ? 'var(--accent-gold)' : 'var(--fg-secondary)'};">
+                  ${alsoAllowList.length > 0 ? JSON.stringify(alsoAllowList) : '无'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-lg" style="background: var(--bg-secondary);">
+            <h4 class="text-sm font-semibold mb-3" style="color: var(--fg-secondary);">处理说明</h4>
+            <div class="space-y-2 text-xs" style="color: var(--fg-secondary);">
+              ${stripped ? `
+                <div class="p-2 rounded" style="background: var(--glow-orange);">
+                  <span style="color: var(--accent-orange);">仅包含插件工具，允许列表已被剥离</span>
+                </div>
+                <p>这是为了避免意外禁用核心工具。如需添加式行为，请使用 tools.alsoAllow 配置。</p>
+              ` : `
+                <p>1. 允许列表包含核心工具，保留原样</p>
+                ${alsoAllowList.length > 0 ? `<p>2. 额外允许项已合并: ${alsoAllowList.join(', ')}</p>` : ''}
+                ${denyList.length > 0 ? `<p>3. 拒绝列表将覆盖允许列表</p>` : ''}
+              `}
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 p-4 rounded-lg" style="background: var(--bg-secondary);">
+          <h4 class="text-sm font-semibold mb-3" style="color: var(--fg-secondary);">最终工具权限</h4>
+          <div class="flex flex-wrap gap-2">
+            ${MOCK_TOOLS.map(tool => {
+              const inAllow = stripped ? false : (allowList.includes('*') || allowList.includes(tool.name));
+              const inDeny = denyList.includes(tool.name);
+              const inAlsoAllow = alsoAllowList.includes(tool.name);
+              const isAllowed = (inAllow || inAlsoAllow) && !inDeny;
+              
+              return `<span class="tool-item ${isAllowed ? 'allowed' : 'denied'}">${tool.name}</span>`;
+            }).join('')}
+          </div>
+          <div class="mt-3 text-xs" style="color: var(--fg-muted);">
+            <span class="tool-item allowed" style="margin: 0; padding: 2px 6px;">允许</span>
+            <span class="tool-item denied" style="margin: 0; padding: 2px 6px;">拒绝</span>
+          </div>
+        </div>
+      `;
+    }
+
+    // ========== 事件绑定 ==========
+    function initEventListeners() {
+      // 角色切换
+      roleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          roleBtns.forEach(b => {
+            b.style.background = 'var(--bg-elevated)';
+            b.style.borderColor = 'var(--border)';
+            b.style.color = 'var(--fg-secondary)';
+          });
+          
+          btn.style.background = 'var(--glow-cyan)';
+          btn.style.borderColor = 'var(--accent-cyan)';
+          btn.style.color = 'var(--accent-cyan)';
+          
+          currentRole = btn.dataset.role || 'owner';
+          
+          if (roleHint) {
+            roleHint.textContent = currentRole === 'owner' 
+              ? '所有者可以使用所有工具，包括敏感工具'
+              : '访客只能使用公开工具，敏感工具已被过滤';
+          }
+          
+          renderToolsDisplay();
+          renderFlowDisplay();
+        });
+      });
+
+      // 应用策略按钮
+      if (applyPolicyBtn) {
+        applyPolicyBtn.addEventListener('click', renderPolicyResult);
+      }
+    }
+
+    // ========== 初始化 ==========
+    function init() {
+      renderToolsDisplay();
+      renderFlowDisplay();
+      renderStripDemo();
+      renderPolicyResult();
+      initEventListeners();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

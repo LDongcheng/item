@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Docker 镜像深度理解</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c1222;
+      --bg-secondary: #121a2e;
+      --fg: #e4eeff;
+      --muted: #7a8ba8;
+      --accent: #00e5a0;
+      --accent-warm: #ff7043;
+      --docker-blue: #0db7ed;
+      --card: rgba(18, 35, 58, 0.7);
+      --border: rgba(0, 229, 160, 0.15);
+      --layer-1: #ff7043;
+      --layer-2: #ffc107;
+      --layer-3: #4caf50;
+      --layer-4: #2196f3;
+      --layer-5: #9c27b0;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Noto Sans SC', 'Space Grotesk', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .font-display { font-family: 'Space Grotesk', sans-serif; }
+
+    /* Background */
+    .bg-pattern {
+      background-image: 
+        radial-gradient(circle at 20% 50%, rgba(13, 183, 237, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(0, 229, 160, 0.06) 0%, transparent 50%),
+        linear-gradient(rgba(0, 229, 160, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 229, 160, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    }
+
+    /* Animations */
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(13, 183, 237, 0.3); }
+      50% { box-shadow: 0 0 40px rgba(13, 183, 237, 0.5); }
+    }
+
+    @keyframes stack-in {
+      from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes reveal-up {
+      from {
+        opacity: 0;
+        transform: translateY(40px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-float { animation: float 3s ease-in-out infinite; }
+    .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+    .reveal {
+      opacity: 0;
+    }
+
+    .reveal.visible {
+      animation: reveal-up 0.7s ease forwards;
+    }
+
+    /* Layer visualization */
+    .image-layer {
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+    }
+
+    .image-layer:hover {
+      transform: translateX(12px);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .image-layer:hover .layer-info {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .layer-info {
+      opacity: 0;
+      transform: translateX(-10px);
+      transition: all 0.3s ease;
+    }
+
+    /* 3D Stack effect */
+    .stack-3d {
+      perspective: 1000px;
+    }
+
+    .stack-layer {
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .stack-layer:hover {
+      transform: translateZ(20px) scale(1.02);
+    }
+
+    /* Container spawn animation */
+    @keyframes spawn {
+      0% {
+        opacity: 0;
+        transform: scale(0.5) translateY(20px);
+      }
+      50% {
+        transform: scale(1.1) translateY(-5px);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .container-spawn {
+      animation: spawn 0.5s ease forwards;
+    }
+
+    /* Tab styles */
+    .tab-btn {
+      position: relative;
+      transition: all 0.3s ease;
+    }
+
+    .tab-btn::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: var(--accent);
+      transition: width 0.3s ease;
+    }
+
+    .tab-btn.active::after {
+      width: 100%;
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: reveal-up 0.5s ease;
+    }
+
+    /* Interactive card */
+    .interactive-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+
+    .interactive-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 20px 50px rgba(0, 229, 160, 0.1);
+    }
+
+    /* Code block */
+    .code-block {
+      background: #080d18;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+
+    /* Registry item */
+    .registry-item {
+      transition: all 0.3s ease;
+    }
+
+    .registry-item:hover {
+      background: rgba(0, 229, 160, 0.08);
+      transform: translateX(8px);
+    }
+
+    /* Progress bar animation */
+    @keyframes download {
+      0% { width: 0; }
+      100% { width: 100%; }
+    }
+
+    .download-progress {
+      animation: download 2s ease-out forwards;
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+    /* Button */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent) 0%, #00c896 100%);
+      color: var(--bg);
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 229, 160, 0.25);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+  </style>
+</head>
+<body class="bg-pattern">
+  <!-- Floating decorative elements -->
+  <div class="fixed top-20 left-10 w-72 h-72 bg-[var(--docker-blue)] rounded-full opacity-10 blur-[100px] pointer-events-none"></div>
+  <div class="fixed bottom-20 right-10 w-96 h-96 bg-[var(--accent)] rounded-full opacity-8 blur-[120px] pointer-events-none"></div>
+
+  <!-- Header -->
+  <header class="relative z-10 px-6 py-6">
+    <nav class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-[var(--docker-blue)] to-[var(--accent)] flex items-center justify-center">
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="2">
+            <rect x="2" y="10" width="20" height="12" rx="2"/>
+            <rect x="5" y="13" width="4" height="3" rx="0.5"/>
+            <rect x="10" y="13" width="4" height="3" rx="0.5"/>
+            <rect x="15" y="13" width="4" height="3" rx="0.5"/>
+          </svg>
+        </div>
+        <span class="font-display font-bold text-lg">镜像深度解析</span>
+      </div>
+      <div class="flex gap-6">
+        <a href="#what" class="text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors">什么是镜像</a>
+        <a href="#layers" class="text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors">分层原理</a>
+        <a href="#interactive" class="text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors">互动演示</a>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Hero -->
+  <section class="relative z-10 px-6 pt-12 pb-20">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-16 reveal">
+        <p class="text-[var(--docker-blue)] font-display font-semibold mb-4 tracking-wider text-sm">DOCKER IMAGE</p>
+        <h1 class="font-display text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+          镜像就是
+          <span class="bg-gradient-to-r from-[var(--docker-blue)] to-[var(--accent)] bg-clip-text text-transparent">预制菜套餐</span>
+        </h1>
+        <p class="text-xl text-[var(--muted)] max-w-2xl mx-auto leading-relaxed">
+          一份标准化、可复制、包含所有食材的完整套餐。<br>
+          拿来就能用，每个都一样。
+        </p>
+      </div>
+
+      <!-- Visual comparison -->
+      <div class="grid lg:grid-cols-2 gap-8 items-center reveal" style="animation-delay: 0.2s;">
+        <!-- Left: Real world analogy -->
+        <div class="interactive-card rounded-2xl p-8">
+          <h3 class="font-display text-lg font-bold mb-6 flex items-center gap-3">
+            <span class="w-8 h-8 rounded-lg bg-[var(--accent-warm)]/20 flex items-center justify-center text-lg">🍱</span>
+            现实比喻：预制菜套餐
+          </h3>
+          <div class="space-y-4">
+            <div class="flex items-start gap-4 p-4 rounded-xl bg-[var(--bg)]/50">
+              <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-[var(--layer-1)] to-[#e65100] flex items-center justify-center shrink-0">
+                <span class="text-white text-xl">🍚</span>
+              </div>
+              <div>
+                <div class="font-medium">米饭层</div>
+                <div class="text-sm text-[var(--muted)]">基础主食，每个套餐必备</div>
+              </div>
+            </div>
+            <div class="flex items-start gap-4 p-4 rounded-xl bg-[var(--bg)]/50">
+              <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-[var(--layer-2)] to-[#ff8f00] flex items-center justify-center shrink-0">
+                <span class="text-white text-xl">🥩</span>
+              </div>
+              <div>
+                <div class="font-medium">主菜层</div>
+                <div class="text-sm text-[var(--muted)]">红烧肉/宫保鸡丁，套餐的核心</div>
+              </div>
+            </div>
+            <div class="flex items-start gap-4 p-4 rounded-xl bg-[var(--bg)]/50">
+              <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-[var(--layer-3)] to-[#2e7d32] flex items-center justify-center shrink-0">
+                <span class="text-white text-xl">🥬</span>
+              </div>
+              <div>
+                <div class="font-medium">配菜层</div>
+                <div class="text-sm text-[var(--muted)]">青菜/咸菜，增添风味</div>
+              </div>
+            </div>
+            <div class="flex items-start gap-4 p-4 rounded-xl bg-[var(--bg)]/50">
+              <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-[var(--layer-4)] to-[#1565c0] flex items-center justify-center shrink-0">
+                <span class="text-white text-xl">🧂</span>
+              </div>
+              <div>
+                <div class="font-medium">调料层</div>
+                <div class="text-sm text-[var(--muted)]">酱料包，最后添加的个性化</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Docker image -->
+        <div class="interactive-card rounded-2xl p-8">
+          <h3 class="font-display text-lg font-bold mb-6 flex items-center gap-3">
+            <span class="w-8 h-8 rounded-lg bg-[var(--docker-blue)]/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-[var(--docker-blue)]" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="2" y="10" width="20" height="12" rx="2"/>
+                <rect x="5" y="13" width="4" height="3" rx="0.5" fill="var(--bg)"/>
+                <rect x="10" y="13" width="4" height="3" rx="0.5" fill="var(--bg)"/>
+                <rect x="15" y="13" width="4" height="3" rx="0.5" fill="var(--bg)"/>
+              </svg>
+            </span>
+            Docker 镜像结构
+          </h3>
+          <div class="space-y-4">
+            <div class="flex items-start gap-4 p-4 rounded-xl bg-[var(--bg)]/50">
+              <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-[var(--layer-1)] to-[#e65100] flex items-center justify-center shrink-0 font-mono text-xs text-white font-bold">
+                L4
+              </div>
+              <div>
+                <div class="font-medium">应用代码层</div>
+                <div class="text-sm text-[var(--muted)]">你的项目文件 COPY . /app</div>
+              </div>
+            </div>
+            <div class="flex items-start gap-4 p-4 rounded-xl bg-[var(--bg)]/50">
+              <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-[var(--layer-2)] to-[#ff8f00] flex items-center justify-center shrink-0 font-mono text-xs text-white font-bold">
+                L3
+              </div>
+              <div>
+                <div class="font-medium">依赖包层</div>
+                <div class="text-sm text-[var(--muted)]">npm install / pip install</div>
+              </div>
+            </div>
+            <div class="flex items-start gap-4 p-4 rounded-xl bg-[var(--bg)]/50">
+              <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-[var(--layer-3)] to-[#2e7d32] flex items-center justify-center shrink-0 font-mono text-xs text-white font-bold">
+                L2
+              </div>
+              <div>
+                <div class="font-medium">运行环境层</div>
+                <div class="text-sm text-[var(--muted)]">Node.js / Python / Java</div>
+              </div>
+            </div>
+            <div class="flex items-start gap-4 p-4 rounded-xl bg-[var(--bg)]/50">
+              <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-[var(--layer-4)] to-[#1565c0] flex items-center justify-center shrink-0 font-mono text-xs text-white font-bold">
+                L1
+              </div>
+              <div>
+                <div class="font-medium">基础系统层</div>
+                <div class="text-sm text-[var(--muted)]">Ubuntu / Alpine / Debian</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- What is Image -->
+  <section id="what" class="relative z-10 px-6 py-20">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-12 reveal">
+        <h2 class="font-display text-3xl md:text-4xl font-bold mb-4">镜像的三大核心特性</h2>
+        <p class="text-[var(--muted)] text-lg">理解这三点，你就真正懂镜像了</p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <!-- Feature 1 -->
+        <div class="interactive-card rounded-2xl p-6 reveal" style="animation-delay: 0.1s;">
+          <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[var(--docker-blue)] to-[#0097a7] flex items-center justify-center mb-5">
+            <svg class="w-7 h-7" fill="none" stroke="var(--bg)" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+          </div>
+          <h3 class="font-display text-xl font-bold mb-3">只读不可变</h3>
+          <p class="text-[var(--muted)] leading-relaxed mb-4">
+            镜像一旦创建，就不能修改。就像你买到的预制菜配方是固定的。
+          </p>
+          <div class="p-3 rounded-lg bg-[var(--bg)]/50 text-sm">
+            <span class="text-[var(--accent-warm)]">想修改？</span>
+            <span class="text-[var(--muted)]">只能基于旧镜像构建新镜像</span>
+          </div>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="interactive-card rounded-2xl p-6 reveal" style="animation-delay: 0.2s;">
+          <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[#00c896] flex items-center justify-center mb-5">
+            <svg class="w-7 h-7" fill="none" stroke="var(--bg)" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <h3 class="font-display text-xl font-bold mb-3">无限复制</h3>
+          <p class="text-[var(--muted)] leading-relaxed mb-4">
+            一个镜像可以创建无数个容器，每个容器都从相同的"模板"诞生。
+          </p>
+          <div class="flex items-center gap-2">
+            <div class="flex-1 h-8 rounded-lg bg-[var(--docker-blue)]/20 flex items-center justify-center text-xs text-[var(--docker-blue)]">镜像</div>
+            <svg class="w-4 h-4 text-[var(--muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+            </svg>
+            <div class="flex gap-1">
+              <div class="w-6 h-8 rounded bg-[var(--accent)]/30"></div>
+              <div class="w-6 h-8 rounded bg-[var(--accent)]/30"></div>
+              <div class="w-6 h-8 rounded bg-[var(--accent)]/30"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="interactive-card rounded-2xl p-6 reveal" style="animation-delay: 0.3s;">
+          <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[var(--accent-warm)] to-[#e65100] flex items-center justify-center mb-5">
+            <svg class="w-7 h-7" fill="none" stroke="var(--bg)" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+            </svg>
+          </div>
+          <h3 class="font-display text-xl font-bold mb-3">分层存储</h3>
+          <p class="text-[var(--muted)] leading-relaxed mb-4">
+            镜像由多个只读层堆叠而成，每层记录变化。公共层可以共享。
+          </p>
+          <div class="space-y-1">
+            <div class="h-3 rounded bg-[var(--layer-4)]/60"></div>
+            <div class="h-3 rounded bg-[var(--layer-3)]/60"></div>
+            <div class="h-3 rounded bg-[var(--layer-2)]/60"></div>
+            <div class="h-3 rounded bg-[var(--layer-1)]/60"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Layer Visualization -->
+  <section id="layers" class="relative z-10 px-6 py-20 bg-[var(--bg-secondary)]/40">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-12 reveal">
+        <h2 class="font-display text-3xl md:text-4xl font-bold mb-4">分层原理：镜像的魔法</h2>
+        <p class="text-[var(--muted)] text-lg">点击每一层，看看它代表什么</p>
+      </div>
+
+      <div class="grid lg:grid-cols-2 gap-10 items-center">
+        <!-- Layer stack -->
+        <div class="stack-3d reveal" style="animation-delay: 0.1s;">
+          <div id="layer-stack" class="relative">
+            <div class="image-layer stack-layer rounded-xl p-5 mb-3 border-l-4 border-[var(--layer-4)]" style="background: linear-gradient(135deg, rgba(33, 150, 243, 0.15) 0%, rgba(33, 150, 243, 0.05) 100%);" data-layer="4">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <span class="w-8 h-8 rounded-lg bg-[var(--layer-4)] flex items-center justify-center text-sm font-bold text-white">L4</span>
+                  <span class="font-medium">应用代码层</span>
+                </div>
+                <span class="text-xs text-[var(--muted)]">+12MB</span>
+              </div>
+              <div class="layer-info mt-3 text-sm text-[var(--muted)]">
+                你写的代码、配置文件、静态资源
+              </div>
+            </div>
+
+            <div class="image-layer stack-layer rounded-xl p-5 mb-3 border-l-4 border-[var(--layer-3)]" style="background: linear-gradient(135deg, rgba(76, 175, 80, 0.15) 0%, rgba(76, 175, 80, 0.05) 100%);" data-layer="3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <span class="w-8 h-8 rounded-lg bg-[var(--layer-3)] flex items-center justify-center text-sm font-bold text-white">L3</span>
+                  <span class="font-medium">依赖包层</span>
+                </div>
+                <span class="text-xs text-[var(--muted)]">+85MB</span>
+              </div>
+              <div class="layer-info mt-3 text-sm text-[var(--muted)]">
+                npm包、pip包、jar包等第三方库
+              </div>
+            </div>
+
+            <div class="image-layer stack-layer rounded-xl p-5 mb-3 border-l-4 border-[var(--layer-2)]" style="background: linear-gradient(135deg, rgba(255, 193, 7, 0.15) 0%, rgba(255, 193, 7, 0.05) 100%);" data-layer="2">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <span class="w-8 h-8 rounded-lg bg-[var(--layer-2)] flex items-center justify-center text-sm font-bold text-white">L2</span>
+                  <span class="font-medium">运行环境层</span>
+                </div>
+                <span class="text-xs text-[var(--muted)]">+120MB</span>
+              </div>
+              <div class="layer-info mt-3 text-sm text-[var(--muted)]">
+                Node.js、Python、JVM等运行时
+              </div>
+            </div>
+
+            <div class="image-layer stack-layer rounded-xl p-5 mb-3 border-l-4 border-[var(--layer-1)]" style="background: linear-gradient(135deg, rgba(255, 112, 67, 0.15) 0%, rgba(255, 112, 67, 0.05) 100%);" data-layer="1">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <span class="w-8 h-8 rounded-lg bg-[var(--layer-1)] flex items-center justify-center text-sm font-bold text-white">L1</span>
+                  <span class="font-medium">基础系统层</span>
+                </div>
+                <span class="text-xs text-[var(--muted)]">+5MB</span>
+              </div>
+              <div class="layer-info mt-3 text-sm text-[var(--muted)]">
+                Alpine/Ubuntu等精简Linux系统
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Explanation panel -->
+        <div class="reveal" style="animation-delay: 0.2s;">
+          <div id="layer-detail" class="interactive-card rounded-2xl p-6">
+            <div class="text-center py-8">
+              <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--docker-blue)]/20 flex items-center justify-center">
+                <svg class="w-8 h-8 text-[var(--docker-blue)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/>
+                </svg>
+              </div>
+              <h4 class="font-display text-xl font-bold mb-2">点击左侧的层</h4>
+              <p class="text-[var(--muted)]">查看每一层的详细说明</p>
+            </div>
+          </div>
+
+          <!-- Benefits -->
+          <div class="mt-6 space-y-3">
+            <h4 class="font-display font-bold text-sm text-[var(--accent)] mb-3">分层的好处</h4>
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-[var(--bg)]/30">
+              <span class="text-[var(--accent)]">✓</span>
+              <div>
+                <span class="font-medium">共享公共层</span>
+                <p class="text-sm text-[var(--muted)]">多个镜像可以共享相同的基础层，节省磁盘空间</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-[var(--bg)]/30">
+              <span class="text-[var(--accent)]">✓</span>
+              <div>
+                <span class="font-medium">加速构建</span>
+                <p class="text-sm text-[var(--muted)]">未变化的层会被缓存，只重新构建修改的部分</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-[var(--bg)]/30">
+              <span class="text-[var(--accent)]">✓</span>
+              <div>
+                <span class="font-medium">快速分发</span>
+                <p class="text-sm text-[var(--muted)]">拉取镜像时只需下载本地没有的层</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Demo -->
+  <section id="interactive" class="relative z-10 px-6 py-20">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-12 reveal">
+        <h2 class="font-display text-3xl md:text-4xl font-bold mb-4">互动演示：镜像与容器</h2>
+        <p class="text-[var(--muted)] text-lg">亲手体验一个镜像如何创建多个容器</p>
+      </div>
+
+      <div class="interactive-card rounded-2xl p-6 lg:p-8 reveal">
+        <!-- Tabs -->
+        <div class="flex flex-wrap gap-2 mb-8 border-b border-[var(--border)] pb-4">
+          <button class="tab-btn active px-5 py-2 font-medium" data-tab="spawn">创建容器</button>
+          <button class="tab-btn px-5 py-2 font-medium text-[var(--muted)]" data-tab="pull">拉取镜像</button>
+          <button class="tab-btn px-5 py-2 font-medium text-[var(--muted)]" data-tab="build">构建镜像</button>
+        </div>
+
+        <!-- Tab: Spawn containers -->
+        <div id="tab-spawn" class="tab-content active">
+          <div class="grid lg:grid-cols-3 gap-6 items-start">
+            <!-- Image panel -->
+            <div class="lg:col-span-1">
+              <h4 class="font-display font-bold mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-[var(--docker-blue)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"/>
+                </svg>
+                镜像 nginx:latest
+              </h4>
+              <div class="bg-gradient-to-br from-[var(--docker-blue)]/20 to-[var(--docker-blue)]/5 rounded-xl p-5 border border-[var(--docker-blue)]/30">
+                <div class="text-center mb-4">
+                  <div class="w-20 h-20 mx-auto rounded-xl bg-[var(--docker-blue)]/30 flex items-center justify-center mb-3 animate-float">
+                    <svg class="w-10 h-10 text-[var(--docker-blue)]" fill="currentColor" viewBox="0 0 24 24">
+                      <rect x="2" y="10" width="20" height="12" rx="2"/>
+                      <rect x="5" y="13" width="4" height="3" rx="0.5" fill="var(--bg)"/>
+                      <rect x="10" y="13" width="4" height="3" rx="0.5" fill="var(--bg)"/>
+                      <rect x="15" y="13" width="4" height="3" rx="0.5" fill="var(--bg)"/>
+                    </svg>
+                  </div>
+                  <p class="text-sm text-[var(--muted)]">只读模板</p>
+                </div>
+                <div class="text-xs text-[var(--muted)] space-y-1">
+                  <div>大小: 142MB</div>
+                  <div>层: 5 层</div>
+                  <div>状态: 本地存在</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Arrow and controls -->
+            <div class="flex flex-col items-center justify-center lg:py-10">
+              <button id="btn-spawn" class="btn-primary px-6 py-3 rounded-xl flex items-center gap-2 mb-4">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                docker run
+              </button>
+              <p class="text-xs text-[var(--muted)] text-center">每次点击创建一个新容器</p>
+            </div>
+
+            <!-- Containers panel -->
+            <div class="lg:col-span-1">
+              <h4 class="font-display font-bold mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+                运行中的容器
+              </h4>
+              <div id="containers-list" class="space-y-2 min-h-[200px]">
+                <div class="text-center py-12 text-[var(--muted)] text-sm border-2 border-dashed border-[var(--border)] rounded-xl">
+                  点击左侧按钮创建容器
+                </div>
+              </div>
+              <button id="btn-clear" class="mt-4 w-full py-2 rounded-lg border border-[var(--border)] text-sm text-[var(--muted)] hover:border-[var(--accent-warm)] hover:text-[var(--accent-warm)] transition-colors" style="display: none;">
+                清空所有容器
+              </button>
+            </div>
+          </div>
+
+          <!-- Terminal -->
+          <div class="code-block rounded-xl p-4 mt-6 text-sm font-mono">
+            <div class="flex items-center gap-2 mb-3 pb-3 border-b border-white/10">
+              <div class="w-3 h-3 rounded-full bg-[#ff5f56]"></div>
+              <div class="w-3 h-3 rounded-full bg-[#ffbd2e]"></div>
+              <div class="w-3 h-3 rounded-full bg-[#27ca40]"></div>
+              <span class="ml-2 text-[var(--muted)]">Terminal</span>
+            </div>
+            <div id="terminal-spawn" class="space-y-1 max-h-40 overflow-y-auto">
+              <div class="text-[var(--muted)]">$ 等待操作...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Pull image -->
+        <div id="tab-pull" class="tab-content">
+          <div class="grid lg:grid-cols-2 gap-8">
+            <!-- Registry -->
+            <div>
+              <h4 class="font-display font-bold mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18v18H3zM12 8v8m-4-4h8"/>
+                </svg>
+                Docker Hub 仓库
+              </h4>
+              <div class="space-y-2">
+                <div class="registry-item p-4 rounded-xl bg-[var(--bg)]/50 flex items-center justify-between cursor-pointer" data-image="nginx">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-[var(--docker-blue)]/20 flex items-center justify-center">
+                      <span class="text-[var(--docker-blue)] font-bold">N</span>
+                    </div>
+                    <div>
+                      <div class="font-medium">nginx</div>
+                      <div class="text-xs text-[var(--muted)]">Web服务器 • 142MB</div>
+                    </div>
+                  </div>
+                  <span class="text-xs text-[var(--muted)]">官方</span>
+                </div>
+                <div class="registry-item p-4 rounded-xl bg-[var(--bg)]/50 flex items-center justify-between cursor-pointer" data-image="node">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-[var(--layer-3)]/20 flex items-center justify-center">
+                      <span class="text-[var(--layer-3)] font-bold">Js</span>
+                    </div>
+                    <div>
+                      <div class="font-medium">node</div>
+                      <div class="text-xs text-[var(--muted)]">Node.js运行时 • 900MB</div>
+                    </div>
+                  </div>
+                  <span class="text-xs text-[var(--muted)]">官方</span>
+                </div>
+                <div class="registry-item p-4 rounded-xl bg-[var(--bg)]/50 flex items-center justify-between cursor-pointer" data-image="python">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-[var(--layer-2)]/20 flex items-center justify-center">
+                      <span class="text-[var(--layer-2)] font-bold">Py</span>
+                    </div>
+                    <div>
+                      <div class="font-medium">python</div>
+                      <div class="text-xs text-[var(--muted)]">Python运行时 • 900MB</div>
+                    </div>
+                  </div>
+                  <span class="text-xs text-[var(--muted)]">官方</span>
+                </div>
+                <div class="registry-item p-4 rounded-xl bg-[var(--bg)]/50 flex items-center justify-between cursor-pointer" data-image="redis">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-[var(--accent-warm)]/20 flex items-center justify-center">
+                      <span class="text-[var(--accent-warm)] font-bold">R</span>
+                    </div>
+                    <div>
+                      <div class="font-medium">redis</div>
+                      <div class="text-xs text-[var(--muted)]">内存数据库 • 110MB</div>
+                    </div>
+                  </div>
+                  <span class="text-xs text-[var(--muted)]">官方</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Download simulation -->
+            <div>
+              <h4 class="font-display font-bold mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                下载进度
+              </h4>
+              <div id="download-panel" class="bg-[var(--bg)]/50 rounded-xl p-5 min-h-[200px]">
+                <div class="text-center text-[var(--muted)] text-sm">
+                  点击左侧镜像开始下载
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Build image -->
+        <div id="tab-build" class="tab-content">
+          <div class="grid lg:grid-cols-2 gap-8">
+            <!-- Dockerfile -->
+            <div>
+              <h4 class="font-display font-bold mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-[var(--accent-warm)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Dockerfile
+              </h4>
+              <div class="code-block rounded-xl p-4 text-sm font-mono">
+                <div class="space-y-1">
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"><span class="text-[var(--muted)]"># 基础镜像</span></div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"><span class="text-[var(--docker-blue)]">FROM</span> node:18-alpine</div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"></div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"><span class="text-[var(--muted)]"># 设置工作目录</span></div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"><span class="text-[var(--docker-blue)]">WORKDIR</span> /app</div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"></div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"><span class="text-[var(--muted)]"># 复制依赖文件</span></div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"><span class="text-[var(--docker-blue)]">COPY</span> package*.json ./</div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"></div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"><span class="text-[var(--muted)]"># 安装依赖</span></div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"><span class="text-[var(--docker-blue)]">RUN</span> npm install</div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"></div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"><span class="text-[var(--muted)]"># 复制源代码</span></div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"><span class="text-[var(--docker-blue)]">COPY</span> . .</div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"></div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"><span class="text-[var(--muted)]"># 暴露端口</span></div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"><span class="text-[var(--docker-blue)]">EXPOSE</span> 3000</div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"></div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"><span class="text-[var(--muted)]"># 启动命令</span></div>
+                  <div class="code-line px-2 py-1 hover:bg-white/5 rounded"><span class="text-[var(--docker-blue)]">CMD</span> [<span class="text-[var(--accent)]">"npm"</span>, <span class="text-[var(--accent)]">"start"</span>]</div>
+                </div>
+              </div>
+              <button id="btn-build" class="btn-primary w-full py-3 rounded-xl mt-4 flex items-center justify-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                </svg>
+                docker build -t my-app .
+              </button>
+            </div>
+
+            <!-- Build log -->
+            <div>
+              <h4 class="font-display font-bold mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+                构建日志
+              </h4>
+              <div id="build-log" class="code-block rounded-xl p-4 text-sm font-mono h-[350px] overflow-y-auto">
+                <div class="text-[var(--muted)]">等待构建...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Summary -->
+  <section class="relative z-10 px-6 py-20">
+    <div class="max-w-4xl mx-auto">
+      <div class="interactive-card rounded-2xl p-8 text-center reveal">
+        <h2 class="font-display text-2xl md:text-3xl font-bold mb-6">镜像 vs 容器：一句话区分</h2>
+        <div class="grid md:grid-cols-2 gap-6 mb-8">
+          <div class="p-5 rounded-xl bg-[var(--docker-blue)]/10 border border-[var(--docker-blue)]/30">
+            <div class="w-12 h-12 mx-auto mb-3 rounded-lg bg-[var(--docker-blue)]/20 flex items-center justify-center">
+              <svg class="w-6 h-6 text-[var(--docker-blue)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"/>
+              </svg>
+            </div>
+            <h4 class="font-display font-bold mb-2">镜像 Image</h4>
+            <p class="text-sm text-[var(--muted)]">死的、只读的模板<br>预制菜套餐</p>
+          </div>
+          <div class="p-5 rounded-xl bg-[var(--accent)]/10 border border-[var(--accent)]/30">
+            <div class="w-12 h-12 mx-auto mb-3 rounded-lg bg-[var(--accent)]/20 flex items-center justify-center">
+              <svg class="w-6 h-6 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+              </svg>
+            </div>
+            <h4 class="font-display font-bold mb-2">容器 Container</h4>
+            <p class="text-sm text-[var(--muted)]">活的、可运行实例<br>正在吃的外卖</p>
+          </div>
+        </div>
+        <p class="text-lg text-[var(--muted)]">
+          <span class="text-[var(--fg)]">镜像</span> 是模具，<span class="text-[var(--fg)]">容器</span> 是产品。<br>
+          一个模具可以生产无数个一模一样的产品。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="relative z-10 px-6 py-8 border-t border-[var(--border)]">
+    <div class="max-w-6xl mx-auto text-center text-[var(--muted)] text-sm">
+      <p>现在你理解镜像了吗？试试 <code class="text-[var(--docker-blue)]">docker images</code> 看看你本地有哪些镜像</p>
+    </div>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Scroll reveal
+      var revealElements = document.querySelectorAll('.reveal');
+      var observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+      };
+
+      var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, observerOptions);
+
+      revealElements.forEach(function(el) {
+        observer.observe(el);
+      });
+
+      // Tab system
+      var tabBtns = document.querySelectorAll('.tab-btn');
+      var tabContents = document.querySelectorAll('.tab-content');
+
+      tabBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var tabId = this.getAttribute('data-tab');
+          
+          tabBtns.forEach(function(b) {
+            b.classList.remove('active');
+            b.style.color = '';
+          });
+          this.classList.add('active');
+          
+          tabContents.forEach(function(content) {
+            content.classList.remove('active');
+          });
+          var targetTab = document.getElementById('tab-' + tabId);
+          if (targetTab) {
+            targetTab.classList.add('active');
+          }
+        });
+      });
+
+      // Layer interaction
+      var layers = document.querySelectorAll('.image-layer');
+      var layerDetail = document.getElementById('layer-detail');
+      
+      var layerInfo = {
+        '4': {
+          title: '应用代码层',
+          desc: '这是你写的代码、配置文件、静态资源等。每次修改代码，只有这一层会变化。',
+          cmd: 'COPY . /app',
+          size: '12MB',
+          tip: '把变化最频繁的层放最后，可以最大化利用缓存'
+        },
+        '3': {
+          title: '依赖包层',
+          desc: 'npm包、pip包、maven依赖等第三方库。这些变化较少，可以独立缓存。',
+          cmd: 'RUN npm install',
+          size: '85MB',
+          tip: '先复制package.json安装依赖，再复制代码，可以加速构建'
+        },
+        '2': {
+          title: '运行环境层',
+          desc: 'Node.js、Python、Java等语言运行时。这一层一般不会变。',
+          cmd: 'FROM node:18-alpine',
+          size: '120MB',
+          tip: '选择alpine版本可以大幅减小镜像体积'
+        },
+        '1': {
+          title: '基础系统层',
+          desc: '精简的Linux系统（Alpine/Ubuntu等）。是最底层的地基。',
+          cmd: 'FROM alpine:3.18',
+          size: '5MB',
+          tip: 'Alpine只有5MB，Ubuntu约70MB，按需选择'
+        }
+      };
+
+      layers.forEach(function(layer) {
+        layer.addEventListener('click', function() {
+          var layerNum = this.getAttribute('data-layer');
+          var info = layerInfo[layerNum];
+          
+          if (info && layerDetail) {
+            layerDetail.innerHTML = 
+              '<h4 class="font-display text-xl font-bold mb-3 text-[var(--accent)]">' + info.title + '</h4>' +
+              '<p class="text-[var(--muted)] mb-4">' + info.desc + '</p>' +
+              '<div class="code-block rounded-lg p-3 text-sm font-mono mb-4">' +
+                '<span class="text-[var(--muted)]">$ </span>' + info.cmd +
+              '</div>' +
+              '<div class="flex items-center justify-between text-sm mb-3">' +
+                '<span class="text-[var(--muted)]">大小</span>' +
+                '<span class="text-[var(--fg)]">' + info.size + '</span>' +
+              '</div>' +
+              '<div class="p-3 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/20">' +
+                '<span class="text-[var(--accent)] text-sm">💡 ' + info.tip + '</span>' +
+              '</div>';
+          }
+        });
+      });
+
+      // Container spawn demo
+      var btnSpawn = document.getElementById('btn-spawn');
+      var containersList = document.getElementById('containers-list');
+      var terminalSpawn = document.getElementById('terminal-spawn');
+      var btnClear = document.getElementById('btn-clear');
+      var containerCount = 0;
+      var containerIds = [];
+
+      function generateId() {
+        var chars = 'abcdef0123456789';
+        var id = '';
+        for (var i = 0; i < 12; i++) {
+          id += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return id;
+      }
+
+      function addTerminalLine(text, type) {
+        var line = document.createElement('div');
+        if (type === 'command') {
+          line.innerHTML = '<span class="text-[var(--accent)]">$</span> ' + text;
+        } else if (type === 'success') {
+          line.innerHTML = '<span class="text-[var(--accent)]">' + text + '</span>';
+        } else {
+          line.textContent = text;
+        }
+        terminalSpawn.appendChild(line);
+        terminalSpawn.scrollTop = terminalSpawn.scrollHeight;
+      }
+
+      if (btnSpawn) {
+        btnSpawn.addEventListener('click', function() {
+          containerCount++;
+          var id = generateId();
+          containerIds.push(id);
+          
+          // Clear placeholder
+          if (containerCount === 1 && containersList) {
+            containersList.innerHTML = '';
+          }
+          
+          // Add terminal output
+          addTerminalLine('docker run -d nginx', 'command');
+          setTimeout(function() {
+            addTerminalLine(id, 'success');
+          }, 200);
+          
+          // Add container card
+          var containerCard = document.createElement('div');
+          containerCard.className = 'container-spawn p-3 rounded-xl bg-[var(--accent)]/10 border border-[var(--accent)]/30 flex items-center gap-3';
+          containerCard.innerHTML = 
+            '<div class="w-3 h-3 rounded-full bg-[var(--accent)] animate-pulse"></div>' +
+            '<div class="flex-1">' +
+              '<div class="font-mono text-xs text-[var(--accent)]">' + id.substring(0, 12) + '</div>' +
+              '<div class="text-xs text-[var(--muted)]">nginx • 运行中</div>' +
+            '</div>' +
+            '<button class="text-xs px-2 py-1 rounded bg-[var(--accent-warm)]/20 text-[var(--accent-warm)] hover:bg-[var(--accent-warm)]/30 transition-colors stop-btn">stop</button>';
+          
+          if (containersList) {
+            containersList.appendChild(containerCard);
+          }
+          
+          // Show clear button
+          if (btnClear) {
+            btnClear.style.display = 'block';
+          }
+          
+          // Stop button
+          var stopBtn = containerCard.querySelector('.stop-btn');
+          if (stopBtn) {
+            stopBtn.addEventListener('click', function() {
+              containerCard.style.opacity = '0.5';
+              containerCard.querySelector('.w-3').classList.remove('animate-pulse');
+              containerCard.querySelector('.w-3').style.background = 'var(--muted)';
+              this.textContent = 'stopped';
+              this.disabled = true;
+              this.style.opacity = '0.5';
+              addTerminalLine('docker stop ' + id.substring(0, 12), 'command');
+            });
+          }
+        });
+      }
+
+      if (btnClear) {
+        btnClear.addEventListener('click', function() {
+          if (containersList) {
+            containersList.innerHTML = '<div class="text-center py-12 text-[var(--muted)] text-sm border-2 border-dashed border-[var(--border)] rounded-xl">点击左侧按钮创建容器</div>';
+          }
+          containerCount = 0;
+          containerIds = [];
+          this.style.display = 'none';
+          if (terminalSpawn) {
+            terminalSpawn.innerHTML = '<div class="text-[var(--muted)]">$ 容器已清空</div>';
+          }
+        });
+      }
+
+      // Pull image demo
+      var registryItems = document.querySelectorAll('.registry-item');
+      var downloadPanel = document.getElementById('download-panel');
+      var isDownloading = false;
+
+      registryItems.forEach(function(item) {
+        item.addEventListener('click', function() {
+          if (isDownloading) return;
+          
+          var image = this.getAttribute('data-image');
+          var imageName = this.querySelector('.font-medium').textContent;
+          isDownloading = true;
+          
+          if (downloadPanel) {
+            downloadPanel.innerHTML = 
+              '<div class="mb-4">' +
+                '<div class="flex items-center justify-between mb-2">' +
+                  '<span class="font-medium">拉取 ' + imageName + '</span>' +
+                  '<span class="text-xs text-[var(--muted)]">下载中...</span>' +
+                '</div>' +
+                '<div class="h-2 bg-[var(--border)] rounded-full overflow-hidden">' +
+                  '<div class="h-full bg-[var(--docker-blue)] rounded-full download-progress"></div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="text-xs font-mono text-[var(--muted)] space-y-1" id="pull-log">' +
+                '<div>latest: Pulling from library/' + image + '</div>' +
+              '</div>';
+            
+            var pullLog = document.getElementById('pull-log');
+            var layers = ['a2abf6c4d29d', 'ceaf7e59a8e5', 'b5c1b1e3b5a4', 'd4f3c2b1a0e5', 'e5f4d3c2b1a0'];
+            
+            layers.forEach(function(layer, index) {
+              setTimeout(function() {
+                if (pullLog) {
+                  pullLog.innerHTML += '<div>' + layer + ': Pull complete</div>';
+                }
+              }, 400 * (index + 1));
+            });
+            
+            setTimeout(function() {
+              if (pullLog) {
+                pullLog.innerHTML += '<div class="text-[var(--accent)]">Digest: sha256:' + Math.random().toString(16).substr(2, 64) + '</div>';
+                pullLog.innerHTML += '<div class="text-[var(--accent)]">Status: Downloaded newer image for ' + imageName + '</div>';
+              }
+              isDownloading = false;
+            }, 2500);
+          }
+        });
+      });
+
+      // Build demo
+      var btnBuild = document.getElementById('btn-build');
+      var buildLog = document.getElementById('build-log');
+      var isBuilding = false;
+
+      if (btnBuild) {
+        btnBuild.addEventListener('click', function() {
+          if (isBuilding) return;
+          isBuilding = true;
+          this.disabled = true;
+          
+          var logs = [
+            { text: 'Sending build context to Docker daemon  45.2MB', delay: 100 },
+            { text: 'Step 1/8 : FROM node:18-alpine', delay: 300 },
+            { text: '18-alpine: Pulling from library/node', delay: 500 },
+            { text: 'a2abf6c4d29d: Already exists', delay: 700 },
+            { text: 'ceaf7e59a8e5: Pull complete', delay: 900 },
+            { text: '', delay: 1100 },
+            { text: 'Step 2/8 : WORKDIR /app', delay: 1300 },
+            { text: 'Running in f3e2d1c0b9a8', delay: 1500 },
+            { text: 'Removing intermediate container f3e2d1c0b9a8', delay: 1700 },
+            { text: '', delay: 1900 },
+            { text: 'Step 3/8 : COPY package*.json ./', delay: 2100 },
+            { text: 'b5c1b1e3b5a4: Pull complete', delay: 2300 },
+            { text: '', delay: 2500 },
+            { text: 'Step 4/8 : RUN npm install', delay: 2700 },
+            { text: 'Running in a1b2c3d4e5f6', delay: 3200 },
+            { text: 'added 847 packages in 12s', delay: 4000 },
+            { text: '', delay: 4200 },
+            { text: 'Step 5/8 : COPY . .', delay: 4400 },
+            { text: 'd4f3c2b1a0e5: Pull complete', delay: 4600 },
+            { text: '', delay: 4800 },
+            { text: 'Step 6/8 : EXPOSE 3000', delay: 5000 },
+            { text: 'Running in c2d3e4f5a6b7', delay: 5200 },
+            { text: '', delay: 5400 },
+            { text: 'Step 7/8 : CMD ["npm", "start"]', delay: 5600 },
+            { text: 'Running in d3e4f5a6b7c8', delay: 5800 },
+            { text: '', delay: 6000 },
+            { text: 'Successfully built e5f4d3c2b1a0', delay: 6200 },
+            { text: 'Successfully tagged my-app:latest', delay: 6400 },
+          ];
+
+          if (buildLog) {
+            buildLog.innerHTML = '<div class="text-[var(--docker-blue)]">$ docker build -t my-app .</div>';
+          }
+
+          logs.forEach(function(log) {
+            setTimeout(function() {
+              if (buildLog) {
+                if (log.text === '') {
+                  buildLog.innerHTML += '<div>&nbsp;</div>';
+                } else if (log.text.includes('Successfully')) {
+                  buildLog.innerHTML += '<div class="text-[var(--accent)]">' + log.text + '</div>';
+                } else if (log.text.includes('Step')) {
+                  buildLog.innerHTML += '<div class="text-[var(--accent-warm)]">' + log.text + '</div>';
+                } else {
+                  buildLog.innerHTML += '<div>' + log.text + '</div>';
+                }
+                buildLog.scrollTop = buildLog.scrollHeight;
+              }
+            }, log.delay);
+          });
+
+          setTimeout(function() {
+            isBuilding = false;
+            if (btnBuild) {
+              btnBuild.disabled = false;
+            }
+          }, 7000);
+        });
+      }
+
+      // Smooth scroll
+      document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
+        anchor.addEventListener('click', function(e) {
+          e.preventDefault();
+          var targetId = this.getAttribute('href');
+          var targetEl = document.querySelector(targetId);
+          if (targetEl) {
+            targetEl.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start'
+            });
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>

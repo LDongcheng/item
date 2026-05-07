@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw attempt.ts 技术解析</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;600;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg-primary: #070a0e;
+      --bg-secondary: #0d1117;
+      --bg-card: #141b23;
+      --bg-elevated: #1a232e;
+      --fg-primary: #e6edf5;
+      --fg-secondary: #8b9db0;
+      --fg-muted: #415468;
+      --accent-teal: #00d9b8;
+      --accent-coral: #ff7b5a;
+      --accent-honey: #ffb740;
+      --accent-rose: #ff6b8a;
+      --border: #1e2d3d;
+      --glow-teal: rgba(0, 217, 184, 0.12);
+      --glow-coral: rgba(255, 123, 90, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg-primary);
+      color: var(--fg-primary);
+      overflow-x: hidden;
+      line-height: 1.7;
+    }
+
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* 背景效果 */
+    .bg-atmosphere {
+      background:
+        radial-gradient(ellipse 100% 70% at 70% 0%, rgba(0, 217, 184, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse 80% 60% at 0% 100%, rgba(255, 123, 90, 0.05) 0%, transparent 50%),
+        var(--bg-primary);
+    }
+
+    .grid-overlay {
+      background-image:
+        linear-gradient(rgba(0, 217, 184, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 217, 184, 0.03) 1px, transparent 1px);
+      background-size: 50px 50px;
+    }
+
+    /* 动画 */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(35px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.94); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes slideLeft {
+      from { opacity: 0; transform: translateX(50px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes pulseRing {
+      0%, 100% { transform: scale(1); opacity: 0.6; }
+      50% { transform: scale(1.1); opacity: 1; }
+    }
+
+    @keyframes flowPath {
+      to { stroke-dashoffset: -16; }
+    }
+
+    .anim-fade-up { animation: fadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+    .anim-scale-in { animation: scaleIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+    .anim-slide-left { animation: slideLeft 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
+    .delay-4 { animation-delay: 0.4s; }
+    .delay-5 { animation-delay: 0.5s; }
+    .delay-6 { animation-delay: 0.6s; }
+    .delay-7 { animation-delay: 0.7s; }
+
+    /* 卡片 */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .card:hover {
+      border-color: var(--accent-teal);
+      transform: translateY(-3px);
+      box-shadow: 0 20px 40px -10px var(--glow-teal);
+    }
+
+    .card-coral:hover {
+      border-color: var(--accent-coral);
+      box-shadow: 0 20px 40px -10px var(--glow-coral);
+    }
+
+    /* 流程节点 */
+    .phase-node {
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .phase-node:hover .phase-ring {
+      animation: pulseRing 1.2s ease-in-out infinite;
+    }
+
+    .phase-node:hover .phase-inner {
+      fill: var(--bg-elevated);
+    }
+
+    /* 连接线 */
+    .flow-path {
+      stroke-dasharray: 8, 4;
+      animation: flowPath 0.8s linear infinite;
+    }
+
+    /* 标签 */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* 代码窗口 */
+    .code-window {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .code-header {
+      background: var(--bg-elevated);
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .code-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    .code-content {
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+
+    .code-line {
+      transition: background 0.2s ease;
+      padding: 2px 8px;
+      margin: 0 -8px;
+      border-radius: 4px;
+    }
+
+    .code-line:hover { background: rgba(0, 217, 184, 0.06); }
+
+    /* Tab */
+    .tab-btn {
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.3s ease;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .tab-btn.active {
+      background: var(--glow-teal);
+      border-color: var(--accent-teal);
+      color: var(--accent-teal);
+    }
+
+    /* 按钮 */
+    .btn {
+      position: relative;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      overflow: hidden;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-teal), #00b89e);
+      color: var(--bg-primary);
+    }
+
+    /* 滚动条 */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-atmosphere grid-overlay min-h-screen">
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative">
+
+    <!-- 头部 -->
+    <header class="text-center mb-16">
+      <div class="anim-fade-up">
+        <span class="tag" style="background: var(--glow-coral); color: var(--accent-coral);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+          Single Run Attempt
+        </span>
+      </div>
+      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black mt-6 mb-4 anim-fade-up delay-1">
+        <span style="color: var(--fg-primary);">attempt</span><span style="color: var(--accent-teal);">.ts</span>
+      </h1>
+      <p class="text-lg sm:text-xl max-w-3xl mx-auto anim-fade-up delay-2" style="color: var(--fg-secondary);">
+        OpenClaw 的「单次尝试执行器」—— 负责一次完整的 AI Agent 对话轮次的准备、执行与清理
+      </p>
+    </header>
+
+    <!-- 核心比喻 -->
+    <section class="mb-20 anim-scale-in delay-3">
+      <div class="card p-8">
+        <h2 class="text-2xl font-bold mb-6 flex items-center gap-3">
+          <span class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: var(--glow-teal);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d9b8" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+          </span>
+          用生活场景理解它
+        </h2>
+        <div class="grid md:grid-cols-3 gap-6">
+          <div class="card card-coral p-6">
+            <div class="text-3xl mb-3">🎬</div>
+            <h3 class="font-semibold mb-2" style="color: var(--accent-teal);">像电影的一场戏</h3>
+            <p class="text-sm" style="color: var(--fg-secondary);">
+              run.ts 是整部电影，attempt.ts 是其中一场戏——从搭景（准备环境）、选角（加载工具）、到拍摄（执行对话）、最后杀青（清理资源），完整的一场
+            </p>
+          </div>
+          <div class="card card-coral p-6">
+            <div class="text-3xl mb-3">🍳</div>
+            <h3 class="font-semibold mb-2" style="color: var(--accent-coral);">像做一道菜</h3>
+            <p class="text-sm" style="color: var(--fg-secondary);">
+              备菜（解析配置）→ 热锅（初始化会话）→ 调味（注入提示词）→ 翻炒（执行对话）→ 装盘（返回结果）→ 洗锅（清理资源），每步都有讲究
+            </p>
+          </div>
+          <div class="card card-coral p-6">
+            <div class="text-3xl mb-3">🎯</div>
+            <h3 class="font-semibold mb-2" style="color: var(--accent-honey);">像一次航天发射</h3>
+            <p class="text-sm" style="color: var(--fg-secondary);">
+              发射前检查（环境验证）、倒计时（钩子执行）、点火升空（发送 prompt）、任务监控（超时处理）、返回舱回收（结果收集）、发射台清理（资源释放）
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 核心执行流程 -->
+    <section class="mb-20 anim-fade-up delay-4">
+      <h2 class="text-2xl font-bold mb-8 flex items-center gap-3">
+        <span class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: var(--glow-coral);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff7b5a" stroke-width="2">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+        </span>
+        执行流程全景
+      </h2>
+
+      <div class="card p-6 overflow-x-auto">
+        <svg id="flow-svg" viewBox="0 0 1100 700" class="w-full min-w-[900px]" style="max-height: 700px;">
+          <defs>
+            <linearGradient id="gradTeal" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#00d9b8"/>
+              <stop offset="100%" style="stop-color:#00b89e"/>
+            </linearGradient>
+            <linearGradient id="gradCoral" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#ff7b5a"/>
+              <stop offset="100%" style="stop-color:#e56a4a"/>
+            </linearGradient>
+            <linearGradient id="gradHoney" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#ffb740"/>
+              <stop offset="100%" style="stop-color:#e5a535"/>
+            </linearGradient>
+            <linearGradient id="gradRose" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#ff6b8a"/>
+              <stop offset="100%" style="stop-color:#e55a78"/>
+            </linearGradient>
+            <filter id="nodeShadow">
+              <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="rgba(0,0,0,0.3)"/>
+            </filter>
+            <filter id="glowFilter">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+
+          <!-- 阶段1: 环境准备 -->
+          <g class="phase-node" onclick="showPhaseDetail('env')">
+            <rect class="phase-inner" x="40" y="80" width="140" height="90" rx="14" fill="var(--bg-card)" stroke="url(#gradTeal)" stroke-width="2" filter="url(#nodeShadow)"/>
+            <text x="110" y="115" text-anchor="middle" fill="#00d9b8" font-weight="bold" font-size="13">环境准备</text>
+            <text x="110" y="135" text-anchor="middle" fill="#415468" font-size="10">工作区 / 沙盒</text>
+            <text x="110" y="152" text-anchor="middle" fill="#415468" font-size="10">技能 / Bootstrap</text>
+          </g>
+
+          <!-- 阶段2: 提示词构建 -->
+          <g class="phase-node" onclick="showPhaseDetail('prompt')">
+            <rect class="phase-inner" x="220" y="80" width="140" height="90" rx="14" fill="var(--bg-card)" stroke="url(#gradCoral)" stroke-width="2" filter="url(#nodeShadow)"/>
+            <text x="290" y="115" text-anchor="middle" fill="#ff7b5a" font-weight="bold" font-size="13">提示词构建</text>
+            <text x="290" y="135" text-anchor="middle" fill="#415468" font-size="10">系统提示词</text>
+            <text x="290" y="152" text-anchor="middle" fill="#415468" font-size="10">钩子注入</text>
+          </g>
+
+          <!-- 阶段3: 工具创建 -->
+          <g class="phase-node" onclick="showPhaseDetail('tools')">
+            <rect class="phase-inner" x="400" y="80" width="140" height="90" rx="14" fill="var(--bg-card)" stroke="url(#gradHoney)" stroke-width="2" filter="url(#nodeShadow)"/>
+            <text x="470" y="115" text-anchor="middle" fill="#ffb740" font-weight="bold" font-size="13">工具创建</text>
+            <text x="470" y="135" text-anchor="middle" fill="#415468" font-size="10">内置工具</text>
+            <text x="470" y="152" text-anchor="middle" fill="#415468" font-size="10">客户端工具</text>
+          </g>
+
+          <!-- 阶段4: 会话初始化 -->
+          <g class="phase-node" onclick="showPhaseDetail('session')">
+            <rect class="phase-inner" x="580" y="80" width="140" height="90" rx="14" fill="var(--bg-card)" stroke="url(#gradTeal)" stroke-width="2" filter="url(#nodeShadow)"/>
+            <text x="650" y="115" text-anchor="middle" fill="#00d9b8" font-weight="bold" font-size="13">会话初始化</text>
+            <text x="650" y="135" text-anchor="middle" fill="#415468" font-size="10">SessionManager</text>
+            <text x="650" y="152" text-anchor="middle" fill="#415468" font-size="10">Agent 实例</text>
+          </g>
+
+          <!-- 阶段5: 提供商适配 -->
+          <g class="phase-node" onclick="showPhaseDetail('provider')">
+            <rect class="phase-inner" x="760" y="80" width="140" height="90" rx="14" fill="var(--bg-card)" stroke="url(#gradRose)" stroke-width="2" filter="url(#nodeShadow)"/>
+            <text x="830" y="115" text-anchor="middle" fill="#ff6b8a" font-weight="bold" font-size="13">提供商适配</text>
+            <text x="830" y="135" text-anchor="middle" fill="#415468" font-size="10">Ollama / OpenAI</text>
+            <text x="830" y="152" text-anchor="middle" fill="#415468" font-size="10">xAI / Anthropic</text>
+          </g>
+
+          <!-- 阶段6: 历史处理 -->
+          <g class="phase-node" onclick="showPhaseDetail('history')">
+            <rect class="phase-inner" x="940" y="80" width="140" height="90" rx="14" fill="var(--bg-card)" stroke="url(#gradCoral)" stroke-width="2" filter="url(#nodeShadow)"/>
+            <text x="1010" y="115" text-anchor="middle" fill="#ff7b5a" font-weight="bold" font-size="13">历史处理</text>
+            <text x="1010" y="135" text-anchor="middle" fill="#415468" font-size="10">净化 / 验证</text>
+            <text x="1010" y="152" text-anchor="middle" fill="#415468" font-size="10">截断 / 修复</text>
+          </g>
+
+          <!-- 阶段7: 执行 Prompt -->
+          <g class="phase-node" onclick="showPhaseDetail('execute')">
+            <rect class="phase-inner" x="340" y="280" width="180" height="110" rx="16" fill="var(--bg-card)" stroke="url(#gradTeal)" stroke-width="3" filter="url(#nodeShadow)"/>
+            <text x="430" y="315" text-anchor="middle" fill="#00d9b8" font-weight="bold" font-size="15">执行 Prompt</text>
+            <text x="430" y="340" text-anchor="middle" fill="#8b9db0" font-size="11">session.prompt()</text>
+            <line x1="355" y1="355" x2="505" y2="355" stroke="var(--border)" stroke-width="1"/>
+            <text x="430" y="375" text-anchor="middle" fill="#415468" font-size="10">图像加载 / 超时监控</text>
+          </g>
+
+          <!-- 阶段8: 压缩等待 -->
+          <g class="phase-node" onclick="showPhaseDetail('compaction')">
+            <rect class="phase-inner" x="580" y="280" width="160" height="110" rx="14" fill="var(--bg-card)" stroke="url(#gradHoney)" stroke-width="2" filter="url(#nodeShadow)"/>
+            <text x="660" y="315" text-anchor="middle" fill="#ffb740" font-weight="bold" font-size="14">压缩等待</text>
+            <text x="660" y="340" text-anchor="middle" fill="#8b9db0" font-size="10">waitForCompaction</text>
+            <text x="660" y="365" text-anchor="middle" fill="#415468" font-size="10">上下文自动压缩</text>
+          </g>
+
+          <!-- 阶段9: 结果收集 -->
+          <g class="phase-node" onclick="showPhaseDetail('result')">
+            <rect class="phase-inner" x="800" y="280" width="160" height="110" rx="14" fill="var(--bg-card)" stroke="url(#gradTeal)" stroke-width="2" filter="url(#nodeShadow)"/>
+            <text x="880" y="315" text-anchor="middle" fill="#00d9b8" font-weight="bold" font-size="14">结果收集</text>
+            <text x="880" y="340" text-anchor="middle" fill="#8b9db0" font-size="10">助手文本 / 工具元数据</text>
+            <text x="880" y="365" text-anchor="middle" fill="#415468" font-size="10">用量统计 / 快照</text>
+          </g>
+
+          <!-- 阶段10: 资源清理 -->
+          <g class="phase-node" onclick="showPhaseDetail('cleanup')">
+            <rect class="phase-inner" x="580" y="480" width="180" height="100" rx="14" fill="var(--bg-card)" stroke="url(#gradRose)" stroke-width="2" filter="url(#nodeShadow)"/>
+            <text x="670" y="515" text-anchor="middle" fill="#ff6b8a" font-weight="bold" font-size="14">资源清理</text>
+            <text x="670" y="540" text-anchor="middle" fill="#8b9db0" font-size="10">dispose / unsubscribe</text>
+            <text x="670" y="560" text-anchor="middle" fill="#415468" font-size="10">释放锁 / 恢复环境</text>
+          </g>
+
+          <!-- 错误处理 -->
+          <g class="phase-node" onclick="showPhaseDetail('error')">
+            <rect class="phase-inner" x="60" y="350" width="180" height="100" rx="14" fill="var(--bg-card)" stroke="#ff5a5a" stroke-width="2" stroke-dasharray="6,3" filter="url(#nodeShadow)"/>
+            <text x="150" y="385" text-anchor="middle" fill="#ff5a5a" font-weight="bold" font-size="14">错误处理</text>
+            <text x="150" y="410" text-anchor="middle" fill="#8b9db0" font-size="10">promptError / aborted</text>
+            <text x="150" y="430" text-anchor="middle" fill="#415468" font-size="10">timedOut / 超时诊断</text>
+          </g>
+
+          <!-- 连接线 -->
+          <g stroke="var(--border)" stroke-width="2" fill="none">
+            <!-- 横向连接 -->
+            <path d="M180 125 L220 125"/>
+            <path d="M360 125 L400 125"/>
+            <path d="M540 125 L580 125"/>
+            <path d="M720 125 L760 125"/>
+            <path d="M900 125 L940 125"/>
+            
+            <!-- 向下到执行 -->
+            <path d="M1010 170 L1010 220 Q1010 240 990 240 L450 240 L450 280" stroke="url(#gradTeal)"/>
+            
+            <!-- 执行到压缩 -->
+            <path d="M520 335 L580 335"/>
+            
+            <!-- 压缩到结果 -->
+            <path d="M740 335 L800 335"/>
+            
+            <!-- 结果到清理 -->
+            <path d="M880 390 L880 430 Q880 450 860 450 L760 480" stroke="url(#gradRose)"/>
+            
+            <!-- 错误分支 -->
+            <path d="M340 335 L240 335 L240 350" stroke="#ff5a5a" stroke-dasharray="6,3"/>
+          </g>
+
+          <!-- 箭头 -->
+          <defs>
+            <marker id="arrowTeal" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L9,3 z" fill="#00d9b8"/>
+            </marker>
+          </defs>
+
+          <!-- 标注 -->
+          <text x="110" y="195" text-anchor="middle" fill="#415468" font-size="9">finally 块保证执行</text>
+          <text x="670" y="610" text-anchor="middle" fill="#415468" font-size="9">返回 EmbeddedRunAttemptResult</text>
+        </svg>
+      </div>
+      <p class="text-center mt-4" style="color: var(--fg-muted);">点击各阶段节点查看详细说明</p>
+    </section>
+
+    <!-- 提供商适配详解 -->
+    <section class="mb-20 anim-fade-up delay-5">
+      <h2 class="text-2xl font-bold mb-8 flex items-center gap-3">
+        <span class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: var(--glow-teal);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d9b8" stroke-width="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+        </span>
+        多提供商适配机制
+      </h2>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <!-- Ollama -->
+        <div class="card p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: var(--glow-teal);">
+              <span class="font-bold" style="color: var(--accent-teal);">O</span>
+            </span>
+            <h3 class="font-bold text-lg" style="color: var(--accent-teal);">Ollama 兼容</h3>
+          </div>
+          <div class="code-window mb-4">
+            <div class="code-content font-mono text-xs">
+              <div class="code-line"><span style="color: var(--accent-teal);">// 检测 Ollama 兼容提供商</span></div>
+              <div class="code-line"><span style="color: var(--fg-secondary);">if (</span><span style="color: var(--accent-coral);">isOllamaCompatProvider</span><span style="color: var(--fg-secondary);">(model)) {</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">// 本地 localhost:11434</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">// 或远程 Ollama OpenAI 兼容端点</span></div>
+              <div class="code-line"></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">// 注入 num_ctx 参数</span></div>
+              <div class="code-line">  <span style="color: var(--accent-coral);">wrapOllamaCompatNumCtx</span><span style="color: var(--fg-secondary);">(streamFn, ctx);</span></div>
+              <div class="code-line"><span style="color: var(--fg-secondary);">}</span></div>
+            </div>
+          </div>
+          <ul class="text-sm space-y-2" style="color: var(--fg-secondary);">
+            <li>• 自动检测本地/远程 Ollama 端点</li>
+            <li>• 注入 num_ctx 参数避免默认 4096 限制</li>
+            <li>• 使用原生 /api/chat 接口支持工具调用</li>
+          </ul>
+        </div>
+
+        <!-- OpenAI WebSocket -->
+        <div class="card p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: var(--glow-coral);">
+              <span class="font-bold" style="color: var(--accent-coral);">WS</span>
+            </span>
+            <h3 class="font-bold text-lg" style="color: var(--accent-coral);">OpenAI WebSocket</h3>
+          </div>
+          <div class="code-window mb-4">
+            <div class="code-content font-mono text-xs">
+              <div class="code-line"><span style="color: var(--fg-secondary);">if (api === </span><span style="color: var(--accent-honey);">"openai-responses"</span><span style="color: var(--fg-secondary);">) {</span></div>
+              <div class="code-line">  <span style="color: var(--accent-coral);">createOpenAIWebSocketStreamFn</span><span style="color: var(--fg-secondary);">(</span></div>
+              <div class="code-line">    <span style="color: var(--fg-secondary);">apiKey,</span></div>
+              <div class="code-line">    <span style="color: var(--fg-secondary);">sessionId,</span></div>
+              <div class="code-line">    <span style="color: var(--fg-secondary);">{ signal: abortController.signal }</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">);</span></div>
+              <div class="code-line"><span style="color: var(--fg-secondary);">}</span></div>
+            </div>
+          </div>
+          <ul class="text-sm space-y-2" style="color: var(--fg-secondary);">
+            <li>• 实时双向通信降低延迟</li>
+            <li>• 支持流式响应和中断控制</li>
+            <li>• 会话结束自动释放 WebSocket 连接</li>
+          </ul>
+        </div>
+
+        <!-- xAI -->
+        <div class="card p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: var(--glow-coral);">
+              <span class="font-bold" style="color: var(--accent-honey);">X</span>
+            </span>
+            <h3 class="font-bold text-lg" style="color: var(--accent-honey);">xAI / Grok</h3>
+          </div>
+          <div class="code-window mb-4">
+            <div class="code-content font-mono text-xs">
+              <div class="code-line"><span style="color: var(--fg-secondary);">if (</span><span style="color: var(--accent-coral);">isXaiProvider</span><span style="color: var(--fg-secondary);">(provider)) {</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">// xAI 返回的工具调用参数可能包含</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">// HTML 实体编码，需要解码</span></div>
+              <div class="code-line">  <span style="color: var(--accent-coral);">wrapStreamFnDecodeXaiToolCallArguments</span><span style="color: var(--fg-secondary);">(</span></div>
+              <div class="code-line">    <span style="color: var(--fg-secondary);">streamFn</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">);</span></div>
+              <div class="code-line"><span style="color: var(--fg-secondary);">}</span></div>
+            </div>
+          </div>
+          <ul class="text-sm space-y-2" style="color: var(--fg-secondary);">
+            <li>• 解码 HTML 实体（&amp; → & 等）</li>
+            <li>• 确保工具调用参数正确解析</li>
+            <li>• 兼容 Grok 模型的特殊输出格式</li>
+          </ul>
+        </div>
+
+        <!-- Anthropic -->
+        <div class="card p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: var(--glow-teal);">
+              <span class="font-bold" style="color: var(--accent-rose);">A</span>
+            </span>
+            <h3 class="font-bold text-lg" style="color: var(--accent-rose);">Anthropic / Claude</h3>
+          </div>
+          <div class="code-window mb-4">
+            <div class="code-content font-mono text-xs">
+              <div class="code-line"><span style="color: var(--fg-secondary);">// 清理 Anthropic 拒绝测试字符串</span></div>
+              <div class="code-line"><span style="color: var(--accent-coral);">scrubAnthropicRefusalMagic</span><span style="color: var(--fg-secondary);">(prompt);</span></div>
+              <div class="code-line"></div>
+              <div class="code-line"><span style="color: var(--fg-secondary);">// 验证轮次格式</span></div>
+              <div class="code-line"><span style="color: var(--accent-coral);">validateAnthropicTurns</span><span style="color: var(--fg-secondary);">(messages);</span></div>
+              <div class="code-line"></div>
+              <div class="code-line"><span style="color: var(--fg-secondary);">// 负载日志记录</span></div>
+              <div class="code-line"><span style="color: var(--accent-coral);">createAnthropicPayloadLogger</span><span style="color: var(--fg-secondary);">(...);</span></div>
+            </div>
+          </div>
+          <ul class="text-sm space-y-2" style="color: var(--fg-secondary);">
+            <li>• 过滤敏感测试触发词</li>
+            <li>• 验证消息轮次格式</li>
+            <li>• 记录详细负载用于调试</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 辅助函数详解 -->
+    <section class="mb-20 anim-fade-up delay-6">
+      <h2 class="text-2xl font-bold mb-8 flex items-center gap-3">
+        <span class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: var(--glow-coral);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff7b5a" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <line x1="3" y1="9" x2="21" y2="9"/>
+            <line x1="9" y1="21" x2="9" y2="9"/>
+          </svg>
+        </span>
+        核心辅助函数
+      </h2>
+
+      <!-- Tab 导航 -->
+      <div class="flex flex-wrap gap-3 mb-6" id="helper-tabs">
+        <button class="tab-btn active" data-tab="stream">流处理包装</button>
+        <button class="tab-btn" data-tab="normalize">规范化处理</button>
+        <button class="tab-btn" data-tab="hooks">钩子系统</button>
+        <button class="tab-btn" data-tab="history">历史管理</button>
+      </div>
+
+      <div id="helper-content" class="card p-6">
+        <!-- 由 JS 渲染 -->
+      </div>
+    </section>
+
+    <!-- 词汇表 -->
+    <section class="mb-12 anim-fade-up delay-7">
+      <h2 class="text-2xl font-bold mb-8 flex items-center gap-3">
+        <span class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: var(--glow-teal);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d9b8" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+        </span>
+        关键概念词汇表
+      </h2>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4" id="glossary-grid">
+        <!-- 由 JS 渲染 -->
+      </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="text-center py-8" style="color: var(--fg-muted);">
+      <p>OpenClaw attempt.ts 单次尝试执行器技术解析</p>
+    </footer>
+  </div>
+
+  <!-- 详情弹窗 -->
+  <div id="detail-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(7, 10, 14, 0.92); display: none; backdrop-filter: blur(8px);">
+    <div class="card max-w-lg w-full max-h-[80vh] overflow-auto p-6 relative">
+      <button id="close-modal-btn" class="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--bg-secondary);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <script>
+    // ========== 数据定义 ==========
+    const phaseDetails = {
+      env: {
+        title: '环境准备阶段',
+        content: `
+          <p class="mb-4" style="color: var(--fg-secondary);">这是整个尝试的基础，负责搭建运行环境：</p>
+          <ul class="space-y-3 text-sm" style="color: var(--fg-secondary);">
+            <li><b style="color: var(--accent-teal);">工作区解析</b> - 解析实际工作目录，处理回退逻辑</li>
+            <li><b style="color: var(--accent-coral);">沙盒上下文</b> - 解析沙盒配置，限制文件系统访问</li>
+            <li><b style="color: var(--accent-honey);">技能加载</b> - 应用技能环境变量覆盖</li>
+            <li><b style="color: var(--accent-rose);">Bootstrap 文件</b> - 加载和注入项目上下文文件</li>
+          </ul>
+          <div class="mt-4 p-3 rounded-lg" style="background: var(--bg-secondary);">
+            <p class="text-xs" style="color: var(--fg-muted);">所有准备工作都在 try-finally 块中，确保资源正确清理</p>
+          </div>
+        `
+      },
+      prompt: {
+        title: '提示词构建阶段',
+        content: `
+          <p class="mb-4" style="color: var(--fg-secondary);">构建发送给 AI 的完整系统提示词：</p>
+          <div class="code-window mb-4">
+            <div class="code-content font-mono text-xs">
+              <div class="code-line"><span style="color: var(--accent-coral);">buildEmbeddedSystemPrompt</span><span style="color: var(--fg-secondary);">({</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">workspaceDir,</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">tools,              </span><span style="color: var(--accent-teal);">// 可用工具列表</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">runtimeInfo,        </span><span style="color: var(--accent-teal);">// 运行时环境信息</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">sandboxInfo,        </span><span style="color: var(--accent-teal);">// 沙盒限制信息</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">skillsPrompt,       </span><span style="color: var(--accent-teal);">// 技能提示词</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">contextFiles,       </span><span style="color: var(--accent-teal);">// 上下文文件</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">...</span></div>
+              <div class="code-line"><span style="color: var(--fg-secondary);">});</span></div>
+            </div>
+          </div>
+          <p class="text-sm" style="color: var(--fg-secondary);">还包括钩子注入的前置/后置上下文</p>
+        `
+      },
+      tools: {
+        title: '工具创建阶段',
+        content: `
+          <p class="mb-4" style="color: var(--fg-secondary);">创建 AI 可用的所有工具：</p>
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="p-3 rounded-lg" style="background: var(--bg-secondary);">
+              <h4 class="font-semibold text-sm mb-2" style="color: var(--accent-teal);">内置工具</h4>
+              <p class="text-xs" style="color: var(--fg-muted);">文件操作、终端执行、网络请求等核心工具</p>
+            </div>
+            <div class="p-3 rounded-lg" style="background: var(--bg-secondary);">
+              <h4 class="font-semibold text-sm mb-2" style="color: var(--accent-coral);">自定义工具</h4>
+              <p class="text-xs" style="color: var(--fg-muted);">项目特定的扩展工具</p>
+            </div>
+            <div class="p-3 rounded-lg" style="background: var(--bg-secondary);">
+              <h4 class="font-semibold text-sm mb-2" style="color: var(--accent-honey);">客户端工具</h4>
+              <p class="text-xs" style="color: var(--fg-muted);">OpenResponses 托管的工具</p>
+            </div>
+            <div class="p-3 rounded-lg" style="background: var(--bg-secondary);">
+              <h4 class="font-semibold text-sm mb-2" style="color: var(--accent-rose);">消息工具</h4>
+              <p class="text-xs" style="color: var(--fg-muted);">发送消息、回复等通信工具</p>
+            </div>
+          </div>
+          <p class="text-xs" style="color: var(--fg-muted);">工具创建时会注入沙盒限制和权限控制</p>
+        `
+      },
+      session: {
+        title: '会话初始化阶段',
+        content: `
+          <p class="mb-4" style="color: var(--fg-secondary);">创建和管理 Agent 会话实例：</p>
+          <ul class="space-y-2 text-sm" style="color: var(--fg-secondary);">
+            <li><b style="color: var(--accent-teal);">会话写入锁</b> - 防止并发写入冲突</li>
+            <li><b style="color: var(--accent-coral);">SessionManager</b> - 管理对话历史持久化</li>
+            <li><b style="color: var(--accent-honey);">createAgentSession</b> - 创建 Agent 实例</li>
+            <li><b style="color: var(--accent-rose);">资源加载器</b> - 加载扩展和设置</li>
+          </ul>
+          <div class="mt-4 p-3 rounded-lg" style="background: var(--bg-secondary);">
+            <p class="text-xs font-mono" style="color: var(--accent-teal);">applySystemPromptOverrideToSession(session, systemPrompt);</p>
+          </div>
+        `
+      },
+      provider: {
+        title: '提供商适配阶段',
+        content: `
+          <p class="mb-4" style="color: var(--fg-secondary);">根据不同 AI 提供商进行适配：</p>
+          <div class="space-y-3">
+            <div class="p-3 rounded-lg" style="background: rgba(0, 217, 184, 0.1); border-left: 3px solid var(--accent-teal);">
+              <b style="color: var(--accent-teal);">Ollama</b>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">原生 API 调用，num_ctx 注入</p>
+            </div>
+            <div class="p-3 rounded-lg" style="background: rgba(255, 123, 90, 0.1); border-left: 3px solid var(--accent-coral);">
+              <b style="color: var(--accent-coral);">OpenAI</b>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">WebSocket 实时通信</p>
+            </div>
+            <div class="p-3 rounded-lg" style="background: rgba(255, 183, 64, 0.1); border-left: 3px solid var(--accent-honey);">
+              <b style="color: var(--accent-honey);">xAI / Gemini</b>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">特殊格式处理和净化</p>
+            </div>
+          </div>
+        `
+      },
+      history: {
+        title: '历史处理阶段',
+        content: `
+          <p class="mb-4" style="color: var(--fg-secondary);">净化和验证对话历史：</p>
+          <div class="code-window">
+            <div class="code-content font-mono text-xs">
+              <div class="code-line"><span style="color: var(--fg-secondary);">await </span><span style="color: var(--accent-coral);">sanitizeSessionHistory</span><span style="color: var(--fg-secondary);">({</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">messages,</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">modelApi,</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">provider,</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">allowedToolNames,</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">policy: transcriptPolicy</span></div>
+              <div class="code-line"><span style="color: var(--fg-secondary);">});</span></div>
+            </div>
+          </div>
+          <ul class="mt-4 space-y-1 text-xs" style="color: var(--fg-muted);">
+            <li>• 验证 Gemini/Anthropic 轮次格式</li>
+            <li>• 限制历史轮次数量</li>
+            <li>• 修复工具调用配对</li>
+            <li>• 修剪已处理的图像块</li>
+          </ul>
+        `
+      },
+      execute: {
+        title: '执行 Prompt 阶段',
+        content: `
+          <p class="mb-4" style="color: var(--fg-secondary);">发送 prompt 并等待响应：</p>
+          <ul class="space-y-2 text-sm" style="color: var(--fg-secondary);">
+            <li><b style="color: var(--accent-teal);">图像加载</b> - 检测并加载 prompt 中引用的图像</li>
+            <li><b style="color: var(--accent-coral);">超时监控</b> - 设置定时器监控执行时间</li>
+            <li><b style="color: var(--accent-honey);">中止支持</b> - 响应外部中止信号</li>
+            <li><b style="color: var(--accent-rose);">钩子触发</b> - 触发 llm_input 钩子</li>
+          </ul>
+          <div class="mt-4 p-3 rounded-lg" style="background: var(--bg-secondary);">
+            <p class="text-xs font-mono" style="color: var(--accent-teal);">await abortable(session.prompt(effectivePrompt, { images }));</p>
+          </div>
+        `
+      },
+      compaction: {
+        title: '压缩等待阶段',
+        content: `
+          <p class="mb-4" style="color: var(--fg-secondary);">等待可能的自动压缩完成：</p>
+          <div class="code-window mb-4">
+            <div class="code-content font-mono text-xs">
+              <div class="code-line"><span style="color: var(--fg-secondary);">await </span><span style="color: var(--accent-coral);">waitForCompactionRetry</span><span style="color: var(--fg-secondary);">();</span></div>
+            </div>
+          </div>
+          <ul class="space-y-1 text-sm" style="color: var(--fg-secondary);">
+            <li>• 检测是否需要压缩（上下文超限）</li>
+            <li>• 等待压缩完成或超时</li>
+            <li>• 处理压缩期间的中止信号</li>
+          </ul>
+          <p class="mt-3 text-xs" style="color: var(--fg-muted);">压缩超时时使用预压缩快照避免状态不一致</p>
+        `
+      },
+      result: {
+        title: '结果收集阶段',
+        content: `
+          <p class="mb-4" style="color: var(--fg-secondary);">收集和整理运行结果：</p>
+          <div class="code-window mb-4">
+            <div class="code-content font-mono text-xs">
+              <div class="code-line"><span style="color: var(--fg-secondary);">return {</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">aborted,                    </span><span style="color: var(--accent-teal);">// 是否中止</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">timedOut,                   </span><span style="color: var(--accent-teal);">// 是否超时</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">promptError,                </span><span style="color: var(--accent-teal);">// 错误信息</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">messagesSnapshot,           </span><span style="color: var(--accent-teal);">// 消息快照</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">assistantTexts,             </span><span style="color: var(--accent-teal);">// AI 回复文本</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">toolMetas,                  </span><span style="color: var(--accent-teal);">// 工具元数据</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">lastAssistant,              </span><span style="color: var(--accent-teal);">// 最后助手消息</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">attemptUsage,               </span><span style="color: var(--accent-teal);">// 用量统计</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">compactionCount,            </span><span style="color: var(--accent-teal);">// 压缩次数</span></div>
+              <div class="code-line"><span style="color: var(--fg-secondary);">};</span></div>
+            </div>
+          </div>
+        `
+      },
+      cleanup: {
+        title: '资源清理阶段',
+        content: `
+          <p class="mb-4" style="color: var(--fg-secondary);">确保所有资源正确释放：</p>
+          <div class="code-window mb-4">
+            <div class="code-content font-mono text-xs">
+              <div class="code-line" style="color: var(--accent-coral);">finally {</div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">removeToolResultContextGuard?.();</span></div>
+              <div class="code-line">  <span style="color: var(--accent-coral);">await flushPendingToolResultsAfterIdle</span><span style="color: var(--fg-secondary);">({...});</span></div>
+              <div class="code-line">  <span style="color: var(--fg-secondary);">session?.dispose();</span></div>
+              <div class="code-line">  <span style="color: var(--accent-coral);">releaseWsSession</span><span style="color: var(--fg-secondary);">(sessionId);</span></div>
+              <div class="code-line">  <span style="color: var(--accent-coral);">await sessionLock.release</span><span style="color: var(--fg-secondary);">();</span></div>
+              <div class="code-line"><span style="color: var(--accent-coral);">}</span></div>
+            </div>
+          </div>
+          <p class="text-xs" style="color: var(--fg-muted);">finally 块保证无论成功或失败都会执行清理</p>
+        `
+      },
+      error: {
+        title: '错误处理机制',
+        content: `
+          <p class="mb-4" style="color: var(--fg-secondary);">多种错误场景的处理：</p>
+          <div class="space-y-3">
+            <div class="p-3 rounded-lg" style="background: rgba(255, 90, 90, 0.1); border-left: 3px solid #ff5a5a;">
+              <b style="color: #ff5a5a;">promptError</b>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">prompt 发送阶段的错误，记录到会话日志</p>
+            </div>
+            <div class="p-3 rounded-lg" style="background: rgba(255, 123, 90, 0.1); border-left: 3px solid var(--accent-coral);">
+              <b style="color: var(--accent-coral);">aborted</b>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">外部中止信号，立即停止执行</p>
+            </div>
+            <div class="p-3 rounded-lg" style="background: rgba(255, 183, 64, 0.1); border-left: 3px solid var(--accent-honey);">
+              <b style="color: var(--accent-honey);">timedOut</b>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">执行超时，触发中止控制器</p>
+            </div>
+            <div class="p-3 rounded-lg" style="background: rgba(255, 107, 138, 0.1); border-left: 3px solid var(--accent-rose);">
+              <b style="color: var(--accent-rose);">timedOutDuringCompaction</b>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">压缩期间超时，使用预压缩快照</p>
+            </div>
+          </div>
+        `
+      }
+    };
+
+    const helperData = {
+      stream: {
+        title: '流处理包装函数',
+        description: '这些函数包装 AI 模型的流式响应，在传输过程中进行实时处理。',
+        functions: [
+          {
+            name: 'wrapStreamFnTrimToolCallNames',
+            desc: '修剪工具调用名称中的空白字符，确保正确匹配',
+            code: `// 某些模型返回 " read " 而不是 "read"
+streamFn = wrapStreamFnTrimToolCallNames(streamFn, allowedToolNames);`
+          },
+          {
+            name: 'wrapStreamFnDecodeXaiToolCallArguments',
+            desc: '解码 xAI 返回的 HTML 实体编码',
+            code: `// xAI 可能返回 {"path": "C:\\Users\\foo"}
+// 需要解码为正常字符串
+if (isXaiProvider(provider)) {
+  streamFn = wrapStreamFnDecodeXaiToolCallArguments(streamFn);
+}`
+          },
+          {
+            name: 'wrapOllamaCompatNumCtx',
+            desc: '为 Ollama 注入上下文窗口大小参数',
+            code: `// Ollama 默认只有 4096 tokens 上下文
+// 需要显式注入 num_ctx 参数
+streamFn = wrapOllamaCompatNumCtx(streamFn, contextWindow);`
+          }
+        ]
+      },
+      normalize: {
+        title: '规范化处理函数',
+        description: '处理 AI 模型返回的不规范数据，确保格式一致性。',
+        functions: [
+          {
+            name: 'normalizeToolCallNameForDispatch',
+            desc: '规范化工具名称，支持大小写不敏感匹配',
+            code: `// 支持以下匹配：
+// "ReadFile" → "read_file"（如果允许列表中只有后者）
+// " READ " → "read"（修剪空白）`
+          },
+          {
+            name: 'normalizeToolCallIdsInMessage',
+            desc: '规范化工具调用 ID，生成缺失的 ID',
+            code: `// 确保每个 tool_call 都有唯一 ID
+// 缺失时自动生成 call_auto_1, call_auto_2...`
+          },
+          {
+            name: 'decodeHtmlEntitiesInObject',
+            desc: '递归解码对象中的所有 HTML 实体',
+            code: `// 解码 &amp; → &
+// 解码 &quot; → "
+// 解码 &#39; → '`
+          }
+        ]
+      },
+      hooks: {
+        title: '钩子系统',
+        description: '插件系统通过钩子在关键节点注入自定义逻辑。',
+        functions: [
+          {
+            name: 'resolvePromptBuildHookResult',
+            desc: '解析 before_prompt_build 钩子结果',
+            code: `const hookResult = await resolvePromptBuildHookResult({
+  prompt: params.prompt,
+  messages: activeSession.messages,
+  hookCtx,
+  hookRunner
+});
+
+// 可能返回：
+// { prependContext, systemPrompt, appendSystemContext }`
+          },
+          {
+            name: 'composeSystemPromptWithHookContext',
+            desc: '组合钩子注入的系统提示词上下文',
+            code: `// 将钩子返回的前置/后置内容与基础提示词组合
+const finalPrompt = composeSystemPromptWithHookContext({
+  baseSystemPrompt,
+  prependSystemContext: hookResult?.prependSystemContext,
+  appendSystemContext: hookResult?.appendSystemContext
+});`
+          }
+        ]
+      },
+      history: {
+        title: '历史管理函数',
+        description: '管理对话历史的净化、验证和限制。',
+        functions: [
+          {
+            name: 'sanitizeSessionHistory',
+            desc: '净化会话历史，移除不合规内容',
+            code: `const prior = await sanitizeSessionHistory({
+  messages: activeSession.messages,
+  modelApi: params.model.api,
+  provider: params.provider,
+  allowedToolNames,
+  policy: transcriptPolicy
+});`
+          },
+          {
+            name: 'limitHistoryTurns',
+            desc: '限制历史轮次数量，防止上下文过大',
+            code: `// 根据 sessionKey 和配置限制历史轮次
+const truncated = limitHistoryTurns(
+  validated,
+  getDmHistoryLimitFromSessionKey(params.sessionKey, params.config)
+);`
+          },
+          {
+            name: 'pruneProcessedHistoryImages',
+            desc: '修剪已处理的历史图像，减少上下文大小',
+            code: `// AI 回答后的图像不再需要
+// 修剪以节省 tokens
+const didPrune = pruneProcessedHistoryImages(messages);`
+          }
+        ]
+      }
+    };
+
+    const glossaryData = [
+      { term: 'SessionManager', definition: '会话管理器，负责对话历史的持久化存储和检索，支持分支和回滚', color: '#00d9b8' },
+      { term: 'TranscriptPolicy', definition: '转录策略，定义如何处理对话历史的规则集合', color: '#ff7b5a' },
+      { term: 'StreamFn', definition: '流函数，处理 AI 模型流式响应的核心接口', color: '#ffb740' },
+      { term: 'AbortController', definition: '中止控制器，用于取消正在进行的异步操作', color: '#ff6b8a' },
+      { term: 'BootstrapFiles', definition: '引导文件，在对话开始时注入的项目上下文信息', color: '#00d9b8' },
+      { term: 'ToolMetas', definition: '工具元数据，记录工具调用的结果和状态信息', color: '#ff7b5a' },
+      { term: 'SandboxContext', definition: '沙盒上下文，限制 AI 可访问的文件系统和网络资源', color: '#ffb740' },
+      { term: 'CacheTrace', definition: '缓存追踪，记录 API 调用的缓存命中情况用于调试', color: '#ff6b8a' },
+      { term: 'ExtensionFactory', definition: '扩展工厂，创建 Agent 扩展（如自动压缩）的工厂函数', color: '#00d9b8' }
+    ];
+
+    // ========== 状态变量 ==========
+    let currentHelperTab = 'stream';
+
+    // ========== DOM 元素 ==========
+    const helperTabs = document.getElementById('helper-tabs');
+    const helperContent = document.getElementById('helper-content');
+    const glossaryGrid = document.getElementById('glossary-grid');
+    const detailModal = document.getElementById('detail-modal');
+    const modalBody = document.getElementById('modal-body');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+
+    // ========== 渲染函数 ==========
+    function renderHelperContent(tabId) {
+      if (!helperContent) return;
+      const data = helperData[tabId];
+      if (!data) return;
+
+      helperContent.innerHTML = `
+        <h3 class="text-xl font-bold mb-2" style="color: var(--accent-teal);">${data.title}</h3>
+        <p class="mb-6" style="color: var(--fg-secondary);">${data.description}</p>
+        
+        <div class="space-y-4">
+          ${data.functions.map(fn => `
+            <div class="p-4 rounded-lg" style="background: var(--bg-secondary);">
+              <h4 class="font-mono font-semibold mb-2" style="color: var(--accent-coral);">${fn.name}</h4>
+              <p class="text-sm mb-3" style="color: var(--fg-secondary);">${fn.desc}</p>
+              <div class="code-window">
+                <div class="code-content font-mono text-xs">
+                  <pre style="color: var(--fg-primary); white-space: pre-wrap;">${escapeHtml(fn.code)}</pre>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderGlossary() {
+      if (!glossaryGrid) return;
+      glossaryGrid.innerHTML = glossaryData.map(item => `
+        <div class="card p-5">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-3 h-3 rounded-full flex-shrink-0" style="background: ${item.color};"></span>
+            <h3 class="font-semibold font-mono text-sm" style="color: ${item.color};">${item.term}</h3>
+          </div>
+          <p class="text-sm leading-relaxed" style="color: var(--fg-secondary);">${item.definition}</p>
+        </div>
+      `).join('');
+    }
+
+    function showPhaseDetail(phaseId) {
+      const detail = phaseDetails[phaseId];
+      if (!detail || !modalBody || !detailModal) return;
+
+      modalBody.innerHTML = `
+        <h2 class="text-xl font-bold mb-4" style="color: var(--accent-teal);">${detail.title}</h2>
+        <div style="color: var(--fg-secondary);">${detail.content}</div>
+      `;
+      detailModal.style.display = 'flex';
+    }
+
+    function closeModal() {
+      if (detailModal) detailModal.style.display = 'none';
+    }
+
+    // ========== 工具函数 ==========
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // ========== 事件绑定 ==========
+    function initEventListeners() {
+      // Tab 切换
+      if (helperTabs) {
+        helperTabs.querySelectorAll('.tab-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            helperTabs.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const tabId = btn.dataset.tab;
+            if (tabId) {
+              currentHelperTab = tabId;
+              renderHelperContent(tabId);
+            }
+          });
+        });
+      }
+
+      // 关闭弹窗
+      if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+      if (detailModal) {
+        detailModal.addEventListener('click', (e) => {
+          if (e.target === detailModal) closeModal();
+        });
+      }
+    }
+
+    // ========== 初始化 ==========
+    function init() {
+      renderHelperContent(currentHelperTab);
+      renderGlossary();
+      initEventListeners();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

@@ -1,0 +1,605 @@
+/* 像素画编辑器 - 像素游戏风格样式 */
+
+/* ========== 基础变量 ========== */
+:root {
+    --pixel-bg: #fbebd3;
+    --pixel-border: #181818;
+    --pixel-text: #181818;
+    --pixel-accent: #4CAF50;
+    --pixel-accent-dark: #388E3C;
+    --pixel-panel-bg: #d4c4a8;
+    --pixel-btn-bg: #e8d8bc;
+    --pixel-btn-active: #c8b898;
+    --pixel-grid-line: #c0b090;
+}
+
+/* ========== 页面整体 ========== */
+.pixel-editor-page {
+    width: 100%;
+    height: 100vh;
+    background-color: var(--pixel-bg);
+    font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
+    display: flex;
+    flex-direction: column;
+    color: var(--pixel-text);
+}
+
+/* ========== 顶部工具栏 ========== */
+.editor-toolbar {
+    height: 40px;
+    background-color: var(--pixel-panel-bg);
+    border-bottom: 2px solid var(--pixel-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+}
+
+.toolbar-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin: 0;
+}
+
+.toolbar-right {
+    display: flex;
+    gap: 8px;
+}
+
+.toolbar-btn {
+    padding: 6px 12px;
+    background-color: var(--pixel-btn-bg);
+    border: 2px solid var(--pixel-border);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.1s;
+}
+
+.toolbar-btn:hover {
+    background-color: var(--pixel-btn-active);
+}
+
+.toolbar-btn.primary {
+    background-color: var(--pixel-accent);
+    color: white;
+    border-color: var(--pixel-accent-dark);
+}
+
+.toolbar-btn.primary:hover {
+    background-color: var(--pixel-accent-dark);
+}
+
+/* ========== 主内容区 ========== */
+.editor-main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+/* ========== 左侧工具面板 ========== */
+.tool-panel {
+    width: 200px;
+    background-color: var(--pixel-panel-bg);
+    border-right: 2px solid var(--pixel-border);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+}
+
+.panel-section {
+    background-color: var(--pixel-btn-bg);
+    border: 2px solid var(--pixel-border);
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.section-title {
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: var(--pixel-border);
+}
+
+/* 工具按钮 */
+.tool-buttons {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.tool-btn {
+    width: 36px;
+    height: 36px;
+    background-color: var(--pixel-bg);
+    border: 2px solid var(--pixel-border);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.1s;
+}
+
+.tool-btn:hover {
+    background-color: var(--pixel-btn-active);
+}
+
+.tool-btn.active {
+    background-color: var(--pixel-accent);
+    border-color: var(--pixel-accent-dark);
+    color: white;
+}
+
+/* 尺寸输入 */
+.size-inputs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.size-input {
+    width: 50px;
+    padding: 4px;
+    border: 2px solid var(--pixel-border);
+    border-radius: 2px;
+    background-color: var(--pixel-bg);
+    font-size: 12px;
+    text-align: center;
+}
+
+.size-separator {
+    font-weight: bold;
+}
+
+.size-btn {
+    padding: 4px 8px;
+    background-color: var(--pixel-accent);
+    color: white;
+    border: 2px solid var(--pixel-accent-dark);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.size-btn:hover {
+    background-color: var(--pixel-accent-dark);
+}
+
+/* 当前颜色 */
+.current-color {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.color-preview {
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--pixel-border);
+    background-color: transparent;
+    /* 棋盘格表示透明 */
+    background-image: linear-gradient(45deg, #ccc 25%, transparent 25%),
+                      linear-gradient(-45deg, #ccc 25%, transparent 25%),
+                      linear-gradient(45deg, transparent 75%, #ccc 75%),
+                      linear-gradient(-45deg, transparent 75%, #ccc 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+}
+
+.color-preview.has-color {
+    background-image: none;
+}
+
+.color-value {
+    font-size: 12px;
+    font-family: monospace;
+}
+
+.transparent-btn {
+    width: 100%;
+    padding: 6px;
+    background-color: var(--pixel-bg);
+    border: 2px solid var(--pixel-border);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.transparent-btn:hover {
+    background-color: var(--pixel-btn-active);
+}
+
+.transparent-btn.active {
+    background-color: #ff6b6b;
+    border-color: #cc5555;
+}
+
+/* 调色板 */
+.palette-section {
+    flex: 1;
+    min-height: 150px;
+    overflow-y: auto;
+}
+
+.palette-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 2px;
+}
+
+.palette-color {
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--pixel-border);
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.palette-color:hover {
+    transform: scale(1.2);
+    z-index: 1;
+}
+
+.palette-color.selected {
+    border: 2px solid var(--pixel-accent);
+    transform: scale(1.1);
+}
+
+/* ========== 中间画布区域 ========== */
+.canvas-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--pixel-bg);
+    overflow: auto;
+    position: relative;
+}
+
+/* 参考图层 */
+.reference-layer {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1;
+}
+
+.reference-image {
+    max-width: 300px;
+    max-height: 300px;
+    opacity: 0.5;
+    border: 1px dashed #888;
+    cursor: move;
+}
+
+.reference-controls {
+    background-color: var(--pixel-panel-bg);
+    border: 2px solid var(--pixel-border);
+    padding: 8px;
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ref-label {
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ref-slider {
+    width: 100px;
+}
+
+.ref-btn {
+    padding: 4px 8px;
+    background-color: #ff6b6b;
+    color: white;
+    border: 2px solid #cc5555;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.upload-ref-btn {
+    padding: 8px 16px;
+    background-color: var(--pixel-btn-bg);
+    border: 2px solid var(--pixel-border);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.upload-ref-btn:hover {
+    background-color: var(--pixel-btn-active);
+}
+
+/* 画布容器 */
+.canvas-container {
+    position: relative;
+    display: inline-block;
+}
+
+/* 像素网格 */
+.pixel-grid {
+    display: grid;
+    border: 2px solid var(--pixel-border);
+    background-color: var(--pixel-bg);
+    /* 棋盘格背景表示透明 */
+    background-image: linear-gradient(45deg, #e0d0b0 25%, transparent 25%),
+                      linear-gradient(-45deg, #e0d0b0 25%, transparent 25%),
+                      linear-gradient(45deg, transparent 75%, #e0d0b0 75%),
+                      linear-gradient(-45deg, transparent 75%, #e0d0b0 75%);
+    background-size: 8px 8px;
+}
+
+/* 像素单元格 */
+.pixel-cell {
+    width: 12px;
+    height: 12px;
+    border: 1px solid var(--pixel-grid-line);
+    cursor: crosshair;
+    transition: background-color 0.05s;
+}
+
+.pixel-cell:hover {
+    border-color: var(--pixel-border);
+}
+
+.pixel-cell.has-color {
+    background-image: none;
+}
+
+/* 选框层 */
+.selection-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.selection-box {
+    position: absolute;
+    border: 2px dashed var(--pixel-accent);
+    background-color: rgba(76, 175, 80, 0.1);
+    pointer-events: auto;
+    cursor: move;
+}
+
+/* 选框操作面板 */
+.selection-panel {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: var(--pixel-panel-bg);
+    border: 2px solid var(--pixel-border);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 20;
+}
+
+.sel-btn {
+    padding: 6px 12px;
+    background-color: var(--pixel-btn-bg);
+    border: 2px solid var(--pixel-border);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.sel-btn:hover {
+    background-color: var(--pixel-btn-active);
+}
+
+/* ========== 右侧信息面板 ========== */
+.info-panel {
+    width: 150px;
+    background-color: var(--pixel-panel-bg);
+    border-left: 2px solid var(--pixel-border);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.pixel-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+}
+
+.stat-label {
+    color: #888;
+}
+
+.stat-value {
+    font-weight: bold;
+}
+
+/* 快捷键列表 */
+.shortcut-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.shortcut-item {
+    font-size: 11px;
+}
+
+.shortcut-item kbd {
+    background-color: var(--pixel-bg);
+    border: 1px solid var(--pixel-border);
+    border-radius: 2px;
+    padding: 1px 4px;
+    font-family: monospace;
+    margin-right: 4px;
+}
+
+/* ========== 底部状态栏 ========== */
+.editor-statusbar {
+    height: 24px;
+    background-color: var(--pixel-panel-bg);
+    border-top: 2px solid var(--pixel-border);
+    padding: 4px 16px;
+    font-size: 12px;
+}
+
+/* ========== 弹窗 ========== */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.modal-content {
+    background-color: var(--pixel-panel-bg);
+    border: 4px solid var(--pixel-border);
+    border-radius: 8px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 2px solid var(--pixel-border);
+}
+
+.modal-header h2 {
+    font-size: 16px;
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.modal-body {
+    padding: 16px;
+}
+
+.export-textarea,
+.import-textarea {
+    width: 100%;
+    height: 200px;
+    background-color: var(--pixel-bg);
+    border: 2px solid var(--pixel-border);
+    padding: 8px;
+    font-family: monospace;
+    font-size: 10px;
+    resize: vertical;
+}
+
+.import-textarea {
+    resize: vertical;
+}
+
+.export-error,
+.import-error {
+    color: #ff6b6b;
+    font-size: 12px;
+    margin-top: 8px;
+    padding: 8px;
+    background-color: rgba(255, 107, 107, 0.1);
+    border: 1px solid #ff6b6b;
+    border-radius: 4px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 2px solid var(--pixel-border);
+}
+
+.modal-btn {
+    padding: 8px 16px;
+    background-color: var(--pixel-btn-bg);
+    border: 2px solid var(--pixel-border);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.modal-btn:hover {
+    background-color: var(--pixel-btn-active);
+}
+
+.modal-btn.primary {
+    background-color: var(--pixel-accent);
+    color: white;
+    border-color: var(--pixel-accent-dark);
+}
+
+/* ========== 响应式适配 ========== */
+@media (max-width: 900px) {
+    .tool-panel {
+        width: 160px;
+    }
+    .info-panel {
+        width: 120px;
+    }
+    .pixel-cell {
+        width: 10px;
+        height: 10px;
+    }
+    .palette-color {
+        width: 12px;
+        height: 12px;
+    }
+}
+
+@media (max-width: 600px) {
+    .tool-panel,
+    .info-panel {
+        width: 100px;
+        font-size: 10px;
+    }
+    .pixel-cell {
+        width: 8px;
+        height: 8px;
+    }
+    .editor-toolbar {
+        padding: 0 8px;
+    }
+    .toolbar-btn {
+        padding: 4px 8px;
+        font-size: 10px;
+    }
+}

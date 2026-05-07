@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API 设计原则 - OpenClaw 学术词</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #060b14; --bg-card: #0c1420; --fg: #e2e8f0; --muted: #64748b; --accent: #00d4aa; --border: rgba(0, 212, 170, 0.15); }
+    * { box-sizing: border-box; }
+    body { font-family: 'Noto Sans SC', sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; line-height: 1.7; }
+    .font-display { font-family: 'Space Grotesk', sans-serif; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 1rem; }
+    .card:hover { border-color: var(--accent); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .tag { display: inline-block; padding: 4px 12px; background: rgba(0, 212, 170, 0.15); border-radius: 999px; margin: 4px; font-size: 0.875rem; }
+    
+    .api-demo {
+      padding: 24px;
+      background: rgba(0, 212, 170, 0.05);
+      border-radius: 12px;
+    }
+    
+    .endpoint-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    
+    .endpoint-tab {
+      padding: 8px 16px;
+      background: rgba(100, 116, 139, 0.1);
+      border: 1px solid rgba(100, 116, 139, 0.3);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.875rem;
+    }
+    
+    .endpoint-tab:hover {
+      background: rgba(0, 212, 170, 0.1);
+    }
+    
+    .endpoint-tab.active {
+      background: rgba(0, 212, 170, 0.2);
+      border-color: var(--accent);
+    }
+    
+    .method-get { color: #61affe; }
+    .method-post { color: #49cc90; }
+    .method-put { color: #fca130; }
+    .method-delete { color: #f93e3e; }
+    
+    .api-response {
+      background: #0d1117;
+      border-radius: 8px;
+      padding: 16px;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.875rem;
+      overflow-x: auto;
+    }
+    
+    .api-response .key { color: #ff7b72; }
+    .api-response .string { color: #a5d6ff; }
+    .api-response .number { color: #79c0ff; }
+    .api-response .boolean { color: #d2a8ff; }
+    
+    .principle-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    
+    .principle-card {
+      padding: 20px;
+      background: rgba(0, 212, 170, 0.05);
+      border-radius: 12px;
+      border-left: 4px solid var(--accent);
+      transition: all 0.3s ease;
+    }
+    
+    .principle-card:hover {
+      transform: translateX(4px);
+      background: rgba(0, 212, 170, 0.1);
+    }
+    
+    .code-block {
+      background: #0d1117;
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+    
+    .code-block .keyword { color: #ff7b72; }
+    .code-block .string { color: #a5d6ff; }
+    .code-block .comment { color: #8b949e; }
+    .code-block .function { color: #d2a8ff; }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    
+    .status-200 { background: rgba(73, 204, 144, 0.2); color: #49cc90; }
+    .status-400 { background: rgba(249, 62, 62, 0.2); color: #f93e3e; }
+    .status-404 { background: rgba(252, 161, 48, 0.2); color: #fca130; }
+  </style>
+</head>
+<body class="p-8">
+  <div class="max-w-3xl mx-auto">
+    <a href="index.html" class="text-sm text-[var(--muted)] hover:text-[var(--accent)]">← 返回学术词索引</a>
+    <h1 class="font-display text-3xl font-bold mt-6 mb-2" style="background: linear-gradient(135deg, var(--fg), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">API 设计原则 (API Design)</h1>
+    <p class="text-[var(--muted)] text-sm mb-8">编程技能相关 · 高级阶段</p>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-2 text-[var(--accent)]">🎯 一句话理解</h2>
+      <p class="text-lg">API设计就像<strong class="text-[var(--accent)]">设计餐厅菜单</strong>，要让顾客（开发者）一眼就能看懂有什么菜、怎么点、要等多久。</p>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-2 text-[var(--accent)]">💡 形象比喻</h2>
+      <div class="space-y-4">
+        <div class="p-4 bg-gradient-to-r from-blue-500/10 to-transparent rounded-lg">
+          <p class="font-semibold mb-2">🍽️ 餐厅菜单</p>
+          <p class="text-[var(--muted)]">好的API设计就像一份清晰的菜单：菜名就是接口名，配料说明就是参数，价格就是返回值。顾客不需要知道厨房怎么做菜，只需要知道怎么点菜。</p>
+        </div>
+        <div class="p-4 bg-gradient-to-r from-green-500/10 to-transparent rounded-lg">
+          <p class="font-semibold mb-2">🔌 万能插座</p>
+          <p class="text-[var(--muted)]">API就像标准化的插座接口，无论你用什么电器（客户端），只要插头匹配就能使用。好的设计让不同系统之间能轻松"通电"协作。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card mb-8">
+      <h2 class="font-display text-lg font-semibold mb-4 text-[var(--accent)] flex items-center gap-2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+        交互演示：RESTful API 设计
+      </h2>
+      <p class="text-[var(--muted)] mb-4">点击不同的HTTP方法，查看对应的API响应：</p>
+      
+      <div class="api-demo">
+        <div class="endpoint-tabs">
+          <div class="endpoint-tab active" onclick="showAPI('get')">
+            <span class="method-get">GET</span> /users
+          </div>
+          <div class="endpoint-tab" onclick="showAPI('post')">
+            <span class="method-post">POST</span> /users
+          </div>
+          <div class="endpoint-tab" onclick="showAPI('put')">
+            <span class="method-put">PUT</span> /users/1
+          </div>
+          <div class="endpoint-tab" onclick="showAPI('delete')">
+            <span class="method-delete">DELETE</span> /users/1
+          </div>
+        </div>
+        
+        <div class="mb-4">
+          <span class="status-badge status-200" id="status-badge">200 OK</span>
+          <span class="text-sm text-[var(--muted)] ml-2" id="api-desc">获取用户列表</span>
+        </div>
+        
+        <div class="api-response" id="api-response">
+{
+  <span class="key">"success"</span>: <span class="boolean">true</span>,
+  <span class="key">"data"</span>: [
+    {
+      <span class="key">"id"</span>: <span class="number">1</span>,
+      <span class="key">"name"</span>: <span class="string">"张三"</span>,
+      <span class="key">"email"</span>: <span class="string">"zhangsan@example.com"</span>
+    },
+    {
+      <span class="key">"id"</span>: <span class="number">2</span>,
+      <span class="key">"name"</span>: <span class="string">"李四"</span>,
+      <span class="key">"email"</span>: <span class="string">"lisi@example.com"</span>
+    }
+  ],
+  <span class="key">"total"</span>: <span class="number">2</span>
+}
+        </div>
+      </div>
+      
+      <p class="text-sm text-[var(--muted)] text-center mt-4">
+        💡 RESTful API使用HTTP动词表达操作意图，URL表达资源
+      </p>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">🔧 设计原则</h2>
+      <div class="principle-grid">
+        <div class="principle-card">
+          <p class="font-semibold mb-2">📝 清晰命名</p>
+          <p class="text-sm text-[var(--muted)]">使用名词复数表示资源，如 /users、/orders</p>
+        </div>
+        <div class="principle-card">
+          <p class="font-semibold mb-2">🔄 统一风格</p>
+          <p class="text-sm text-[var(--muted)]">保持一致的命名规范和响应格式</p>
+        </div>
+        <div class="principle-card">
+          <p class="font-semibold mb-2">📊 版本管理</p>
+          <p class="text-sm text-[var(--muted)]">通过 /v1/、/v2/ 管理API版本</p>
+        </div>
+        <div class="principle-card">
+          <p class="font-semibold mb-2">⚠️ 错误处理</p>
+          <p class="text-sm text-[var(--muted)]">返回清晰的错误码和错误信息</p>
+        </div>
+        <div class="principle-card">
+          <p class="font-semibold mb-2">📖 完善文档</p>
+          <p class="text-sm text-[var(--muted)]">提供详细的接口说明和示例</p>
+        </div>
+        <div class="principle-card">
+          <p class="font-semibold mb-2">🔒 安全考虑</p>
+          <p class="text-sm text-[var(--muted)]">身份验证、权限控制、数据加密</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">📝 代码示例</h2>
+      <p class="text-[var(--muted)] mb-3">一个良好的API响应格式：</p>
+      <div class="code-block">
+        <span class="comment">// 成功响应</span><br>
+        {<br>
+        &nbsp;&nbsp;<span class="key">"success"</span>: <span class="boolean">true</span>,<br>
+        &nbsp;&nbsp;<span class="key">"data"</span>: { ... },<br>
+        &nbsp;&nbsp;<span class="key">"message"</span>: <span class="string">"操作成功"</span><br>
+        }<br><br>
+        <span class="comment">// 错误响应</span><br>
+        {<br>
+        &nbsp;&nbsp;<span class="key">"success"</span>: <span class="boolean">false</span>,<br>
+        &nbsp;&nbsp;<span class="key">"error"</span>: {<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"code"</span>: <span class="string">"USER_NOT_FOUND"</span>,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"message"</span>: <span class="string">"用户不存在"</span><br>
+        &nbsp;&nbsp;}<br>
+        }
+      </div>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-2 text-[var(--accent)]">🎓 学习提示词</h2>
+      <p class="text-[var(--muted)] italic">我想学习关于openclaw关于API设计的知识，之所以用html是因为可读性和可拓展性关联性等，让我更好地理解其学术词和学术词有关地其他学术词</p>
+    </section>
+
+    <section class="card mb-6">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">🔗 相关学术词</h2>
+      <div><span class="tag"><a href="网关.html">网关</a></span><span class="tag"><a href="路由.html">路由</a></span><span class="tag"><a href="协议转换.html">协议转换</a></span><span class="tag"><a href="系统设计.html">系统设计</a></span><span class="tag"><a href="可扩展性.html">可扩展性</a></span></div>
+    </section>
+
+    <section class="card">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)]">📚 学习要点</h2>
+      <ul class="list-disc list-inside space-y-2">
+        <li>掌握<strong class="text-[var(--accent)]">RESTful</strong>设计原则：资源+动词</li>
+        <li>HTTP方法语义：GET读取、POST创建、PUT更新、DELETE删除</li>
+        <li>统一响应格式：success、data、message/error</li>
+        <li>版本管理策略：URL版本、Header版本</li>
+        <li>编写清晰的API文档（Swagger/OpenAPI）</li>
+        <li>考虑安全性：认证、授权、限流、加密</li>
+      </ul>
+    </section>
+  </div>
+
+  <script>
+    const apiResponses = {
+      get: {
+        status: '200 OK',
+        statusClass: 'status-200',
+        desc: '获取用户列表',
+        response: `{
+  <span class="key">"success"</span>: <span class="boolean">true</span>,
+  <span class="key">"data"</span>: [
+    {
+      <span class="key">"id"</span>: <span class="number">1</span>,
+      <span class="key">"name"</span>: <span class="string">"张三"</span>,
+      <span class="key">"email"</span>: <span class="string">"zhangsan@example.com"</span>
+    }
+  ],
+  <span class="key">"total"</span>: <span class="number">1</span>
+}`
+      },
+      post: {
+        status: '201 Created',
+        statusClass: 'status-200',
+        desc: '创建新用户',
+        response: `{
+  <span class="key">"success"</span>: <span class="boolean">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"id"</span>: <span class="number">3</span>,
+    <span class="key">"name"</span>: <span class="string">"王五"</span>,
+    <span class="key">"email"</span>: <span class="string">"wangwu@example.com"</span>
+  },
+  <span class="key">"message"</span>: <span class="string">"用户创建成功"</span>
+}`
+      },
+      put: {
+        status: '200 OK',
+        statusClass: 'status-200',
+        desc: '更新用户信息',
+        response: `{
+  <span class="key">"success"</span>: <span class="boolean">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"id"</span>: <span class="number">1</span>,
+    <span class="key">"name"</span>: <span class="string">"张三（已更新）"</span>,
+    <span class="key">"email"</span>: <span class="string">"newemail@example.com"</span>
+  },
+  <span class="key">"message"</span>: <span class="string">"用户信息更新成功"</span>
+}`
+      },
+      delete: {
+        status: '204 No Content',
+        statusClass: 'status-200',
+        desc: '删除用户',
+        response: `{
+  <span class="key">"success"</span>: <span class="boolean">true</span>,
+  <span class="key">"message"</span>: <span class="string">"用户已删除"</span>
+}`
+      }
+    };
+    
+    function showAPI(method) {
+      document.querySelectorAll('.endpoint-tab').forEach(tab => tab.classList.remove('active'));
+      event.currentTarget.classList.add('active');
+      
+      const api = apiResponses[method];
+      const badge = document.getElementById('status-badge');
+      badge.textContent = api.status;
+      badge.className = 'status-badge ' + api.statusClass;
+      document.getElementById('api-desc').textContent = api.desc;
+      document.getElementById('api-response').innerHTML = api.response;
+    }
+  </script>
+</body>
+</html>

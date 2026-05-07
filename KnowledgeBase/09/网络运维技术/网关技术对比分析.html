@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>云原生网关 vs API网关 - 对比分析</title>
+  <!-- 引入Tailwind CSS简化样式（无需本地安装） -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入Font Awesome图标 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- 自定义Tailwind配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            secondary: '#36CFC9',
+            neutral: '#86909C',
+            light: '#F2F3F5',
+            dark: '#1D2129',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .table-hover-row:hover {
+                background-color: #F7F8FA;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 font-sans text-dark">
+  <!-- 页面头部 -->
+  <header class="bg-white shadow-sm sticky top-0 z-10">
+    <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+      <h1 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-primary">
+        <i class="fa-solid fa-network-wired mr-2"></i>网关技术对比分析
+      </h1>
+      <span class="text-neutral text-sm hidden md:inline-block">
+        云原生架构 · API流量治理
+      </span>
+    </div>
+  </header>
+
+  <!-- 主要内容 -->
+  <main class="container mx-auto px-4 py-8 max-w-6xl">
+    <!-- 核心定位部分 -->
+    <section class="mb-12">
+      <h2 class="text-[clamp(1.2rem,2vw,1.5rem)] font-semibold mb-6 pb-2 border-b border-gray-200">
+        核心定位
+      </h2>
+      <div class="grid md:grid-cols-2 gap-6">
+        <!-- 传统API网关 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border-l-4 border-neutral">
+          <div class="flex items-center mb-4">
+            <i class="fa-solid fa-lock text-2xl text-neutral mr-3"></i>
+            <h3 class="text-xl font-semibold">传统API网关</h3>
+          </div>
+          <p class="text-gray-700 leading-relaxed">
+            通用型<span
+              class="text-primary font-medium">API流量入口</span>，聚焦API生命周期管控（鉴权、限流、路由、日志、监控），为传统单体、早期微服务提供统一入口，偏集中式、重管控。
+          </p>
+          <div class="mt-4 text-sm text-neutral">
+            <i class="fa-solid fa-tag mr-1"></i>代表产品：Zuul、Kong（早期）、Nginx 网关
+          </div>
+        </div>
+
+        <!-- 云原生网关 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border-l-4 border-primary">
+          <div class="flex items-center mb-4">
+            <i class="fa-solid fa-cloud text-2xl text-primary mr-3"></i>
+            <h3 class="text-xl font-semibold">云原生网关</h3>
+          </div>
+          <p class="text-gray-700 leading-relaxed">
+            基于<span
+              class="text-primary font-medium">K8s、容器化、服务网格</span>设计，聚焦云原生流量治理，轻量、动态、弹性，是云原生微服务/服务网格的标准流量入口，继承并升级传统API网关核心能力。
+          </p>
+          <div class="mt-4 text-sm text-neutral">
+            <i class="fa-solid fa-tag mr-1"></i>代表产品：Istio IngressGateway、APISIX 云原生版、Higress
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 关键维度对比表格 -->
+    <section class="mb-12">
+      <h2 class="text-[clamp(1.2rem,2vw,1.5rem)] font-semibold mb-6 pb-2 border-b border-gray-200">
+        关键维度对比
+      </h2>
+      <div class="overflow-x-auto bg-white rounded-lg shadow-sm">
+        <table class="w-full text-left">
+          <thead class="bg-light">
+            <tr>
+              <th class="px-6 py-4 font-semibold text-dark border-b border-gray-200 w-1/4">对比维度</th>
+              <th class="px-6 py-4 font-semibold text-neutral border-b border-gray-200 w-3/8">传统API网关</th>
+              <th class="px-6 py-4 font-semibold text-primary border-b border-gray-200 w-3/8">云原生网关</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="table-hover-row border-b border-gray-100">
+              <td class="px-6 py-4 font-medium">架构形态</td>
+              <td class="px-6 py-4 text-gray-700">集中式单体/集群，静态部署</td>
+              <td class="px-6 py-4 text-gray-700">分布式、容器化、动态编排</td>
+            </tr>
+            <tr class="table-hover-row border-b border-gray-100">
+              <td class="px-6 py-4 font-medium">部署环境</td>
+              <td class="px-6 py-4 text-gray-700">物理机、虚拟机为主</td>
+              <td class="px-6 py-4 text-gray-700">深度适配 K8s、容器、Serverless</td>
+            </tr>
+            <tr class="table-hover-row border-b border-gray-100">
+              <td class="px-6 py-4 font-medium">服务发现</td>
+              <td class="px-6 py-4 text-gray-700">手动配置/传统注册中心（Eureka）</td>
+              <td class="px-6 py-4 text-gray-700">原生对接 K8s Service、动态发现</td>
+            </tr>
+            <tr class="table-hover-row border-b border-gray-100">
+              <td class="px-6 py-4 font-medium">弹性能力</td>
+              <td class="px-6 py-4 text-gray-700">手动扩容，弹性差</td>
+              <td class="px-6 py-4 text-gray-700">自动扩缩容、秒级调度</td>
+            </tr>
+            <tr class="table-hover-row border-b border-gray-100">
+              <td class="px-6 py-4 font-medium">核心能力</td>
+              <td class="px-6 py-4 text-gray-700">API 鉴权、限流、路由、转换</td>
+              <td class="px-6 py-4 text-gray-700">基础API管控 + 流量灰度、熔断、可观测、GitOps</td>
+            </tr>
+            <tr class="table-hover-row border-b border-gray-100">
+              <td class="px-6 py-4 font-medium">运维方式</td>
+              <td class="px-6 py-4 text-gray-700">控制台/脚本手动配置</td>
+              <td class="px-6 py-4 text-gray-700">声明式API、GitOps、配置热更新</td>
+            </tr>
+            <tr class="table-hover-row">
+              <td class="px-6 py-4 font-medium">生态集成</td>
+              <td class="px-6 py-4 text-gray-700">传统中间件、监控</td>
+              <td class="px-6 py-4 text-gray-700">原生对接 Prometheus、Grafana、Jaeger 等</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 选型建议 & 总结 -->
+    <section>
+      <h2 class="text-[clamp(1.2rem,2vw,1.5rem)] font-semibold mb-6 pb-2 border-b border-gray-200">
+        选型建议 & 核心总结
+      </h2>
+      <div class="bg-white rounded-lg shadow-sm p-6">
+        <div class="mb-6">
+          <h3 class="text-lg font-semibold mb-3 text-secondary">
+            <i class="fa-solid fa-lightbulb mr-2"></i>选型建议
+          </h3>
+          <ul class="list-disc list-inside text-gray-700 space-y-2 pl-2">
+            <li>传统API网关：老旧单体系统、非云原生微服务、仅需基础API管控场景</li>
+            <li>云原生网关：K8s 部署环境、服务网格架构、高弹性流量治理需求</li>
+          </ul>
+        </div>
+
+        <div class="border-t border-gray-200 pt-6">
+          <h3 class="text-lg font-semibold mb-3 text-secondary">
+            <i class="fa-solid fa-circle-check mr-2"></i>核心总结
+          </h3>
+          <ul class="list-disc list-inside text-gray-700 space-y-2 pl-2">
+            <li>云原生网关是<span class="font-medium text-primary">适配云原生架构的新一代API网关</span>，非对立关系</li>
+            <li>传统网关以「API管控」为核心，云原生网关以「弹性、动态、云原生适配」为核心</li>
+            <li>云原生网关继承传统网关能力，新增云原生生态适配、动态编排、自动扩缩容等特性</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 页面底部 -->
+  <footer class="bg-dark text-white py-6 mt-12">
+    <div class="container mx-auto px-4 text-center text-sm">
+      <p>云原生网关 vs API网关 对比分析页面 | 设计原则：清晰、易用、响应式</p>
+      <p class="mt-2 text-gray-400">© 2026 网关技术分析</p>
+    </div>
+  </footer>
+</body>
+
+</html>

@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Commander.js 技术解析</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;600;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg-primary: #080a0d;
+      --bg-secondary: #0e1218;
+      --bg-card: #141a22;
+      --bg-elevated: #1a222c;
+      --fg-primary: #e2eaf4;
+      --fg-secondary: #586878;
+      --fg-muted: #283848;
+      --accent-teal: #00e8d0;
+      --accent-orange: #ff6830;
+      --accent-amber: #ffc018;
+      --accent-mint: #38f0b8;
+      --accent-rose: #ff4880;
+      --border: #182838;
+      --glow-teal: rgba(0, 232, 208, 0.1);
+      --glow-orange: rgba(255, 104, 48, 0.1);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg-primary);
+      color: var(--fg-primary);
+      overflow-x: hidden;
+      line-height: 1.7;
+    }
+
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    .bg-atmosphere {
+      background:
+        radial-gradient(ellipse 180% 140% at 130% -30%, rgba(0, 232, 208, 0.05) 0%, transparent 50%),
+        radial-gradient(ellipse 160% 120% at -30% 130%, rgba(255, 104, 48, 0.04) 0%, transparent 50%),
+        var(--bg-primary);
+    }
+
+    .grid-dots {
+      background-image: radial-gradient(circle, rgba(0, 232, 208, 0.03) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(22px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes typeIn {
+      from { width: 0; }
+      to { width: 100%; }
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+
+    .anim-fade-up { animation: fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+    .anim-scale-in { animation: scaleIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+
+    .delay-1 { animation-delay: 0.05s; }
+    .delay-2 { animation-delay: 0.1s; }
+    .delay-3 { animation-delay: 0.15s; }
+    .delay-4 { animation-delay: 0.2s; }
+    .delay-5 { animation-delay: 0.25s; }
+    .delay-6 { animation-delay: 0.3s; }
+    .delay-7 { animation-delay: 0.35s; }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .card:hover {
+      border-color: var(--accent-teal);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px -6px var(--glow-teal);
+    }
+
+    .card-orange:hover {
+      border-color: var(--accent-orange);
+      box-shadow: 0 10px 24px -6px var(--glow-orange);
+    }
+
+    .terminal {
+      background: #0c0e12;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .terminal-header {
+      background: var(--bg-elevated);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .terminal-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .terminal-body {
+      padding: 14px;
+      font-size: 12px;
+      min-height: 120px;
+    }
+
+    .terminal-line {
+      margin-bottom: 4px;
+    }
+
+    .terminal-prompt {
+      color: var(--accent-teal);
+    }
+
+    .terminal-cursor {
+      display: inline-block;
+      width: 8px;
+      height: 14px;
+      background: var(--accent-teal);
+      animation: blink 1s step-end infinite;
+      vertical-align: middle;
+      margin-left: 2px;
+    }
+
+    .token-flag { color: var(--accent-teal); }
+    .token-option { color: var(--accent-amber); }
+    .token-value { color: var(--accent-mint); }
+    .token-command { color: var(--accent-orange); }
+    .token-arg { color: var(--fg-secondary); }
+
+    .parse-step {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      transition: all 0.2s ease;
+    }
+
+    .parse-step.active {
+      border-color: var(--accent-teal);
+      background: var(--glow-teal);
+    }
+
+    .parse-step.matched {
+      border-color: var(--accent-amber);
+      background: rgba(255, 192, 24, 0.08);
+    }
+
+    .input-field {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      color: var(--fg-primary);
+      font-size: 13px;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: var(--accent-teal);
+      box-shadow: 0 0 0 3px var(--glow-teal);
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-teal), #00c8b8);
+      color: var(--bg-primary);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px -4px var(--glow-teal);
+    }
+
+    .code-window {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .code-content {
+      padding: 14px;
+      font-size: 11px;
+      line-height: 1.65;
+      overflow-x: auto;
+    }
+
+    .code-line {
+      padding: 2px 6px;
+      margin: 0 -6px;
+      border-radius: 3px;
+      transition: background 0.15s ease;
+    }
+
+    .code-line:hover { background: rgba(0, 232, 208, 0.03); }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .option-item {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      transition: all 0.15s ease;
+    }
+
+    .option-item:hover {
+      border-color: var(--fg-muted);
+    }
+
+    .option-item.matched {
+      border-color: var(--accent-amber);
+      background: rgba(255, 192, 24, 0.08);
+    }
+
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-atmosphere grid-dots min-h-screen">
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative">
+
+    <!-- 头部 -->
+    <header class="text-center mb-10">
+      <div class="anim-fade-up">
+        <span class="tag" style="background: var(--glow-orange); color: var(--accent-orange);">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          Node.js CLI Framework
+        </span>
+      </div>
+      <h1 class="text-4xl sm:text-5xl font-black mt-4 mb-2 anim-fade-up delay-1">
+        <span style="color: var(--fg-primary);">Commander</span><span style="color: var(--accent-teal);">.js</span>
+      </h1>
+      <p class="text-lg max-w-2xl mx-auto anim-fade-up delay-2" style="color: var(--fg-secondary);">
+        Node.js 命令行工具的完整解决方案 —— 解析参数、定义选项、生成帮助
+      </p>
+    </header>
+
+    <!-- 核心比喻 -->
+    <section class="mb-10 anim-scale-in delay-3">
+      <div class="card p-5">
+        <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+          <span class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--glow-teal);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00e8d0" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4M12 8h.01"/>
+            </svg>
+          </span>
+          用生活场景理解它
+        </h2>
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="card card-orange p-4">
+            <div class="text-xl mb-1">🍳</div>
+            <h3 class="font-semibold text-sm mb-1" style="color: var(--accent-teal);">像点餐系统</h3>
+            <p class="text-xs" style="color: var(--fg-secondary);">命令是菜品类别，选项是口味定制（加辣/不加），参数是数量，最后生成订单执行</p>
+          </div>
+          <div class="card card-orange p-4">
+            <div class="text-xl mb-1">🗺️</div>
+            <h3 class="font-semibold text-sm mb-1" style="color: var(--accent-orange);">像导航路径</h3>
+            <p class="text-xs" style="color: var(--fg-secondary);">主命令是起点，子命令是途经点，选项是路线偏好（高速优先/避开拥堵），最终到达目的地</p>
+          </div>
+          <div class="card card-orange p-4">
+            <div class="text-xl mb-1">📋</div>
+            <h3 class="font-semibold text-sm mb-1" style="color: var(--accent-amber);">像填表审批</h3>
+            <p class="text-xs" style="color: var(--fg-secondary);">表单字段是选项，必填项是参数，提交后按流程执行。系统自动校验、自动生成说明</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 命令行解析模拟 -->
+    <section class="mb-10 anim-fade-up delay-4">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6830" stroke-width="2">
+            <polygon points="4,17 10,11 4,5"/>
+            <line x1="12" y1="19" x2="20" y2="19"/>
+          </svg>
+        </span>
+        命令行解析演示
+      </h2>
+
+      <div class="card p-5">
+        <div class="grid lg:grid-cols-2 gap-5">
+          <!-- 终端输入 -->
+          <div>
+            <h3 class="font-semibold mb-3 text-sm" style="color: var(--fg-secondary);">模拟命令行输入</h3>
+            
+            <div class="terminal mb-4">
+              <div class="terminal-header">
+                <div class="terminal-dot" style="background: #ff5f56;"></div>
+                <div class="terminal-dot" style="background: #ffbd2e;"></div>
+                <div class="terminal-dot" style="background: #27c93f;"></div>
+                <span class="text-xs ml-2 font-mono" style="color: var(--fg-muted);">bash</span>
+              </div>
+              <div class="terminal-body font-mono">
+                <div class="terminal-line">
+                  <span class="terminal-prompt">$ </span>
+                  <span class="token-command">mycli</span>
+                  <span id="cli-display"></span><span class="terminal-cursor"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs mb-1" style="color: var(--fg-muted);">命令输入</label>
+                <input id="cli-input" type="text" class="input-field font-mono" placeholder="install -D lodash --save" value="install -D lodash --save">
+              </div>
+              <button id="parse-btn" class="btn btn-primary w-full">解析参数</button>
+            </div>
+          </div>
+
+          <!-- 解析结果 -->
+          <div>
+            <h3 class="font-semibold mb-3 text-sm" style="color: var(--fg-secondary);">解析结果</h3>
+            
+            <div id="parse-result" class="space-y-3">
+              <p class="text-xs" style="color: var(--fg-muted);">点击「解析参数」查看解析过程</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 选项系统 -->
+    <section class="mb-10 anim-fade-up delay-5">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--glow-teal);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00e8d0" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </span>
+        选项定义系统
+      </h2>
+
+      <div class="grid lg:grid-cols-2 gap-4">
+        <!-- 选项类型 -->
+        <div class="card p-4">
+          <h3 class="font-semibold mb-3 text-sm" style="color: var(--accent-teal);">选项类型</h3>
+          
+          <div class="space-y-2">
+            <div class="option-item">
+              <div class="flex items-center justify-between">
+                <code class="text-xs" style="color: var(--accent-teal);">-f, --file</code>
+                <span class="tag" style="background: rgba(0, 232, 208, 0.15); color: var(--accent-teal);">Boolean</span>
+              </div>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">布尔选项，存在即为 true</p>
+            </div>
+
+            <div class="option-item">
+              <div class="flex items-center justify-between">
+                <code class="text-xs" style="color: var(--accent-amber);">-n, --name &lt;value&gt;</code>
+                <span class="tag" style="background: rgba(255, 192, 24, 0.15); color: var(--accent-amber);">Required</span>
+              </div>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">必填值选项，尖括号语法</p>
+            </div>
+
+            <div class="option-item">
+              <div class="flex items-center justify-between">
+                <code class="text-xs" style="color: var(--accent-mint);">-o, --output [value]</code>
+                <span class="tag" style="background: rgba(56, 240, 184, 0.15); color: var(--accent-mint);">Optional</span>
+              </div>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">可选值选项，方括号语法</p>
+            </div>
+
+            <div class="option-item">
+              <div class="flex items-center justify-between">
+                <code class="text-xs" style="color: var(--accent-orange);">-c, --config &lt;path&gt;</code>
+                <span class="tag" style="background: rgba(255, 104, 48, 0.15); color: var(--accent-orange);">Coercion</span>
+              </div>
+              <p class="text-xs mt-1" style="color: var(--fg-muted);">值处理函数，验证或转换</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 代码示例 -->
+        <div class="card p-4">
+          <h3 class="font-semibold mb-3 text-sm" style="color: var(--accent-orange);">定义代码</h3>
+          
+          <div class="code-window">
+            <div class="code-content font-mono text-xs">
+              <div class="code-line"><span style="color: var(--accent-cyan);">const</span> { program } = <span style="color: var(--accent-orange);">require</span>(<span style="color: var(--accent-amber);">'commander'</span>);</div>
+              <div class="code-line"></div>
+              <div class="code-line">program</div>
+              <div class="code-line">  .<span style="color: var(--accent-teal);">name</span>(<span style="color: var(--accent-amber);">'mycli'</span>)</div>
+              <div class="code-line">  .<span style="color: var(--accent-teal);">description</span>(<span style="color: var(--accent-amber);">'My CLI tool'</span>)</div>
+              <div class="code-line">  .<span style="color: var(--accent-teal);">version</span>(<span style="color: var(--accent-amber);">'1.0.0'</span>)</div>
+              <div class="code-line"></div>
+              <div class="code-line">  <span style="color: var(--fg-muted);">// 布尔选项</span></div>
+              <div class="code-line">  .<span style="color: var(--accent-teal);">option</span>(<span style="color: var(--accent-amber);">'-d, --debug'</span>, <span style="color: var(--accent-amber);">'启用调试模式'</span>)</div>
+              <div class="code-line"></div>
+              <div class="code-line">  <span style="color: var(--fg-muted);">// 必填值选项</span></div>
+              <div class="code-line">  .<span style="color: var(--accent-teal);">option</span>(<span style="color: var(--accent-amber);">'-f, --file &lt;path&gt;'</span>, <span style="color: var(--accent-amber);">'文件路径'</span>)</div>
+              <div class="code-line"></div>
+              <div class="code-line">  <span style="color: var(--fg-muted);">// 可选值选项</span></div>
+              <div class="code-line">  .<span style="color: var(--accent-teal);">option</span>(<span style="color: var(--accent-amber);">'-o, --output [path]'</span>, <span style="color: var(--accent-amber);">'输出路径'</span>)</div>
+              <div class="code-line"></div>
+              <div class="code-line">  <span style="color: var(--fg-muted);">// 带默认值</span></div>
+              <div class="code-line">  .<span style="color: var(--accent-teal);">option</span>(<span style="color: var(--accent-amber);">'-p, --port &lt;number&gt;'</span>, <span style="color: var(--accent-amber);">'端口号'</span>, <span style="color: var(--accent-mint);">3000</span>)</div>
+              <div class="code-line"></div>
+              <div class="code-line">  .<span style="color: var(--accent-teal);">parse</span>();</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 命令与子命令 -->
+    <section class="mb-10 anim-fade-up delay-6">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6830" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33"/>
+            <path d="M12 9a3 3 0 0 0-3 3"/>
+          </svg>
+        </span>
+        命令与子命令系统
+      </h2>
+
+      <div class="card p-5">
+        <div id="command-tree" class="overflow-x-auto">
+          <svg viewBox="0 0 700 200" class="w-full min-w-[500px]" style="max-height: 200px;">
+            <!-- 主命令 -->
+            <g>
+              <rect x="280" y="20" width="140" height="50" rx="8" fill="var(--bg-elevated)" stroke="var(--accent-teal)" stroke-width="2"/>
+              <text x="350" y="42" text-anchor="middle" fill="var(--accent-teal)" font-size="13" font-weight="600">program</text>
+              <text x="350" y="58" text-anchor="middle" fill="var(--fg-muted)" font-size="10">mycli</text>
+            </g>
+
+            <!-- 子命令 -->
+            <g>
+              <rect x="60" y="130" width="100" height="45" rx="6" fill="var(--bg-elevated)" stroke="var(--accent-orange)" stroke-width="1.5"/>
+              <text x="110" y="152" text-anchor="middle" fill="var(--accent-orange)" font-size="11" font-weight="600">install</text>
+              <text x="110" y="166" text-anchor="middle" fill="var(--fg-muted)" font-size="9">安装依赖</text>
+            </g>
+
+            <g>
+              <rect x="200" y="130" width="100" height="45" rx="6" fill="var(--bg-elevated)" stroke="var(--accent-amber)" stroke-width="1.5"/>
+              <text x="250" y="152" text-anchor="middle" fill="var(--accent-amber)" font-size="11" font-weight="600">build</text>
+              <text x="250" y="166" text-anchor="middle" fill="var(--fg-muted)" font-size="9">构建项目</text>
+            </g>
+
+            <g>
+              <rect x="340" y="130" width="100" height="45" rx="6" fill="var(--bg-elevated)" stroke="var(--accent-mint)" stroke-width="1.5"/>
+              <text x="390" y="152" text-anchor="middle" fill="var(--accent-mint)" font-size="11" font-weight="600">deploy</text>
+              <text x="390" y="166" text-anchor="middle" fill="var(--fg-muted)" font-size="9">部署服务</text>
+            </g>
+
+            <g>
+              <rect x="480" y="130" width="100" height="45" rx="6" fill="var(--bg-elevated)" stroke="var(--accent-rose)" stroke-width="1.5"/>
+              <text x="530" y="152" text-anchor="middle" fill="var(--accent-rose)" font-size="11" font-weight="600">config</text>
+              <text x="530" y="166" text-anchor="middle" fill="var(--fg-muted)" font-size="9">配置管理</text>
+            </g>
+
+            <!-- 连接线 -->
+            <line x1="350" y1="70" x2="350" y2="95" stroke="var(--border)" stroke-width="2"/>
+            <line x1="110" y1="95" x2="530" y2="95" stroke="var(--border)" stroke-width="2"/>
+            <line x1="110" y1="95" x2="110" y2="130" stroke="var(--border)" stroke-width="2"/>
+            <line x1="250" y1="95" x2="250" y2="130" stroke="var(--border)" stroke-width="2"/>
+            <line x1="390" y1="95" x2="390" y2="130" stroke="var(--border)" stroke-width="2"/>
+            <line x1="530" y1="95" x2="530" y2="130" stroke="var(--border)" stroke-width="2"/>
+
+            <!-- 示例 -->
+            <text x="620" y="155" fill="var(--fg-muted)" font-size="9">mycli install pkg</text>
+          </svg>
+        </div>
+
+        <div class="mt-4 code-window">
+          <div class="code-content font-mono text-xs">
+            <div class="code-line"><span style="color: var(--fg-muted);">// 定义子命令</span></div>
+            <div class="code-line">program</div>
+            <div class="code-line">  .<span style="color: var(--accent-teal);">command</span>(<span style="color: var(--accent-amber);">'install &lt;package&gt;'</span>)</div>
+            <div class="code-line">  .<span style="color: var(--accent-teal);">alias</span>(<span style="color: var(--accent-amber);">'i'</span>)</div>
+            <div class="code-line">  .<span style="color: var(--accent-teal);">description</span>(<span style="color: var(--accent-amber);">'安装依赖包'</span>)</div>
+            <div class="code-line">  .<span style="color: var(--accent-teal);">option</span>(<span style="color: var(--accent-amber);">'-D, --save-dev'</span>, <span style="color: var(--accent-amber);">'保存为开发依赖'</span>)</div>
+            <div class="code-line">  .<span style="color: var(--accent-teal);">action</span>((pkg, options) => {</div>
+            <div class="code-line">    console.<span style="color: var(--accent-orange);">log</span>(<span style="color: var(--accent-amber);">`安装 ${pkg}`</span>);</div>
+            <div class="code-line">  });</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 帮助信息 -->
+    <section class="mb-10 anim-fade-up delay-7">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--glow-teal);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00e8d0" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </span>
+        自动生成帮助信息
+      </h2>
+
+      <div class="card p-5">
+        <div class="terminal">
+          <div class="terminal-header">
+            <div class="terminal-dot" style="background: #ff5f56;"></div>
+            <div class="terminal-dot" style="background: #ffbd2e;"></div>
+            <div class="terminal-dot" style="background: #27c93f;"></div>
+            <span class="text-xs ml-2 font-mono" style="color: var(--fg-muted);">mycli --help</span>
+          </div>
+          <div class="terminal-body font-mono text-xs">
+            <div class="terminal-line"><span style="color: var(--accent-teal);">Usage:</span> mycli [options] [command]</div>
+            <div class="terminal-line" style="color: var(--fg-secondary);">My CLI tool</div>
+            <div class="terminal-line"></div>
+            <div class="terminal-line"><span style="color: var(--accent-teal);">Options:</span></div>
+            <div class="terminal-line">  <span style="color: var(--accent-mint);">-V, --version</span>   <span style="color: var(--fg-muted);">output the version number</span></div>
+            <div class="terminal-line">  <span style="color: var(--accent-mint);">-d, --debug</span>     <span style="color: var(--fg-muted);">启用调试模式</span></div>
+            <div class="terminal-line">  <span style="color: var(--accent-mint);">-f, --file</span> &lt;path&gt; <span style="color: var(--fg-muted);">文件路径</span></div>
+            <div class="terminal-line">  <span style="color: var(--accent-mint);">-h, --help</span>       <span style="color: var(--fg-muted);">display help for command</span></div>
+            <div class="terminal-line"></div>
+            <div class="terminal-line"><span style="color: var(--accent-teal);">Commands:</span></div>
+            <div class="terminal-line">  <span style="color: var(--accent-orange);">install|i</span> &lt;package&gt; <span style="color: var(--fg-muted);">安装依赖包</span></div>
+            <div class="terminal-line">  <span style="color: var(--accent-orange);">build</span>              <span style="color: var(--fg-muted);">构建项目</span></div>
+            <div class="terminal-line">  <span style="color: var(--accent-orange);">deploy</span>             <span style="color: var(--fg-muted);">部署服务</span></div>
+            <div class="terminal-line">  <span style="color: var(--accent-orange);">config</span>             <span style="color: var(--fg-muted);">配置管理</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 词汇表 -->
+    <section class="mb-8">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--glow-orange);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6830" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+        </span>
+        核心概念词汇表
+      </h2>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-teal);">program</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">顶级命令实例，整个 CLI 的入口</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-orange);">command</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">子命令定义，支持嵌套</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-amber);">option</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">选项定义，短名和长名组合</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-mint);">argument</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">位置参数定义，必填或可选</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-rose);">action</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">命令执行的处理函数</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-teal);">parse</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">解析 process.argv 数组</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-orange);">alias</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">命令别名，如 install → i</p>
+        </div>
+        <div class="card p-3">
+          <h4 class="font-mono font-semibold text-xs mb-1" style="color: var(--accent-amber);">coercion</h4>
+          <p class="text-xs" style="color: var(--fg-secondary);">选项值转换/验证函数</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="text-center py-4" style="color: var(--fg-muted);">
+      <p class="text-xs">Commander.js 命令行框架技术解析</p>
+    </footer>
+  </div>
+
+  <script>
+    // ========== 数据定义 ==========
+    const CLI_OPTIONS = [
+      { flags: '-D, --save-dev', type: 'boolean', desc: '保存为开发依赖' },
+      { flags: '-S, --save', type: 'boolean', desc: '保存为生产依赖' },
+      { flags: '-g, --global', type: 'boolean', desc: '全局安装' },
+      { flags: '--registry <url>', type: 'value', desc: '指定注册表' },
+      { flags: '--force', type: 'boolean', desc: '强制安装' }
+    ];
+
+    const CLI_COMMANDS = [
+      { name: 'install', alias: 'i', desc: '安装依赖包', args: '<package>' },
+      { name: 'build', alias: 'b', desc: '构建项目', args: '' },
+      { name: 'deploy', alias: 'd', desc: '部署服务', args: '' },
+      { name: 'config', alias: 'c', desc: '配置管理', args: '' }
+    ];
+
+    // ========== 状态变量 ==========
+    let currentInput = '';
+
+    // ========== DOM 元素 ==========
+    const cliInput = document.getElementById('cli-input');
+    const cliDisplay = document.getElementById('cli-display');
+    const parseBtn = document.getElementById('parse-btn');
+    const parseResult = document.getElementById('parse-result');
+
+    // ========== 渲染函数 ==========
+    function updateCliDisplay() {
+      if (!cliInput || !cliDisplay) return;
+      currentInput = cliInput.value;
+      cliDisplay.textContent = ' ' + currentInput;
+    }
+
+    function parseCommand() {
+      if (!parseResult) return;
+
+      const input = cliInput?.value.trim() || '';
+      const tokens = input.split(/\s+/);
+      const result = {
+        command: null,
+        args: [],
+        options: {}
+      };
+
+      // 解析逻辑
+      let i = 0;
+      while (i < tokens.length) {
+        const token = tokens[i];
+        
+        if (token.startsWith('--')) {
+          // 长选项
+          const eqIndex = token.indexOf('=');
+          if (eqIndex > -1) {
+            const key = token.slice(2, eqIndex);
+            const value = token.slice(eqIndex + 1);
+            result.options[key] = value;
+          } else {
+            const key = token.slice(2);
+            // 检查是否需要值
+            const opt = CLI_OPTIONS.find(o => o.flags.includes('--' + key));
+            if (opt && opt.type === 'value' && tokens[i + 1] && !tokens[i + 1].startsWith('-')) {
+              result.options[key] = tokens[i + 1];
+              i++;
+            } else {
+              result.options[key] = true;
+            }
+          }
+        } else if (token.startsWith('-') && token.length === 2) {
+          // 短选项
+          const key = token.slice(1);
+          result.options[key] = true;
+        } else if (token.length > 1 && token.startsWith('-') && token.length === 2) {
+          // 组合短选项
+          result.options[token.slice(1)] = true;
+        } else if (!result.command) {
+          // 第一个非选项是命令
+          const cmd = CLI_COMMANDS.find(c => c.name === token || c.alias === token);
+          if (cmd) {
+            result.command = cmd.name;
+          }
+        } else {
+          // 其他是参数
+          result.args.push(token);
+        }
+        i++;
+      }
+
+      // 渲染结果
+      parseResult.innerHTML = `
+        <div class="parse-step active">
+          <p class="text-xs font-semibold mb-2" style="color: var(--accent-teal);">解析步骤</p>
+          <p class="text-xs" style="color: var(--fg-secondary);">输入: <code class="font-mono" style="color: var(--accent-amber);">"${input}"</code></p>
+        </div>
+
+        <div class="parse-step ${result.command ? 'matched' : ''}">
+          <p class="text-xs font-semibold mb-2" style="color: var(--accent-orange);">命令</p>
+          <p class="text-xs font-mono" style="color: ${result.command ? 'var(--accent-amber)' : 'var(--fg-muted)'};">
+            ${result.command || '(无)'}
+          </p>
+        </div>
+
+        <div class="parse-step ${Object.keys(result.options).length > 0 ? 'matched' : ''}">
+          <p class="text-xs font-semibold mb-2" style="color: var(--accent-mint);">选项</p>
+          ${Object.keys(result.options).length > 0 ? `
+            <div class="space-y-1">
+              ${Object.entries(result.options).map(([k, v]) => `
+                <p class="text-xs"><span class="font-mono" style="color: var(--accent-teal);">--${k}</span>: <span style="color: var(--fg-secondary);">${v}</span></p>
+              `).join('')}
+            </div>
+          ` : '<p class="text-xs" style="color: var(--fg-muted);">(无)</p>'}
+        </div>
+
+        <div class="parse-step ${result.args.length > 0 ? 'matched' : ''}">
+          <p class="text-xs font-semibold mb-2" style="color: var(--accent-rose);">参数</p>
+          ${result.args.length > 0 ? `
+            <div class="flex flex-wrap gap-1">
+              ${result.args.map(arg => `
+                <span class="font-mono text-xs" style="color: var(--accent-mint);">${arg}</span>
+              `).join('')}
+            </div>
+          ` : '<p class="text-xs" style="color: var(--fg-muted);">(无)</p>'}
+        </div>
+      `;
+    }
+
+    // ========== 事件绑定 ==========
+    function initEventListeners() {
+      if (cliInput) {
+        cliInput.addEventListener('input', updateCliDisplay);
+      }
+      if (parseBtn) {
+        parseBtn.addEventListener('click', parseCommand);
+      }
+    }
+
+    // ========== 初始化 ==========
+    function init() {
+      updateCliDisplay();
+      initEventListeners();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Git 知识图谱</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #080c14;
+      --bg-secondary: #0f1520;
+      --fg: #e4e8f0;
+      --muted: #6b7a90;
+      --accent: #f97316;
+      --accent-dim: rgba(249, 115, 22, 0.15);
+      --node-basic: #22c55e;
+      --node-branch: #3b82f6;
+      --node-remote: #a855f7;
+      --node-advanced: #ef4444;
+      --border: rgba(107, 122, 144, 0.2);
+    }
+
+    * { box-sizing: border-box; }
+    
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(249, 115, 22, 0.06), transparent 50%),
+        linear-gradient(rgba(249, 115, 22, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(249, 115, 22, 0.015) 1px, transparent 1px);
+      background-size: 100% 100%, 50px 50px, 50px 50px;
+      pointer-events: none;
+    }
+
+    /* 图谱容器 */
+    .graph-wrapper {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 20px;
+      position: relative;
+    }
+
+    .graph-container {
+      position: relative;
+      width: 100%;
+      height: 700px;
+      overflow: hidden;
+    }
+
+    /* SVG 连线 */
+    .connection-line {
+      stroke: rgba(249, 115, 22, 0.25);
+      stroke-width: 1.5;
+      fill: none;
+      transition: all 0.3s ease;
+    }
+
+    .connection-line.highlighted {
+      stroke: var(--accent);
+      stroke-width: 2.5;
+      filter: drop-shadow(0 0 6px var(--accent));
+    }
+
+    /* 术语节点 */
+    .term-node {
+      position: absolute;
+      padding: 8px 14px;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      z-index: 10;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    .term-node:hover {
+      transform: scale(1.1);
+      z-index: 20;
+    }
+
+    .term-node.active {
+      transform: scale(1.15);
+      z-index: 30;
+    }
+
+    .term-node.basic { border-color: var(--node-basic); }
+    .term-node.basic:hover, .term-node.basic.active { 
+      box-shadow: 0 0 25px rgba(34, 197, 94, 0.4); 
+    }
+    
+    .term-node.branch { border-color: var(--node-branch); }
+    .term-node.branch:hover, .term-node.branch.active { 
+      box-shadow: 0 0 25px rgba(59, 130, 246, 0.4); 
+    }
+    
+    .term-node.remote { border-color: var(--node-remote); }
+    .-term-node.remote:hover, .term-node.remote.active { 
+      box-shadow: 0 0 25px rgba(168, 85, 247, 0.4); 
+    }
+    
+    .term-node.advanced { border-color: var(--node-advanced); }
+    .term-node.advanced:hover, .term-node.advanced.active { 
+      box-shadow: 0 0 25px rgba(239, 68, 68, 0.4); 
+    }
+
+    /* 详情面板 */
+    .detail-panel {
+      position: fixed;
+      right: -450px;
+      top: 0;
+      width: 420px;
+      height: 100vh;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border);
+      padding: 24px;
+      overflow-y: auto;
+      transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 100;
+    }
+
+    .detail-panel.open { right: 0; }
+
+    .detail-panel-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 90;
+    }
+
+    .detail-panel-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* 关联术语标签 */
+    .related-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .related-tag:hover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* 搜索框 */
+    .search-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px 10px 40px;
+      color: var(--fg);
+      width: 100%;
+      transition: all 0.3s ease;
+      font-size: 14px;
+    }
+
+    .search-box:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    /* 分类筛选按钮 */
+    .category-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 13px;
+    }
+
+    .category-btn:hover {
+      border-color: var(--fg);
+      color: var(--fg);
+    }
+
+    .category-btn.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* 术语列表项 */
+    .term-list-item {
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .term-list-item:hover {
+      background: rgba(255, 255, 255, 0.03);
+      border-color: var(--border);
+    }
+
+    .term-list-item.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+
+    /* 代码块 */
+    .code-block {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      overflow-x: auto;
+    }
+
+    /* 图例 */
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+    }
+
+    /* 滚动条 */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* 响应式 */
+    @media (max-width: 1280px) {
+      .graph-container { height: 600px; }
+      .term-node { padding: 6px 10px; font-size: 11px; }
+    }
+
+    @media (max-width: 1024px) {
+      .detail-panel { width: 100%; right: -100%; }
+      .graph-container { height: 500px; }
+    }
+
+    @media (max-width: 768px) {
+      .graph-container { height: 400px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  
+  <div class="relative z-10 max-w-7xl mx-auto px-4 py-8">
+    <!-- 头部 -->
+    <header class="mb-8">
+      <div class="flex items-center gap-2 text-orange-400 text-sm mb-4">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="4"/>
+          <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+        </svg>
+        <span>Interactive Knowledge Graph</span>
+      </div>
+      <h1 class="text-3xl md:text-4xl font-bold mb-3 tracking-tight">
+        Git <span class="text-orange-400">知识图谱</span>
+      </h1>
+      <p class="text-slate-400 max-w-xl">
+        点击节点探索术语定义与关联关系，构建系统化的 Git 知识体系
+      </p>
+    </header>
+
+    <!-- 筛选和图例 -->
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+      <div class="flex flex-wrap gap-2">
+        <button class="category-btn active" data-category="all">全部</button>
+        <button class="category-btn" data-category="basic">
+          <span class="inline-block w-2 h-2 rounded-sm bg-green-500 mr-2"></span>基础
+        </button>
+        <button class="category-btn" data-category="branch">
+          <span class="inline-block w-2 h-2 rounded-sm bg-blue-500 mr-2"></span>分支
+        </button>
+        <button class="category-btn" data-category="remote">
+          <span class="inline-block w-2 h-2 rounded-sm bg-purple-500 mr-2"></span>远程
+        </button>
+        <button class="category-btn" data-category="advanced">
+          <span class="inline-block w-2 h-2 rounded-sm bg-red-500 mr-2"></span>高级
+        </button>
+      </div>
+      
+      <div class="flex gap-2 w-full lg:w-auto">
+        <div class="relative flex-1 lg:w-56">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input type="text" id="search-input" class="search-box" placeholder="搜索术语...">
+        </div>
+      </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="grid xl:grid-cols-5 gap-6">
+      <!-- 术语列表 -->
+      <div class="xl:col-span-1 bg-[#0f1520] border border-slate-700/30 rounded-xl p-4 h-fit max-h-[780px] overflow-y-auto">
+        <h3 class="font-bold mb-3 text-xs text-slate-400 uppercase tracking-wider">术语列表</h3>
+        <div class="space-y-1" id="term-list"></div>
+      </div>
+
+      <!-- 知识图谱 -->
+      <div class="xl:col-span-4">
+        <div class="graph-wrapper">
+          <div class="graph-container" id="graph-container">
+            <svg class="absolute inset-0 w-full h-full pointer-events-none" id="connections-svg"></svg>
+            <div id="nodes-container"></div>
+          </div>
+        </div>
+
+        <!-- 图例 -->
+        <div class="flex flex-wrap gap-3 mt-4 justify-center">
+          <div class="legend-item">
+            <div class="legend-dot" style="background: #22c55e"></div>
+            <span class="text-slate-400">基础概念</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background: #3b82f6"></div>
+            <span class="text-slate-400">分支操作</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background: #a855f7"></div>
+            <span class="text-slate-400">远程协作</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background: #ef4444"></div>
+            <span class="text-slate-400">高级操作</span>
+          </div>
+        </div>
+
+        <!-- 统计 -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+          <div class="bg-[#0f1520] border border-slate-700/30 rounded-lg p-4 text-center">
+            <div class="text-xl font-bold text-green-400">8</div>
+            <div class="text-xs text-slate-500">基础概念</div>
+          </div>
+          <div class="bg-[#0f1520] border border-slate-700/30 rounded-lg p-4 text-center">
+            <div class="text-xl font-bold text-blue-400">6</div>
+            <div class="text-xs text-slate-500">分支操作</div>
+          </div>
+          <div class="bg-[#0f1520] border border-slate-700/30 rounded-lg p-4 text-center">
+            <div class="text-xl font-bold text-purple-400">6</div>
+            <div class="text-xs text-slate-500">远程协作</div>
+          </div>
+          <div class="bg-[#0f1520] border border-slate-700/30 rounded-lg p-4 text-center">
+            <div class="text-xl font-bold text-red-400">5</div>
+            <div class="text-xs text-slate-500">高级操作</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 详情面板遮罩 -->
+  <div class="detail-panel-overlay" id="panel-overlay"></div>
+
+  <!-- 详情面板 -->
+  <div class="detail-panel" id="detail-panel">
+    <button class="absolute top-4 right-4 p-2 text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-white/5" id="close-panel" aria-label="关闭面板">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 6L6 18M6 6l12 12"/>
+      </svg>
+    </button>
+    
+    <div id="detail-content"></div>
+  </div>
+
+  <script>
+    // Git 术语数据
+    const gitTerms = [
+      {
+        id: 'repository',
+        name: 'Repository',
+        chinese: '仓库',
+        category: 'basic',
+        definition: 'Git 仓库是存储项目所有文件及其完整修改历史的数据库，包含工作目录、暂存区和版本历史。',
+        detail: '仓库是 Git 的核心概念，它不仅存储文件的当前状态，还记录了每一次提交的完整历史。每个仓库都有一个隐藏的 .git 目录，其中包含所有版本控制信息。',
+        commands: ['git init', 'git clone <url>'],
+        relatedTerms: ['working-directory', 'staging-area', 'commit', 'remote', 'clone']
+      },
+      {
+        id: 'working-directory',
+        name: 'Working Directory',
+        chinese: '工作目录',
+        category: 'basic',
+        definition: '工作目录是你实际编辑文件的地方，包含了项目的当前检出状态。',
+        detail: '工作目录是仓库的一个特定版本的检出来。当你切换分支或检出特定提交时，工作目录中的文件会相应改变。它是你进行日常开发的地方。',
+        commands: ['git status', 'git checkout <branch>'],
+        relatedTerms: ['repository', 'staging-area', 'checkout']
+      },
+      {
+        id: 'staging-area',
+        name: 'Staging Area',
+        chinese: '暂存区',
+        category: 'basic',
+        definition: '暂存区（又称 Index）是介于工作目录和仓库之间的中间区域，用于准备下一次提交的内容。',
+        detail: '暂存区允许你选择性地将修改包含在下一次提交中。你可以只暂存部分修改，而不是全部。这让你可以创建逻辑清晰的提交。',
+        commands: ['git add <file>', 'git reset <file>'],
+        relatedTerms: ['working-directory', 'commit', 'add', 'reset']
+      },
+      {
+        id: 'commit',
+        name: 'Commit',
+        chinese: '提交',
+        category: 'basic',
+        definition: '提交是项目在某一时刻的快照，包含作者信息、时间戳和指向父提交的引用。',
+        detail: '每个提交都有一个唯一的 SHA-1 哈希值作为标识。提交是 Git 历史的基本单位，通过父提交引用形成一条链。好的提交应该是原子性的，只包含一个逻辑更改。',
+        commands: ['git commit -m "message"', 'git commit --amend'],
+        relatedTerms: ['staging-area', 'branch', 'log', 'revert', 'cherry-pick']
+      },
+      {
+        id: 'branch',
+        name: 'Branch',
+        chinese: '分支',
+        category: 'branch',
+        definition: '分支是指向某个提交的可移动指针，用于隔离开发工作。',
+        detail: '分支让你可以在不影响其他工作的情况下进行并行开发。默认分支通常叫 main 或 master。创建分支非常轻量，因为只是创建了一个新的指针。',
+        commands: ['git branch <name>', 'git branch -d <name>', 'git branch -a'],
+        relatedTerms: ['commit', 'merge', 'checkout', 'rebase', 'head']
+      },
+      {
+        id: 'head',
+        name: 'HEAD',
+        chinese: '当前指针',
+        category: 'branch',
+        definition: 'HEAD 是指向当前检出分支或提交的特殊指针，表示你在仓库中的当前位置。',
+        detail: '正常情况下，HEAD 指向一个分支名。当你检出特定提交时，HEAD 直接指向该提交，这称为"分离 HEAD 状态"。',
+        commands: ['git log', 'git checkout <commit>'],
+        relatedTerms: ['branch', 'commit', 'checkout']
+      },
+      {
+        id: 'checkout',
+        name: 'Checkout',
+        chinese: '检出',
+        category: 'branch',
+        definition: '检出操作用于切换分支或恢复工作目录中的文件。',
+        detail: 'git checkout 可以切换到不同的分支，也可以从暂存区或特定提交恢复文件。新版本 Git 推荐用 git switch 和 git restore 替代部分功能。',
+        commands: ['git checkout <branch>', 'git checkout -b <new-branch>'],
+        relatedTerms: ['branch', 'head', 'working-directory', 'staging-area']
+      },
+      {
+        id: 'merge',
+        name: 'Merge',
+        chinese: '合并',
+        category: 'branch',
+        definition: '合并操作将两个或多个分支的历史合并到一起。',
+        detail: '合并会创建一个新的"合并提交"，它有两个父提交。如果两个分支没有分叉（快进合并），Git 只需移动指针。合并冲突需要手动解决。',
+        commands: ['git merge <branch>', 'git merge --abort'],
+        relatedTerms: ['branch', 'commit', 'conflict', 'rebase']
+      },
+      {
+        id: 'rebase',
+        name: 'Rebase',
+        chinese: '变基',
+        category: 'branch',
+        definition: '变基操作重新应用一系列提交到新的基底提交上，创造线性历史。',
+        detail: '变基会将当前分支的提交"移动"到目标分支的最新提交之后。不要对已推送的提交进行变基，因为这会改变历史。',
+        commands: ['git rebase <branch>', 'git rebase -i <commit>'],
+        relatedTerms: ['branch', 'commit', 'merge', 'conflict']
+      },
+      {
+        id: 'conflict',
+        name: 'Conflict',
+        chinese: '冲突',
+        category: 'branch',
+        definition: '当合并或变基时，如果同一文件的同一部分被不同分支修改，就会产生冲突。',
+        detail: 'Git 无法自动解决冲突时，需要人工干预。你需要手动编辑解决冲突标记，然后标记为已解决。',
+        commands: ['git status', 'git add <resolved-file>'],
+        relatedTerms: ['merge', 'rebase']
+      },
+      {
+        id: 'remote',
+        name: 'Remote',
+        chinese: '远程仓库',
+        category: 'remote',
+        definition: '远程仓库是托管在网络上的仓库版本，用于团队协作和备份。',
+        detail: 'origin 是默认的远程仓库名称。你可以添加多个远程仓库，比如同时连接 GitHub 和 GitLab。',
+        commands: ['git remote -v', 'git remote add <name> <url>'],
+        relatedTerms: ['repository', 'push', 'pull', 'fetch', 'clone']
+      },
+      {
+        id: 'clone',
+        name: 'Clone',
+        chinese: '克隆',
+        category: 'remote',
+        definition: '克隆操作创建远程仓库的完整本地副本，包含所有历史和分支。',
+        detail: '克隆会自动设置 origin 远程仓库指向源 URL。克隆是开始参与现有项目的第一步。',
+        commands: ['git clone <url>', 'git clone --depth 1 <url>'],
+        relatedTerms: ['repository', 'remote', 'fork']
+      },
+      {
+        id: 'push',
+        name: 'Push',
+        chinese: '推送',
+        category: 'remote',
+        definition: '推送操作将本地提交上传到远程仓库。',
+        detail: '首次推送新分支时需要设置上游分支。推送可能会被拒绝（如果远程有新的提交），这时需要先拉取合并。',
+        commands: ['git push', 'git push -u origin <branch>'],
+        relatedTerms: ['remote', 'pull', 'fetch']
+      },
+      {
+        id: 'pull',
+        name: 'Pull',
+        chinese: '拉取',
+        category: 'remote',
+        definition: '拉取操作从远程仓库获取并合并更新到当前分支。',
+        detail: 'git pull 相当于 git fetch + git merge。建议使用 git pull --rebase 来避免不必要的合并提交。',
+        commands: ['git pull', 'git pull --rebase'],
+        relatedTerms: ['remote', 'push', 'fetch', 'merge']
+      },
+      {
+        id: 'fetch',
+        name: 'Fetch',
+        chinese: '获取',
+        category: 'remote',
+        definition: '获取操作从远程仓库下载所有更新，但不自动合并到当前分支。',
+        detail: 'fetch 是安全的查看远程更新的方式。它更新远程跟踪分支，但不会修改你的工作目录。',
+        commands: ['git fetch', 'git fetch --all'],
+        relatedTerms: ['remote', 'pull', 'push']
+      },
+      {
+        id: 'fork',
+        name: 'Fork',
+        chinese: '派生',
+        category: 'remote',
+        definition: 'Fork 是在托管平台上创建他人仓库的个人副本。',
+        detail: 'Fork 不是 Git 核心功能，而是平台的协作特性。派生后你可以在自己的副本上自由修改，然后通过 Pull Request 贡献回原项目。',
+        commands: ['（在 GitHub/GitLab 界面操作）'],
+        relatedTerms: ['clone', 'remote', 'pull-request']
+      },
+      {
+        id: 'pull-request',
+        name: 'Pull Request',
+        chinese: '合并请求',
+        category: 'remote',
+        definition: 'PR 是请求将你的分支合并到目标仓库的机制，常用于代码审查。',
+        detail: 'PR（GitHub）或 MR（GitLab）是协作开发的核心工具。它允许讨论、代码审查、CI 检查，然后合并。',
+        commands: ['（在 GitHub/GitLab 界面操作）'],
+        relatedTerms: ['branch', 'merge', 'fork']
+      },
+      {
+        id: 'add',
+        name: 'Add',
+        chinese: '添加',
+        category: 'basic',
+        definition: '添加操作将工作目录的修改放入暂存区，准备下一次提交。',
+        detail: 'git add 可以添加特定文件或所有修改。使用 git add -p 可以交互式地选择要暂存的修改部分。',
+        commands: ['git add <file>', 'git add .', 'git add -p'],
+        relatedTerms: ['staging-area', 'working-directory', 'commit']
+      },
+      {
+        id: 'log',
+        name: 'Log',
+        chinese: '日志',
+        category: 'basic',
+        definition: '日志命令显示提交历史，帮助你了解项目的演变过程。',
+        detail: 'git log 有多种格式化选项，可以显示图形化历史、每次提交的变更统计等。',
+        commands: ['git log', 'git log --oneline --graph'],
+        relatedTerms: ['commit', 'branch', 'diff']
+      },
+      {
+        id: 'diff',
+        name: 'Diff',
+        chinese: '差异',
+        category: 'basic',
+        definition: '差异命令显示文件在不同状态之间的变化。',
+        detail: 'git diff 可以比较工作目录与暂存区、暂存区与最新提交、或任意两个提交之间的差异。',
+        commands: ['git diff', 'git diff --staged'],
+        relatedTerms: ['commit', 'working-directory', 'staging-area']
+      },
+      {
+        id: 'reset',
+        name: 'Reset',
+        chinese: '重置',
+        category: 'advanced',
+        definition: '重置操作将当前分支移动到指定状态，可以修改暂存区和工作目录。',
+        detail: 'git reset 有三种模式：--soft 只移动指针，--mixed（默认）同时重置暂存区，--hard 进一步重置工作目录。',
+        commands: ['git reset HEAD~1', 'git reset --hard HEAD~1'],
+        relatedTerms: ['commit', 'staging-area', 'working-directory', 'revert']
+      },
+      {
+        id: 'revert',
+        name: 'Revert',
+        chinese: '撤销',
+        category: 'advanced',
+        definition: '撤销操作创建一个新提交来撤销之前的提交，不修改历史。',
+        detail: '与 reset 不同，revert 是安全的撤销方式，因为它创建新提交而不是删除旧提交。适合撤销已推送的提交。',
+        commands: ['git revert <commit>'],
+        relatedTerms: ['commit', 'reset', 'push']
+      },
+      {
+        id: 'stash',
+        name: 'Stash',
+        chinese: '暂存修改',
+        category: 'advanced',
+        definition: 'Stash 临时保存未提交的修改，让你可以切换分支或拉取更新。',
+        detail: '当你需要临时切换上下文但又不想提交当前工作时，stash 非常有用。修改被保存到栈中，可以随时恢复。',
+        commands: ['git stash', 'git stash pop', 'git stash list'],
+        relatedTerms: ['working-directory', 'staging-area', 'checkout']
+      },
+      {
+        id: 'cherry-pick',
+        name: 'Cherry-pick',
+        chinese: '精选提交',
+        category: 'advanced',
+        definition: 'Cherry-pick 将特定的提交应用到当前分支，而不是合并整个分支。',
+        detail: '当你只需要另一个分支的某个特定修复或功能时，cherry-pick 很有用。它会创建一个新的提交。',
+        commands: ['git cherry-pick <commit>'],
+        relatedTerms: ['commit', 'branch', 'merge']
+      },
+      {
+        id: 'tag',
+        name: 'Tag',
+        chinese: '标签',
+        category: 'advanced',
+        definition: '标签是给特定提交的永久标记，通常用于标记发布版本。',
+        detail: '标签分两种：轻量标签（简单指针）和注释标签（包含作者、日期、消息和签名）。语义化版本标签如 v1.0.0 是常见用法。',
+        commands: ['git tag v1.0.0', 'git tag -a v1.0.0 -m "Release"'],
+        relatedTerms: ['commit', 'branch', 'push']
+      }
+    ];
+
+    // 节点位置配置（百分比位置，确保在安全区域内）
+    const nodePositions = {
+      // 基础概念 - 左上区域
+      'repository': { x: 12, y: 10 },
+      'working-directory': { x: 5, y: 25 },
+      'staging-area': { x: 20, y: 25 },
+      'add': { x: 5, y: 40 },
+      'commit': { x: 12, y: 42 },
+      'log': { x: 5, y: 57 },
+      'diff': { x: 20, y: 57 },
+      
+      // 分支操作 - 中间区域
+      'branch': { x: 40, y: 15 },
+      'head': { x: 55, y: 15 },
+      'checkout': { x: 47, y: 30 },
+      'merge': { x: 35, y: 45 },
+      'rebase': { x: 55, y: 45 },
+      'conflict': { x: 47, y: 60 },
+      
+      // 远程协作 - 右上区域
+      'remote': { x: 75, y: 10 },
+      'clone': { x: 90, y: 10 },
+      'fork': { x: 82, y: 25 },
+      'push': { x: 70, y: 35 },
+      'pull': { x: 85, y: 35 },
+      'fetch': { x: 77, y: 50 },
+      'pull-request': { x: 92, y: 25 },
+      
+      // 高级操作 - 底部区域
+      'reset': { x: 25, y: 75 },
+      'revert': { x: 40, y: 75 },
+      'stash': { x: 55, y: 75 },
+      'cherry-pick': { x: 70, y: 75 },
+      'tag': { x: 85, y: 75 }
+    };
+
+    // 状态管理
+    const state = {
+      currentCategory: 'all',
+      searchTerm: '',
+      activeTerm: null
+    };
+
+    // DOM 元素
+    const elements = {
+      graphContainer: document.getElementById('graph-container'),
+      nodesContainer: document.getElementById('nodes-container'),
+      connectionsSvg: document.getElementById('connections-svg'),
+      termList: document.getElementById('term-list'),
+      detailPanel: document.getElementById('detail-panel'),
+      detailContent: document.getElementById('detail-content'),
+      panelOverlay: document.getElementById('panel-overlay'),
+      searchInput: document.getElementById('search-input'),
+      categoryBtns: document.querySelectorAll('.category-btn'),
+      closePanel: document.getElementById('close-panel')
+    };
+
+    // 获取分类颜色
+    function getCategoryColor(category) {
+      const colors = {
+        basic: '#22c55e',
+        branch: '#3b82f6',
+        remote: '#a855f7',
+        advanced: '#ef4444'
+      };
+      return colors[category] || '#6b7a90';
+    }
+
+    // 过滤术语
+    function getFilteredTerms() {
+      let terms = [...gitTerms];
+      
+      if (state.currentCategory !== 'all') {
+        terms = terms.filter(t => t.category === state.currentCategory);
+      }
+      
+      if (state.searchTerm) {
+        const term = state.searchTerm.toLowerCase();
+        terms = terms.filter(t => 
+          t.name.toLowerCase().includes(term) ||
+          t.chinese.includes(term) ||
+          t.definition.includes(term)
+        );
+      }
+      
+      return terms;
+    }
+
+    // 渲染术语列表
+    function renderTermList() {
+      const terms = getFilteredTerms();
+      
+      elements.termList.innerHTML = terms.map(term => `
+        <div class="term-list-item ${state.activeTerm === term.id ? 'active' : ''}" data-id="${term.id}">
+          <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-sm shrink-0" style="background: ${getCategoryColor(term.category)}"></div>
+            <div class="min-w-0">
+              <div class="font-medium truncate text-sm">${term.name}</div>
+              <div class="text-xs text-slate-500">${term.chinese}</div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      elements.termList.querySelectorAll('.term-list-item').forEach(item => {
+        item.addEventListener('click', () => selectTerm(item.dataset.id));
+      });
+    }
+
+    // 渲染节点
+    function renderNodes() {
+      const terms = getFilteredTerms();
+      const containerRect = elements.graphContainer.getBoundingClientRect();
+      const padding = 30;
+      const nodeWidth = 100;
+      const nodeHeight = 36;
+      
+      elements.nodesContainer.innerHTML = terms.map(term => {
+        const pos = nodePositions[term.id];
+        if (!pos) return '';
+        
+        // 计算实际位置，确保不超出边界
+        const x = Math.max(padding, Math.min(
+          containerRect.width - nodeWidth - padding,
+          (pos.x / 100) * containerRect.width - nodeWidth / 2
+        ));
+        const y = Math.max(padding, Math.min(
+          containerRect.height - nodeHeight - padding,
+          (pos.y / 100) * containerRect.height - nodeHeight / 2
+        ));
+        
+        return `
+          <div class="term-node ${term.category} ${state.activeTerm === term.id ? 'active' : ''}" 
+               data-id="${term.id}" 
+               style="left: ${x}px; top: ${y}px;">
+            <span class="font-mono">${term.name}</span>
+          </div>
+        `;
+      }).join('');
+
+      elements.nodesContainer.querySelectorAll('.term-node').forEach(node => {
+        node.addEventListener('click', () => selectTerm(node.dataset.id));
+      });
+
+      renderConnections();
+    }
+
+    // 渲染连接线
+    function renderConnections() {
+      const terms = getFilteredTerms();
+      const termIds = terms.map(t => t.id);
+      const containerRect = elements.graphContainer.getBoundingClientRect();
+      
+      let lines = '';
+      terms.forEach(term => {
+        if (!term.relatedTerms) return;
+        
+        term.relatedTerms.forEach(relId => {
+          if (termIds.includes(relId)) {
+            const fromPos = nodePositions[term.id];
+            const toPos = nodePositions[relId];
+            if (fromPos && toPos) {
+              const x1 = Math.max(30, Math.min(containerRect.width - 30, (fromPos.x / 100) * containerRect.width));
+              const y1 = Math.max(20, Math.min(containerRect.height - 20, (fromPos.y / 100) * containerRect.height));
+              const x2 = Math.max(30, Math.min(containerRect.width - 30, (toPos.x / 100) * containerRect.width));
+              const y2 = Math.max(20, Math.min(containerRect.height - 20, (toPos.y / 100) * containerRect.height));
+              
+              const isHighlighted = state.activeTerm && 
+                (state.activeTerm === term.id || state.activeTerm === relId);
+              
+              const midX = (x1 + x2) / 2;
+              const midY = (y1 + y2) / 2 - 15;
+              
+              lines += `<path class="connection-line ${isHighlighted ? 'highlighted' : ''}" 
+                            d="M${x1},${y1} Q${midX},${midY} ${x2},${y2}"/>`;
+            }
+          }
+        });
+      });
+      
+      elements.connectionsSvg.innerHTML = lines;
+    }
+
+    // 选择术语
+    function selectTerm(termId) {
+      state.activeTerm = termId;
+      const term = gitTerms.find(t => t.id === termId);
+      
+      if (!term) return;
+
+      elements.termList.querySelectorAll('.term-list-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.id === termId);
+      });
+
+      elements.nodesContainer.querySelectorAll('.term-node').forEach(node => {
+        node.classList.toggle('active', node.dataset.id === termId);
+      });
+
+      renderConnections();
+      renderDetail(term);
+      elements.detailPanel.classList.add('open');
+      elements.panelOverlay.classList.add('open');
+    }
+
+    // 渲染详情
+    function renderDetail(term) {
+      elements.detailContent.innerHTML = `
+        <div class="mb-6 pt-8">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-3 h-3 rounded" style="background: ${getCategoryColor(term.category)}"></div>
+            <span class="text-xs text-slate-400 uppercase">${term.category}</span>
+          </div>
+          <h2 class="font-mono text-xl font-bold mb-1">${term.name}</h2>
+          <p class="text-base text-slate-400">${term.chinese}</p>
+        </div>
+        
+        <div class="mb-5">
+          <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">定义</h3>
+          <p class="text-slate-300 leading-relaxed text-sm">${term.definition}</p>
+        </div>
+        
+        <div class="mb-5">
+          <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">详细说明</h3>
+          <p class="text-slate-400 leading-relaxed text-sm">${term.detail}</p>
+        </div>
+        
+        <div class="mb-5">
+          <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">常用命令</h3>
+          <div class="space-y-2">
+            ${term.commands.map(cmd => `
+              <div class="code-block text-orange-400">${cmd}</div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <div>
+          <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">关联术语</h3>
+          <div class="flex flex-wrap gap-2">
+            ${term.relatedTerms.map(relId => {
+              const relTerm = gitTerms.find(t => t.id === relId);
+              if (!relTerm) return '';
+              return `
+                <button class="related-tag" data-id="${relId}">
+                  <div class="w-2 h-2 rounded-sm" style="background: ${getCategoryColor(relTerm.category)}"></div>
+                  <span>${relTerm.name}</span>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+
+      elements.detailContent.querySelectorAll('.related-tag').forEach(tag => {
+        tag.addEventListener('click', () => selectTerm(tag.dataset.id));
+      });
+    }
+
+    // 关闭详情面板
+    function closeDetailPanel() {
+      state.activeTerm = null;
+      elements.detailPanel.classList.remove('open');
+      elements.panelOverlay.classList.remove('open');
+      
+      elements.termList.querySelectorAll('.term-list-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      elements.nodesContainer.querySelectorAll('.term-node').forEach(node => {
+        node.classList.remove('active');
+      });
+      
+      renderConnections();
+    }
+
+    // 设置分类筛选
+    function setupCategoryFilter() {
+      elements.categoryBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          elements.categoryBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.currentCategory = btn.dataset.category;
+          renderTermList();
+          renderNodes();
+        });
+      });
+    }
+
+    // 设置搜索
+    function setupSearch() {
+      let timeout;
+      elements.searchInput.addEventListener('input', (e) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+          state.searchTerm = e.target.value;
+          renderTermList();
+          renderNodes();
+        }, 200);
+      });
+    }
+
+    // 设置面板关闭
+    function setupPanelClose() {
+      elements.closePanel.addEventListener('click', closeDetailPanel);
+      elements.panelOverlay.addEventListener('click', closeDetailPanel);
+      
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeDetailPanel();
+      });
+    }
+
+    // 窗口大小变化
+    function setupResize() {
+      let timeout;
+      window.addEventListener('resize', () => {
+        clearTimeout(timeout);
+        timeout = setTimeout(renderNodes, 150);
+      });
+    }
+
+    // 初始化
+    function init() {
+      renderTermList();
+      renderNodes();
+      setupCategoryFilter();
+      setupSearch();
+      setupPanelClose();
+      setupResize();
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+[
+  {
+    "controlId": "mingcheng",
+    "value": "文本"
+  },
+  {
+    "controlId": "leixing",
+    "value": "1技能 或 2想法 或 3项目 或 4交流 或 5规则 或 6价值 或 7目标 或 8计划 或 9信息 或 10人脉 或 11仓 或 12复盘",
+    "valueType": "提交值类型，1=不增加选项，2=允许增加选项（默认为1，为1时匹配不到已有选项时传入空，为2时，匹配不到时会创建新选项并写入）"
+  },
+  {
+    "controlId": "quanzhong",
+    "value": "666.66"
+  },
+  {
+    "controlId": "guanjianci",
+    "value": "rowid1,rowid2,rowid3"
+  },
+  {
+    "controlId": "miaoshu",
+    "value": "文本"
+  },
+  {
+    "controlId": "neirong",
+    "value": "文本"
+  },
+  {
+    "controlId": "mzcs",
+    "value": "666.66"
+  },
+  {
+    "controlId": "readme",
+    "value": "文本"
+  },
+  {
+    "controlId": "kssj",
+    "value": "2018-8-8 12:00:00"
+  },
+  {
+    "controlId": "yjwcsj",
+    "value": "2018-8-8 12:00:00"
+  },
+  {
+    "controlId": "sjwcsj",
+    "value": "2018-8-8 12:00:00"
+  },
+  {
+    "controlId": "fu",
+    "value": "rowid"
+  },
+  {
+    "controlId": "fujian",
+    "value": "https://www.mingdao.com/1.jpg,https://www.mingdao.com/2.jpg,https://www.mingdao.com/3.txt",
+    "editType": "数据更新类型，0=覆盖，1=新增（默认0:覆盖，新建记录可不传该参数）",
+    "valueType": "提交值类型，1=外部文件链接，2=文件流字节编码 base64格式 字符串 (默认1,为1时 外部链接放在value参数中，为2时 文件流base64信息放在controlFiles参数中 )",
+    "controlFiles": [
+      {
+        "baseFile": "base64字符串（文件流字节编码）",
+        "fileName": "文件名称，带后缀"
+      }
+    ]
+  },
+  {
+    "controlId": "fabuzhe",
+    "value": "rowid"
+  },
+  {
+    "controlId": "duixiang",
+    "value": "rowid"
+  },
+  {
+    "controlId": "canyuzhe",
+    "value": "rowid"
+  },
+  {
+    "controlId": "zi",
+    "value": "rowid1,rowid2,rowid3"
+  }
+]

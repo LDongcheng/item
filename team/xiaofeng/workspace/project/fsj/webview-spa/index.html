@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- 禁用缓存 -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>童小智</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+  <link rel="stylesheet" href="css/base.css?v=20260505">
+  <link rel="stylesheet" href="css/components.css?v=20260505">
+  <link rel="stylesheet" href="css/components-login.css?v=20260505">
+  <link rel="stylesheet" href="css/pages.css?v=20260505">
+  <!-- Markdown 渲染 -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <!-- 页面容器 -->
+  <div id="app">
+    <!-- 首页 -->
+    <div class="page" id="page-home">
+      <header class="top-bar">
+        <div class="top-bar-left">
+          <span class="scope-selector" id="scope-selector">组织 ▾</span>
+        </div>
+        <div class="top-bar-center">
+          <div class="search-box">
+            <input type="text" placeholder="搜索" />
+          </div>
+        </div>
+        <div class="top-bar-right">
+          <span class="btn-task" id="btn-task">任务</span>
+        </div>
+      </header>
+      <main class="page-content" id="home-container">
+        <!-- 轮播图 -->
+        <div class="banner" id="home-banner"></div>
+
+        <!-- 功能列表 -->
+        <div class="func-grid" id="home-func-grid"></div>
+
+        <!-- 文章列表 -->
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">最新文章</span>
+            <span class="section-more">查看更多</span>
+          </div>
+          <div class="article-list" id="home-article-list"></div>
+        </div>
+      </main>
+    </div>
+
+    <!-- 智能体聊天页 -->
+    <div class="page" id="page-agent">
+      <header class="top-bar agent-topbar">
+        <div class="top-bar-left">
+          <img class="agent-avatar-top" id="agent-avatar-top" src="" />
+          <span class="agent-name-top" id="agent-name-top"></span>
+        </div>
+        <div class="top-bar-right">
+          <span class="agent-top-btn" id="btn-log-view">日志</span>
+          <span class="agent-top-btn" data-panel="tasks">任务</span>
+          <span class="agent-top-btn" data-panel="settings">设置</span>
+        </div>
+      </header>
+      <main class="page-content page-agent-content" id="chat-container">
+        <div id="chat-messages"></div>
+        <div class="bottom-card">
+          <!-- 沉浸模式消息列表（输入框上方） -->
+          <div class="immersive-msg-list" id="immersive-msg-list"></div>
+          <div class="quick-actions-scroll">
+            <div class="quick-actions" id="quick-actions"></div>
+          </div>
+          <div class="input-area" id="chat-input-area"></div>
+        </div>
+      </main>
+    </div>
+
+    <!-- 消息页面 -->
+    <div class="page" id="page-message">
+      <main class="page-content" id="message-container">
+        <div class="message-list" id="message-list"></div>
+      </main>
+    </div>
+
+    <!-- 我的页面 -->
+    <div class="page active" id="page-profile">
+      <main class="page-content" id="profile-container">
+        <div class="user-card" id="profile-user-card"></div>
+        <div class="stats-card" id="profile-stats"></div>
+        <div class="settings-list" id="profile-settings"></div>
+      </main>
+    </div>
+
+    <!-- 内嵌网页页 -->
+    <div class="page" id="page-webview">
+      <iframe id="webview-iframe" src="" frameborder="0" allow="camera;microphone;geolocation"></iframe>
+    </div>
+
+    <!-- 底部TabBar -->
+    <!-- 初始显示"我的"，登录后由 JS 动态渲染完整配置 -->
+    <nav class="tab-bar" id="tab-bar">
+      <div class="tab-item" data-page="profile">
+        <div class="tab-icon-img"></div>
+        <span class="tab-label">我的</span>
+      </div>
+    </nav>
+  </div>
+
+  <script src="js/bridge.js?v=20260505"></script>
+  <script src="js/app.js?v=20260505" type="module"></script>
+</body>
+</html>

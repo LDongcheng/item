@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw 架构可视化</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0f1a;
+      --bg-secondary: #111827;
+      --fg: #e2e8f0;
+      --muted: #64748b;
+      --accent: #10b981;
+      --accent-glow: rgba(16, 185, 129, 0.4);
+      --orange: #f59e0b;
+      --blue: #3b82f6;
+      --card: rgba(17, 24, 39, 0.8);
+      --border: rgba(100, 116, 139, 0.3);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      overflow-x: hidden;
+    }
+
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* 背景网格 */
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(16, 185, 129, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(16, 185, 129, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* 流动光效 */
+    .flow-line {
+      position: absolute;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      border-radius: 2px;
+      opacity: 0;
+      filter: drop-shadow(0 0 6px var(--accent));
+    }
+
+    .flow-line.active {
+      animation: flowPulse 1.5s ease-in-out forwards;
+    }
+
+    @keyframes flowPulse {
+      0% { opacity: 0; transform: scaleX(0); }
+      20% { opacity: 1; transform: scaleX(0.1); }
+      80% { opacity: 1; transform: scaleX(1); }
+      100% { opacity: 0; transform: scaleX(1); }
+    }
+
+    /* 数据包动画 */
+    .data-packet {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent-glow);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .data-packet.active {
+      animation: packetMove 1.2s ease-in-out forwards;
+    }
+
+    @keyframes packetMove {
+      0% { opacity: 0; transform: scale(0.5); }
+      10% { opacity: 1; transform: scale(1); }
+      90% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.5); }
+    }
+
+    /* 节点样式 */
+    .node {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .node:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 30px rgba(16, 185, 129, 0.15);
+    }
+
+    .node.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 40px rgba(16, 185, 129, 0.3);
+    }
+
+    /* 节点图标容器 */
+    .node-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.3s ease;
+    }
+
+    .node:hover .node-icon {
+      transform: scale(1.1);
+    }
+
+    /* 状态指示器 */
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: all 0.3s ease;
+    }
+
+    .status-dot.online {
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* 标签页 */
+    .tab-btn {
+      padding: 12px 24px;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: 500;
+    }
+
+    .tab-btn:hover {
+      color: var(--fg);
+      background: rgba(255,255,255,0.05);
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      background: rgba(16, 185, 129, 0.1);
+      border-color: var(--accent);
+    }
+
+    /* 发送按钮 */
+    .send-btn {
+      background: linear-gradient(135deg, var(--accent), #059669);
+      border: none;
+      padding: 16px 32px;
+      border-radius: 12px;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .send-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent, rgba(255,255,255,0.2), transparent);
+      transform: translateX(-100%);
+      transition: transform 0.5s ease;
+    }
+
+    .send-btn:hover::before {
+      transform: translateX(100%);
+    }
+
+    .send-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+    }
+
+    .send-btn:active {
+      transform: translateY(0);
+    }
+
+    .send-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* 消息日志 */
+    .log-entry {
+      padding: 12px 16px;
+      border-radius: 8px;
+      background: rgba(0,0,0,0.3);
+      border-left: 3px solid var(--border);
+      animation: slideIn 0.3s ease;
+    }
+
+    .log-entry.send { border-left-color: var(--accent); }
+    .log-entry.receive { border-left-color: var(--orange); }
+    .log-entry.process { border-left-color: var(--blue); }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    /* 概念卡片 */
+    .concept-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+
+    .concept-card:hover {
+      border-color: rgba(16, 185, 129, 0.5);
+      transform: translateY(-4px);
+    }
+
+    /* 进程动画 */
+    .process-ring {
+      position: absolute;
+      inset: -4px;
+      border: 2px dashed var(--border);
+      border-radius: 20px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .node.processing .process-ring {
+      opacity: 1;
+      animation: spin 3s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* 部署切换 */
+    .deploy-toggle {
+      display: flex;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .deploy-btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: 500;
+    }
+
+    .deploy-btn.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .node-icon { width: 48px; height: 48px; }
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="bg-grid"></div>
+  
+  <div class="relative z-10 max-w-7xl mx-auto px-4 py-8">
+    <!-- 头部 -->
+    <header class="text-center mb-12">
+      <h1 class="text-4xl md:text-5xl font-bold mb-4 tracking-tight">
+        OpenClaw 架构<span class="text-emerald-400">可视化</span>
+      </h1>
+      <p class="text-lg text-slate-400 max-w-2xl mx-auto">
+        理解网关、进程与智能体之间的协作关系
+      </p>
+    </header>
+
+    <!-- 标签切换 -->
+    <div class="flex justify-center gap-2 mb-12 flex-wrap">
+      <button class="tab-btn active" data-tab="interactive">交互演示</button>
+      <button class="tab-btn" data-tab="concepts">概念详解</button>
+      <button class="tab-btn" data-tab="deploy">部署模式</button>
+    </div>
+
+    <!-- 交互演示面板 -->
+    <div id="panel-interactive" class="panel">
+      <!-- 部署模式切换 -->
+      <div class="flex justify-center mb-8">
+        <div class="deploy-toggle">
+          <button class="deploy-btn active" data-deploy="local">本地部署</button>
+          <button class="deploy-btn" data-deploy="remote">远程部署</button>
+        </div>
+      </div>
+
+      <!-- 架构图 -->
+      <div class="relative" id="architecture">
+        <!-- 连接线 SVG -->
+        <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 0;">
+          <defs>
+            <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:rgba(16,185,129,0)" />
+              <stop offset="50%" style="stop-color:rgba(16,185,129,0.6)" />
+              <stop offset="100%" style="stop-color:rgba(16,185,129,0)" />
+            </linearGradient>
+          </defs>
+        </svg>
+
+        <div class="grid md:grid-cols-3 gap-6 md:gap-8 items-center">
+          <!-- 聊天应用 -->
+          <div class="node p-6" id="node-chat">
+            <div class="process-ring"></div>
+            <div class="flex items-center gap-4 mb-4">
+              <div class="node-icon bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-500/30">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-bold text-lg">聊天应用</h3>
+                <div class="flex items-center gap-2">
+                  <span class="status-dot online"></span>
+                  <span class="text-sm text-slate-400">进程 A</span>
+                </div>
+              </div>
+            </div>
+            <p class="text-sm text-slate-400 mb-4">用户界面，发送消息并接收响应</p>
+            <div class="font-mono text-xs text-slate-500 bg-black/30 p-3 rounded-lg">
+              <span class="text-blue-400">PID:</span> 1024
+            </div>
+          </div>
+
+          <!-- 网关 -->
+          <div class="node p-6 relative" id="node-gateway">
+            <div class="process-ring"></div>
+            <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-emerald-500/20 border border-emerald-500/40 rounded-full text-xs font-mono text-emerald-400">
+              Gateway
+            </div>
+            <div class="flex items-center gap-4 mb-4 mt-2">
+              <div class="node-icon bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 border border-emerald-500/30">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">
+                  <rect x="2" y="3" width="20" height="14" rx="2"/>
+                  <path d="M8 21h8M12 17v4"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-bold text-lg">网关进程</h3>
+                <div class="flex items-center gap-2">
+                  <span class="status-dot online"></span>
+                  <span class="text-sm text-slate-400">进程 B</span>
+                </div>
+              </div>
+            </div>
+            <p class="text-sm text-slate-400 mb-4">中转站，路由消息到正确的智能体</p>
+            <div class="font-mono text-xs text-slate-500 bg-black/30 p-3 rounded-lg">
+              <span class="text-emerald-400">PID:</span> 2048
+            </div>
+          </div>
+
+          <!-- 智能体 Pi -->
+          <div class="node p-6" id="node-agent">
+            <div class="process-ring"></div>
+            <div class="flex items-center gap-4 mb-4">
+              <div class="node-icon bg-gradient-to-br from-amber-500/20 to-amber-600/20 border border-amber-500/30">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-bold text-lg">Pi 智能体</h3>
+                <div class="flex items-center gap-2">
+                  <span class="status-dot online"></span>
+                  <span class="text-sm text-slate-400">进程 C</span>
+                </div>
+              </div>
+            </div>
+            <p class="text-sm text-slate-400 mb-4">编程智能体，处理代码生成任务</p>
+            <div class="font-mono text-xs text-slate-500 bg-black/30 p-3 rounded-lg">
+              <span class="text-amber-400">PID:</span> 3072
+            </div>
+          </div>
+        </div>
+
+        <!-- 流动箭头指示 -->
+        <div class="hidden md:flex justify-center items-center gap-4 mt-8">
+          <div class="flex items-center gap-2 text-slate-500 text-sm">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+            <span>请求</span>
+          </div>
+          <div class="w-24 h-px bg-gradient-to-r from-emerald-500/50 to-transparent"></div>
+          <div class="flex items-center gap-2 text-slate-500 text-sm">
+            <span>响应</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- 模拟控制 -->
+      <div class="mt-12 max-w-2xl mx-auto">
+        <div class="bg-slate-900/50 border border-slate-700/50 rounded-2xl p-6">
+          <h3 class="font-bold mb-4 flex items-center gap-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            模拟消息流程
+          </h3>
+          
+          <div class="flex gap-3 mb-6">
+            <input 
+              type="text" 
+              id="message-input"
+              class="flex-1 bg-black/30 border border-slate-600/50 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
+              placeholder="输入消息，例如：帮我写一个 Python 函数"
+              value="帮我写一个排序函数"
+            >
+            <button id="send-btn" class="send-btn">发送</button>
+          </div>
+
+          <!-- 消息日志 -->
+          <div class="space-y-3 max-h-64 overflow-y-auto" id="log-container">
+            <div class="text-center text-slate-500 text-sm py-4">
+              点击"发送"按钮查看消息流转过程
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 概念详解面板 -->
+    <div id="panel-concepts" class="panel hidden">
+      <div class="grid md:grid-cols-3 gap-6">
+        <!-- 进程概念 -->
+        <div class="concept-card">
+          <div class="w-12 h-12 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center mb-4">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
+              <rect x="4" y="4" width="16" height="16" rx="2"/>
+              <rect x="9" y="9" width="6" height="6"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold mb-3">进程</h3>
+          <p class="text-slate-400 mb-4">
+            进程是正在运行的程序实例。每个进程都有独立的内存空间和系统资源。
+          </p>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 text-sm">
+              <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span>独立运行，互不干扰</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm">
+              <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span>可通过网络/管道通信</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm">
+              <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span>每个进程有唯一 PID</span>
+            </div>
+          </div>
+          <div class="mt-4 p-3 bg-black/30 rounded-lg font-mono text-xs text-slate-400">
+            <div class="text-blue-400 mb-1">// 类比理解</div>
+            进程 = 工厂里的独立车间
+          </div>
+        </div>
+
+        <!-- 网关概念 -->
+        <div class="concept-card">
+          <div class="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mb-4">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold mb-3">网关</h3>
+          <p class="text-slate-400 mb-4">
+            网关是一个中转站，负责接收请求、路由转发、负载均衡和响应返回。
+          </p>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 text-sm">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span>统一入口点</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span>请求路由与分发</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span>协议转换与安全控制</span>
+            </div>
+          </div>
+          <div class="mt-4 p-3 bg-black/30 rounded-lg font-mono text-xs text-slate-400">
+            <div class="text-emerald-400 mb-1">// 类比理解</div>
+            网关 = 酒店前台 / 机场塔台
+          </div>
+        </div>
+
+        <!-- Pi 智能体概念 -->
+        <div class="concept-card">
+          <div class="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mb-4">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold mb-3">Pi 编程智能体</h3>
+          <p class="text-slate-400 mb-4">
+            Pi 是 Programming Intelligence 的缩写，指专门处理编程任务的 AI Agent。
+          </p>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 text-sm">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+              <span>代码生成与分析</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+              <span>问题诊断与修复</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+              <span>独立服务，可扩展</span>
+            </div>
+          </div>
+          <div class="mt-4 p-3 bg-black/30 rounded-lg font-mono text-xs text-slate-400">
+            <div class="text-amber-400 mb-1">// 类比理解</div>
+            智能体 = 专业技师 / 专家顾问
+          </div>
+        </div>
+      </div>
+
+      <!-- 协作关系图 -->
+      <div class="mt-12 bg-slate-900/50 border border-slate-700/50 rounded-2xl p-8">
+        <h3 class="text-xl font-bold mb-6 text-center">协作关系类比</h3>
+        <div class="grid md:grid-cols-3 gap-8 items-center">
+          <div class="text-center">
+            <div class="text-4xl mb-3">👤</div>
+            <div class="font-bold">顾客</div>
+            <div class="text-slate-500 text-sm">聊天应用</div>
+            <div class="text-xs text-slate-600 mt-2">发起请求</div>
+          </div>
+          <div class="text-center">
+            <div class="text-4xl mb-3">🎯</div>
+            <div class="font-bold">前台</div>
+            <div class="text-slate-500 text-sm">网关</div>
+            <div class="text-xs text-slate-600 mt-2">调度分配</div>
+          </div>
+          <div class="text-center">
+            <div class="text-4xl mb-3">🔧</div>
+            <div class="font-bold">技师</div>
+            <div class="text-slate-500 text-sm">Pi 智能体</div>
+            <div class="text-xs text-slate-600 mt-2">处理任务</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 部署模式面板 -->
+    <div id="panel-deploy" class="panel hidden">
+      <div class="grid md:grid-cols-2 gap-8">
+        <!-- 本地部署 -->
+        <div class="concept-card">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">
+                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                <path d="M8 21h8M12 17v4"/>
+              </svg>
+            </div>
+            <h3 class="text-xl font-bold">本地部署</h3>
+          </div>
+          <p class="text-slate-400 mb-6">所有进程运行在同一台机器上，通过 localhost 通信。</p>
+          
+          <div class="space-y-4">
+            <div class="flex items-start gap-3">
+              <span class="text-emerald-400 mt-1">✓</span>
+              <div>
+                <div class="font-medium">低延迟</div>
+                <div class="text-sm text-slate-500">本地通信速度快</div>
+              </div>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="text-emerald-400 mt-1">✓</span>
+              <div>
+                <div class="font-medium">数据安全</div>
+                <div class="text-sm text-slate-500">数据不离开本机</div>
+              </div>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="text-amber-400 mt-1">!</span>
+              <div>
+                <div class="font-medium">资源受限</div>
+                <div class="text-sm text-slate-500">受本地硬件限制</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 p-4 bg-black/30 rounded-lg font-mono text-xs">
+            <div class="text-emerald-400 mb-2"># 本地架构示意</div>
+            <pre class="text-slate-400">
+┌─────────────────────────────┐
+│      你的电脑 │
+│  ┌───────┐   ┌───────┐      │
+│  │ 聊天  │──▶│ 网关  │      │
+│  │ 应用  │   │进程   │──┐   │
+│  └───────┘   └───────┘  │   │
+│                        ▼   │
+│                   ┌───────┐│
+│                   │ Pi    ││
+│                   │智能体 ││
+│                   └───────┘│
+└─────────────────────────────┘</pre>
+          </div>
+        </div>
+
+        <!-- 远程部署 -->
+        <div class="concept-card">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
+                <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"/>
+              </svg>
+            </div>
+            <h3 class="text-xl font-bold">远程部署</h3>
+          </div>
+          <p class="text-slate-400 mb-6">进程分布在不同服务器，通过网络 API 通信。</p>
+          
+          <div class="space-y-4">
+            <div class="flex items-start gap-3">
+              <span class="text-emerald-400 mt-1">✓</span>
+              <div>
+                <div class="font-medium">弹性扩展</div>
+                <div class="text-sm text-slate-500">可随时增加智能体实例</div>
+              </div>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="text-emerald-400 mt-1">✓</span>
+              <div>
+                <div class="font-medium">高可用</div>
+                <div class="text-sm text-slate-500">多节点容错</div>
+              </div>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="text-amber-400 mt-1">!</span>
+              <div>
+                <div class="font-medium">网络开销</div>
+                <div class="text-sm text-slate-500">需要考虑延迟和安全</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 p-4 bg-black/30 rounded-lg font-mono text-xs">
+            <div class="text-blue-400 mb-2"># 远程架构示意</div>
+            <pre class="text-slate-400">
+┌──────────────┐         ┌──────────────┐
+│  本地电脑    │         │  云服务器    │
+│ ┌────────┐  │  HTTP   │ ┌────────┐  │
+│ │ 聊天   │──┼────────▶│ │ 网关   │  │
+│ │ 应用   │◀─┼─────────┤ │ 进程   │  │
+│ └────────┘  │  API    │ └───┬────┘  │
+└──────────────┘         │     │      │
+                         │     ▼      │
+                         │ ┌────────┐ │
+                         │ │ Pi集群 │ │
+                         │ │ ⚙ ⚙ ⚙ │ │
+                         │ └────────┘ │
+                         └──────────────┘</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- 选择建议 -->
+      <div class="mt-8 bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-slate-700/50 rounded-2xl p-6">
+        <h3 class="font-bold mb-4">如何选择?</h3>
+        <div class="grid md:grid-cols-2 gap-6">
+          <div>
+            <div class="text-emerald-400 font-medium mb-2">选择本地部署：</div>
+            <ul class="text-sm text-slate-400 space-y-1">
+              <li>• 开发测试阶段</li>
+              <li>• 数据隐私要求高</li>
+              <li>• 单机资源足够</li>
+            </ul>
+          </div>
+          <div>
+            <div class="text-blue-400 font-medium mb-2">选择远程部署：</div>
+            <ul class="text-sm text-slate-400 space-y-1">
+              <li>• 生产环境服务</li>
+              <li>• 需要高并发处理</li>
+              <li>• 多用户协作场景</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 状态管理
+    const state = {
+      currentTab: 'interactive',
+      deployMode: 'local',
+      isAnimating: false
+    };
+
+    // DOM 元素
+    const elements = {
+      tabs: document.querySelectorAll('.tab-btn'),
+      panels: document.querySelectorAll('.panel'),
+      deployBtns: document.querySelectorAll('.deploy-btn'),
+      sendBtn: document.getElementById('send-btn'),
+      messageInput: document.getElementById('message-input'),
+      logContainer: document.getElementById('log-container'),
+      nodeChat: document.getElementById('node-chat'),
+      nodeGateway: document.getElementById('node-gateway'),
+      nodeAgent: document.getElementById('node-agent')
+    };
+
+    // 初始化
+    function init() {
+      setupTabNavigation();
+      setupDeployToggle();
+      setupSendMessage();
+      setupNodeHover();
+    }
+
+    // 标签导航
+    function setupTabNavigation() {
+      elements.tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const targetTab = tab.dataset.tab;
+          
+          elements.tabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          
+          document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
+          document.getElementById(`panel-${targetTab}`).classList.remove('hidden');
+          
+          state.currentTab = targetTab;
+        });
+      });
+    }
+
+    // 部署模式切换
+    function setupDeployToggle() {
+      elements.deployBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          elements.deployBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.deployMode = btn.dataset.deploy;
+        });
+      });
+    }
+
+    // 发送消息模拟
+    function setupSendMessage() {
+      elements.sendBtn.addEventListener('click', () => {
+        if (state.isAnimating) return;
+        
+        const message = elements.messageInput.value.trim() || '帮我写一个排序函数';
+        simulateMessageFlow(message);
+      });
+
+      elements.messageInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          elements.sendBtn.click();
+        }
+      });
+    }
+
+    // 消息流转动画
+    async function simulateMessageFlow(message) {
+      state.isAnimating = true;
+      elements.sendBtn.disabled = true;
+      elements.logContainer.innerHTML = '';
+
+      const steps = [
+        { node: elements.nodeChat, type: 'send', text: `发送请求: "${message}"`, delay: 0 },
+        { node: elements.nodeChat, type: 'process', text: '序列化消息数据...', delay: 500 },
+        { node: elements.nodeGateway, type: 'receive', text: '网关接收请求', delay: 1000 },
+        { node: elements.nodeGateway, type: 'process', text: '解析目标智能体类型...', delay: 1500 },
+        { node: elements.nodeAgent, type: 'receive', text: 'Pi 智能体接收任务', delay: 2000 },
+        { node: elements.nodeAgent, type: 'process', text: '执行代码生成...', delay: 2500 },
+        { node: elements.nodeAgent, type: 'send', text: '返回生成的代码', delay: 3000 },
+        { node: elements.nodeGateway, type: 'process', text: '网关转发响应', delay: 3500 },
+        { node: elements.nodeChat, type: 'receive', text: '聊天应用收到响应', delay: 4000 }
+      ];
+
+      // 清除所有节点状态
+      [elements.nodeChat, elements.nodeGateway, elements.nodeAgent].forEach(n => {
+        n.classList.remove('active', 'processing');
+      });
+
+      for (const step of steps) {
+        await new Promise(resolve => setTimeout(resolve, step.delay === 0 ? 0 : step.delay - (steps[steps.indexOf(step) - 1]?.delay || 0)));
+        
+        // 更新节点状态
+        [elements.nodeChat, elements.nodeGateway, elements.nodeAgent].forEach(n => {
+          n.classList.remove('active', 'processing');
+        });
+        step.node.classList.add('active');
+        if (step.type === 'process') {
+          step.node.classList.add('processing');
+        }
+
+        // 添加日志
+        addLogEntry(step.type, step.text);
+      }
+
+      // 完成
+      setTimeout(() => {
+        [elements.nodeChat, elements.nodeGateway, elements.nodeAgent].forEach(n => {
+          n.classList.remove('active', 'processing');
+        });
+        state.isAnimating = false;
+        elements.sendBtn.disabled = false;
+      }, 500);
+    }
+
+    // 添加日志条目
+    function addLogEntry(type, text) {
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.innerHTML = `
+        <div class="flex items-center gap-2 text-xs mb-1">
+          <span class="text-slate-500">${new Date().toLocaleTimeString()}</span>
+          <span class="font-mono ${type === 'send' ? 'text-emerald-400' : type === 'receive' ? 'text-amber-400' : 'text-blue-400'}">${type.toUpperCase()}</span>
+        </div>
+        <div class="text-sm">${text}</div>
+      `;
+      elements.logContainer.appendChild(entry);
+      elements.logContainer.scrollTop = elements.logContainer.scrollHeight;
+    }
+
+    // 节点悬停效果
+    function setupNodeHover() {
+      const nodes = [elements.nodeChat, elements.nodeGateway, elements.nodeAgent];
+      
+      nodes.forEach(node => {
+        node.addEventListener('mouseenter', () => {
+          if (!state.isAnimating) {
+            node.classList.add('active');
+          }
+        });
+        
+        node.addEventListener('mouseleave', () => {
+          if (!state.isAnimating) {
+            node.classList.remove('active');
+          }
+        });
+      });
+    }
+
+    // 启动
+    init();
+  </script>
+</body>
+</html>

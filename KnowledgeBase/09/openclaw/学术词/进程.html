@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>进程 - OpenClaw 学术词</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Noto+Sans+SC:wght@300;500;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #060b14;
+      --bg-card: #0c1420;
+      --fg: #e2e8f0;
+      --muted: #64748b;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.4);
+      --border: rgba(59, 130, 246, 0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    .font-display {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+
+    .bg-gradient {
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 20%, rgba(59, 130, 246, 0.08), transparent),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(59, 130, 246, 0.05), transparent);
+      pointer-events: none;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 1.5rem;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 30px rgba(59, 130, 246, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 6px 14px;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 999px;
+      margin: 4px;
+      font-size: 0.875rem;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .tag:hover {
+      background: rgba(59, 130, 246, 0.25);
+      transform: scale(1.05);
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .process-demo {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 2rem 0;
+    }
+
+    .process-box {
+      width: 120px;
+      height: 120px;
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: all 0.4s ease;
+      cursor: pointer;
+    }
+
+    .process-box:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 30px var(--accent-glow);
+      transform: scale(1.1);
+    }
+
+    .process-box.active {
+      border-color: var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 var(--accent-glow);
+      }
+
+      50% {
+        box-shadow: 0 0 0 15px transparent;
+      }
+    }
+
+    .process-box .pid {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      background: var(--accent);
+      color: white;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-family: 'Space Grotesk', monospace;
+    }
+
+    .memory-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(59, 130, 246, 0.2);
+      border-radius: 4px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .memory-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #60a5fa);
+      border-radius: 4px;
+      animation: memoryGrow 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes memoryGrow {
+      from {
+        width: 30%;
+      }
+
+      to {
+        width: 70%;
+      }
+    }
+
+    .analogy-card {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05));
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 16px;
+      padding: 24px;
+      margin: 1.5rem 0;
+    }
+
+    .emoji-large {
+      font-size: 3rem;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      margin-bottom: 8px;
+      transition: all 0.3s ease;
+    }
+
+    .feature-item:hover {
+      background: rgba(59, 130, 246, 0.1);
+      transform: translateX(8px);
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: rgba(59, 130, 246, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .code-block {
+      background: #0d1520;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      font-family: 'Space Grotesk', monospace;
+      font-size: 0.875rem;
+      overflow-x: auto;
+    }
+
+    .code-comment {
+      color: var(--muted);
+    }
+
+    .code-keyword {
+      color: #c792ea;
+    }
+
+    .code-string {
+      color: #c3e88d;
+    }
+
+    .code-number {
+      color: #f78c6c;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-gradient"></div>
+
+  <div class="relative z-10 max-w-4xl mx-auto px-4 py-12">
+    <a href="index.html"
+      class="inline-flex items-center gap-2 text-sm text-[var(--muted)] hover:text-[var(--accent)] mb-8 transition-colors">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 12H5M12 19l-7-7 7-7" />
+      </svg>
+      返回学术词索引
+    </a>
+
+    <header class="mb-12">
+      <div
+        class="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/30 rounded-full text-blue-400 text-sm mb-4">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="4" y="4" width="16" height="16" rx="2" />
+          <rect x="9" y="9" width="6" height="6" />
+        </svg>
+        架构相关 · 架构阶段
+      </div>
+      <h1 class="font-display text-4xl md:text-5xl font-bold mb-4"
+        style="background: linear-gradient(135deg, var(--fg), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        进程 Process
+      </h1>
+      <p class="text-lg text-[var(--muted)]">
+        进程是正在运行的程序实例，每个进程都有独立的内存空间和系统资源
+      </p>
+    </header>
+
+    <section class="card mb-8">
+      <h2 class="font-display text-lg font-semibold mb-3 text-[var(--accent)] flex items-center gap-2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2L2 7l10 5 10-5-10-5z" />
+          <path d="M2 17l10 5 10-5" />
+          <path d="M2 12l10 5 10-5" />
+        </svg>
+        学习提示词
+      </h2>
+      <div class="bg-black/30 rounded-lg p-4 border border-[var(--border)]">
+        <p class="text-[var(--fg)] italic">我想学习关于openclaw关于进程的知识，之所以用html是因为可读性和可拓展性关联性等，让我更好地理解其学术词和学术词有关地其他学术词</p>
+      </div>
+    </section>
+
+    <section class="card mb-8">
+      <h2 class="font-display text-lg font-semibold mb-4 text-[var(--accent)] flex items-center gap-2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 6v6l4 2" />
+        </svg>
+        交互演示：进程独立运行
+      </h2>
+      <p class="text-[var(--muted)] mb-4">点击下方的进程框，观察它们的独立运行状态：</p>
+
+      <div class="process-demo">
+        <div class="process-box" onclick="this.classList.toggle('active')">
+          <span class="pid">PID: 1024</span>
+          <span class="emoji-large">🖥️</span>
+          <span class="text-sm mt-2">进程 A</span>
+          <div class="memory-bar">
+            <div class="memory-fill" style="width: 45%"></div>
+          </div>
+        </div>
+        <div class="process-box" onclick="this.classList.toggle('active')">
+          <span class="pid">PID: 2048</span>
+          <span class="emoji-large">🖥️</span>
+          <span class="text-sm mt-2">进程 B</span>
+          <div class="memory-bar">
+            <div class="memory-fill" style="width: 60%; animation-delay: 0.5s"></div>
+          </div>
+        </div>
+        <div class="process-box" onclick="this.classList.toggle('active')">
+          <span class="pid">PID: 3072</span>
+          <span class="emoji-large">🖥️</span>
+          <span class="text-sm mt-2">进程 C</span>
+          <div class="memory-bar">
+            <div class="memory-fill" style="width: 35%; animation-delay: 1s"></div>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-sm text-[var(--muted)] text-center mt-4">
+        💡 每个进程都有独立的内存空间，互不干扰
+      </p>
+    </section>
+
+    <section class="analogy-card mb-8">
+      <h2 class="font-display text-lg font-semibold mb-4 text-[var(--accent)] flex items-center gap-2">
+        <span class="emoji-large">🏭</span>
+        生活中的类比
+      </h2>
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <h3 class="font-semibold mb-2">进程 = 工厂里的独立车间</h3>
+          <p class="text-[var(--muted)] text-sm">
+            想象一个工厂里有多个车间，每个车间（进程）都有自己的：
+          </p>
+          <ul class="text-sm text-[var(--muted)] mt-2 space-y-1">
+            <li>• 📦 原料仓库（内存空间）</li>
+            <li>• 🔧 生产设备（系统资源）</li>
+            <li>• 👷 工作人员（执行线程）</li>
+            <li>• 📋 工作编号（PID）</li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="font-semibold mb-2">进程 = 手机上的App</h3>
+          <p class="text-[var(--muted)] text-sm">
+            你手机上同时运行的微信、抖音、浏览器，每个都是独立的进程：
+          </p>
+          <ul class="text-sm text-[var(--muted)] mt-2 space-y-1">
+            <li>• 📱 各自占用内存</li>
+            <li>• 🔄 可以同时运行</li>
+            <li>• 🚫 一个崩溃不影响其他</li>
+            <li>• 📊 任务管理器能看到PID</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card mb-8">
+      <h2 class="font-display text-lg font-semibold mb-4 text-[var(--accent)] flex items-center gap-2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon
+            points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+        </svg>
+        核心特性
+      </h2>
+      <div class="space-y-2">
+        <div class="feature-item">
+          <div class="feature-icon">🔒</div>
+          <div>
+            <div class="font-semibold">独立运行，互不干扰</div>
+            <div class="text-sm text-[var(--muted)]">每个进程有自己独立的内存空间，一个进程崩溃不会影响其他进程</div>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">📡</div>
+          <div>
+            <div class="font-semibold">可通过网络/管道通信</div>
+            <div class="text-sm text-[var(--muted)]">进程之间可以通过IPC（进程间通信）机制交换数据</div>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">🆔</div>
+          <div>
+            <div class="font-semibold">每个进程有唯一PID</div>
+            <div class="text-sm text-[var(--muted)]">操作系统为每个进程分配唯一的进程标识符</div>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">💾</div>
+          <div>
+            <div class="font-semibold">独立的系统资源</div>
+            <div class="text-sm text-[var(--muted)]">每个进程拥有独立的文件描述符、环境变量等资源</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card mb-8">
+      <h2 class="font-display text-lg font-semibold mb-4 text-[var(--accent)] flex items-center gap-2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="16 18 22 12 16 6" />
+          <polyline points="8 6 2 12 8 18" />
+        </svg>
+        代码示例
+      </h2>
+      <div class="code-block">
+        <pre><span class="code-comment"># Python 中查看当前进程信息</span>
+<span class="code-keyword">import</span> os
+
+<span class="code-comment"># 获取当前进程PID</span>
+<span class="code-keyword">print</span>(<span class="code-string">f"当前进程PID: {os.getpid()}"</span>)
+
+<span class="code-comment"># 获取父进程PID</span>
+<span class="code-keyword">print</span>(<span class="code-string">f"父进程PID: {os.getppid()}"</span>)
+
+<span class="code-comment"># 创建子进程</span>
+pid = os.fork()
+<span class="code-keyword">if</span> pid == <span class="code-number">0</span>:
+    <span class="code-keyword">print</span>(<span class="code-string">"这是子进程"</span>)
+<span class="code-keyword">else</span>:
+    <span class="code-keyword">print</span>(<span class="code-string">f"这是父进程，子进程PID: {pid}"</span>)</pre>
+      </div>
+    </section>
+
+    <section class="card mb-8">
+      <h2 class="font-display text-lg font-semibold mb-4 text-[var(--accent)] flex items-center gap-2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        </svg>
+        相关学术词
+      </h2>
+      <div class="flex flex-wrap">
+        <a href="网关.html" class="tag">🌐 网关</a>
+        <a href="智能体.html" class="tag">🤖 智能体</a>
+        <a href="路由.html" class="tag">🔀 路由</a>
+        <a href="负载均衡.html" class="tag">⚖️ 负载均衡</a>
+        <span class="tag">💾 内存空间</span>
+        <span class="tag">🆔 PID</span>
+        <span class="tag">📡 进程通信</span>
+        <span class="tag">🔧 系统资源</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="font-display text-lg font-semibold mb-4 text-[var(--accent)] flex items-center gap-2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+        学习要点
+      </h2>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="bg-black/20 rounded-lg p-4">
+          <h3 class="font-semibold mb-2 text-blue-400">基础理解</h3>
+          <ul class="text-sm text-[var(--muted)] space-y-2">
+            <li>✓ 进程是正在运行的程序实例</li>
+            <li>✓ 每个进程都有独立的内存空间</li>
+            <li>✓ 进程之间相互隔离，互不干扰</li>
+          </ul>
+        </div>
+        <div class="bg-black/20 rounded-lg p-4">
+          <h3 class="font-semibold mb-2 text-blue-400">进阶应用</h3>
+          <ul class="text-sm text-[var(--muted)] space-y-2">
+            <li>✓ 理解进程间通信机制</li>
+            <li>✓ 掌握进程管理和监控</li>
+            <li>✓ 学会多进程编程模型</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <footer class="mt-12 text-center text-[var(--muted)] text-sm">
+      <p>📚 OpenClaw 学术词学习系列</p>
+    </footer>
+  </div>
+</body>
+
+</html>

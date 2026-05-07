@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- 禁用缓存 -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>童小智</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+  <link rel="stylesheet" href="css/base.css?v=20260505">
+  <link rel="stylesheet" href="css/components.css?v=20260505">
+  <link rel="stylesheet" href="css/components-login.css?v=20260505">
+  <link rel="stylesheet" href="css/pages.css?v=20260505">
+</head>
+<body>
+  <div id="app">
+    <!-- 首页 -->
+    <div id="page-home" class="page">
+      <header class="top-bar">
+        <div class="top-bar-left">
+          <span class="scope-selector">组织 ▾</span>
+        </div>
+        <div class="top-bar-center">
+          <div class="search-box"><input type="text" placeholder="搜索" /></div>
+        </div>
+        <div class="top-bar-right">
+          <span class="btn-task">任务</span>
+        </div>
+      </header>
+      <main class="page-content" id="home-content">
+        <p>首页</p>
+        <div id="test-panel" style="margin:20px;padding:15px;background:#f5f5f5;border-radius:8px;">
+          <p style="font-size:14px;color:#666;margin-bottom:10px;">登录测试面板</p>
+          <button id="mock-login-btn" style="padding:8px 16px;margin-right:8px;">模拟登录-标准菜单</button>
+          <button id="mock-login2-btn" style="padding:8px 16px;margin-right:8px;">模拟登录-自定义菜单</button>
+          <button id="logout-btn" style="padding:8px 16px;">退出登录</button>
+          <div id="login-status" style="margin-top:10px;font-size:14px;color:#333;"></div>
+        </div>
+      </main>
+    </div>
+
+    <!-- 智能体页面 -->
+    <div id="page-agent" class="page">
+      <header class="top-bar agent-topbar">
+        <div class="top-bar-left">
+          <img class="agent-avatar-top" id="agent-avatar-top" src="" />
+          <span class="agent-name-top" id="agent-name-top"></span>
+        </div>
+        <div class="top-bar-right">
+          <span class="agent-top-btn" id="btn-log-view">日志</span>
+          <span class="agent-top-btn" data-panel="tasks">任务</span>
+          <span class="agent-top-btn" data-panel="settings">设置</span>
+        </div>
+      </header>
+      <main class="page-content page-agent-content" id="chat-container">
+        <div id="chat-messages"></div>
+        <div class="bottom-card">
+          <div class="immersive-msg-list" id="immersive-msg-list"></div>
+          <div class="quick-actions-scroll">
+            <div class="quick-actions" id="quick-actions"></div>
+          </div>
+          <div class="input-area" id="chat-input-area"></div>
+        </div>
+      </main>
+    </div>
+
+    <!-- 消息页面 -->
+    <div id="page-message" class="page">
+      <main class="page-content">
+        <div class="message-list" id="message-list"></div>
+      </main>
+    </div>
+
+    <!-- 我的页面 -->
+    <div id="page-profile" class="page">
+      <main class="page-content">
+        <div class="user-card" id="profile-user-card">
+          <div class="avatar"><img src="assets/logo.png" alt="avatar" /></div>
+          <div class="nickname">未登录</div>
+          <div class="role">请先登录</div>
+        </div>
+        <div class="stats-card" id="profile-stats"></div>
+      </main>
+    </div>
+
+    <!-- 内嵌网页 -->
+    <div id="page-webview" class="page">
+      <iframe id="webview-iframe" src="" frameborder="0"></iframe>
+    </div>
+
+    <!-- 底部TabBar -->
+    <nav class="tab-bar" id="tab-bar">
+      <div class="tab-item active" data-page="home">
+        <div class="tab-icon-img"></div>
+        <span class="tab-label">首页</span>
+      </div>
+      <div class="tab-item" data-page="agent">
+        <div class="tab-icon-img"></div>
+        <span class="tab-label">智能体</span>
+      </div>
+      <div class="tab-item" data-page="message">
+        <div class="tab-icon-img"></div>
+        <span class="tab-label">消息</span>
+      </div>
+      <div class="tab-item" data-page="profile">
+        <div class="tab-icon-img"></div>
+        <span class="tab-label">我的</span>
+      </div>
+    </nav>
+  </div>
+
+  <script src="js/bridge.js?v=20260505"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="js/services/login.js?v=20260505"></script>
+  <script src="js/services/ai.js?v=20260505"></script>
+  <script src="js/services/tts.js?v=20260505"></script>
+  <script src="js/services/agentVideo.js?v=20260505"></script>
+  <script src="js/pages/message.js?v=20260505"></script>
+  <script src="js/pages/profile.js?v=20260505"></script>
+  <script src="js/pages/agent.js?v=20260505"></script>
+  <script src="js/app.js?v=20260505"></script>
+  <script>
+    // 登录测试按钮
+    document.getElementById('mock-login-btn').addEventListener('click', function () {
+      window.App.handleLoginResult({
+        rowid: 'test-row-001',
+        name: '测试用户A',
+        shangjia: [
+          { name: '首页', sort: 0, page: 'home' },
+          { name: '智能体', sort: 1, page: 'agent' },
+          { name: '消息', sort: 2, page: 'message' },
+          { name: '我的', sort: 3, page: 'profile' }
+        ],
+        agent: 'agent-001'
+      });
+      document.getElementById('login-status').textContent = '登录成功 - 标准4个tab';
+    });
+
+    document.getElementById('mock-login2-btn').addEventListener('click', function () {
+      window.App.handleLoginResult({
+        rowid: 'test-row-002',
+        name: '测试用户B',
+        shangjia: [
+          { name: '首页', sort: 0, page: 'home' },
+          { name: '我的', sort: 1, page: 'profile' }
+        ],
+        agent: 'agent-002'
+      });
+      document.getElementById('login-status').textContent = '登录成功 - 自定义2个tab';
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', function () {
+      localStorage.clear();
+      location.reload();
+    });
+  </script>
+</body>
+</html>

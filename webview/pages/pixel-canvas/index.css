@@ -1,0 +1,8 @@
+/* 像素Canvas页面样式 - 保留用于扩展 */
+/* 基础样式已内联到 index.js */
+
+/* 预留：未来PNG精灵样式 */
+.pixel-sprite {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
