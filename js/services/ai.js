@@ -6,7 +6,8 @@ var AIService = {
     deepApiUrl: 'https://api.coze.cn/v1/workflow/stream_run',
     deepToken: 'sat_PsqZd6JJl9qOPZoT30rPv2gLKAVIMXGMmIp38VzXXIRU77nzgzk09yvcFwNT8Z4h',
     hapWorkflowId: '7634531869195796499',
-    immersiveWorkflowId: '7635274334010196020'
+    immersiveWorkflowId: '7635274334010196020',
+    htmlWorkflowId: '' // HTML 生成工作流 ID，待配置
   },
 
   angerKeywords: ['生气', '愤怒', '气死', '垃圾', '废物', '没用', '傻', '蠢', '太差', '太慢', '不行', '会不会', '到底会不会', '你是不是', '你行不行'],
@@ -134,6 +135,80 @@ var AIService = {
     } catch (e) {
       console.error('[AIService] execute error:', e);
       if (onChunk) onChunk({ type: 'result', content: '执行出错：' + e.message });
+      if (onChunk) onChunk({ type: 'done' });
+    }
+  },
+
+  /**
+   * HTML 生成工作流（独立调用）
+   */
+  generateHtml: async function (content, onChunk) {
+    var workflowId = this.config.htmlWorkflowId;
+    if (!workflowId) {
+      console.warn('[AIService] htmlWorkflowId 未配置，跳过 HTML 生成');
+      // 任务保持 generating 状态，等配置好后再调用
+      if (onChunk) onChunk({ type: 'done' });
+      return;
+    }
+
+    try {
+      var res = await fetch(this.config.deepApiUrl, {
+        method: 'POST',
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + this.config.deepToken
+        },
+        body: JSON.stringify({
+          workflow_id: workflowId,
+          parameters: { content: content || '' }
+        })
+      });
+
+      if (!res.ok) {
+        console.error('[AIService] HTML 工作流错误:', res.status);
+        if (onChunk) onChunk({ type: 'result', content: '' });
+        if (onChunk) onChunk({ type: 'done' });
+        return;
+      }
+
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+      var htmlContent = '';
+
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+
+        buffer += decoder.decode(chunk.value, { stream: true });
+        var lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i].trim();
+          if (line.indexOf('data: ') === 0) {
+            try {
+              var data = JSON.parse(line.slice(6));
+              if (data.node_type === 'End' && data.content) {
+                var output = data.content;
+                try {
+                  var parsed = JSON.parse(data.content);
+                  output = parsed.output || parsed.content || data.content;
+                } catch (e) {}
+                htmlContent = output;
+                if (onChunk) onChunk({ type: 'result', content: output });
+              }
+              if (data.debug_url !== undefined) {
+                if (onChunk) onChunk({ type: 'done' });
+              }
+            } catch (e) {}
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[AIService] generateHtml error:', e);
+      if (onChunk) onChunk({ type: 'result', content: '' });
       if (onChunk) onChunk({ type: 'done' });
     }
   }

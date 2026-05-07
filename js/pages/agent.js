@@ -21,6 +21,10 @@ var AgentPage = {
   maxHistoryCount: 20,
   historyKey: 'fsj_chat_history',
 
+  // HTML 任务管理
+  htmlTasks: [],
+  taskKey: 'fsj_html_tasks',
+
   // 内容类型检测（HTML/DOC/PPT/TEXT）
   _contentType: 'text',
   _contentRaw: '',
@@ -62,6 +66,8 @@ var AgentPage = {
 
     this.renderAgentTopBar();
     this.loadChatHistory();
+    this.loadHtmlTasks();
+    this._updateTaskBadge();
     this.renderWelcome();
     this.renderQuickActions();
     this.renderInputArea();
@@ -279,7 +285,7 @@ var AgentPage = {
   handleTopPanel: function (panel) {
     switch (panel) {
       case 'tasks':
-        alert('任务队列：查看和管理智能体任务');
+        this.showTaskPanel();
         break;
       case 'settings':
         this.renderSettingsModal();
@@ -529,6 +535,19 @@ var AgentPage = {
       } else {
         self.finalizeStreamingBubble();
       }
+
+      // 流式输出完成后，根据原始内容判断是否需要生成 HTML
+      if (self._contentType === 'text' && self._contentRaw) {
+        var donePrefix = self._detectFormatPrefix(self._contentRaw);
+        if (donePrefix === '1') {
+          var taskId = self._createHtmlTask('generating');
+          self._currentTaskId = taskId;
+          self._updateTaskBadge();
+          self._triggerHtmlGeneration(self._contentRaw, taskId);
+          console.log('[AgentPage] done 事件检测到 [1] 前缀，触发 HTML 生成，任务 ID:', taskId);
+        }
+      }
+
       // 重置类型状态
       self._resetContentType();
     }
@@ -1126,6 +1145,210 @@ var AgentPage = {
     var h = now.getHours().toString().padStart(2, '0');
     var m = now.getMinutes().toString().padStart(2, '0');
     return h + ':' + m;
+  },
+
+  // ===== 内容类型检测与富内容渲染 =====
+
+  /**
+   * 检测前缀标签 [0] 或 [1]（不剥离，仅识别）
+   */
+  _detectFormatPrefix: function (text) {
+    if (!text) return null;
+    var match = text.match(/^[\s]*\[\s*([01])\s*\]/);
+    return match ? match[1] : null;
+  },
+
+  /**
+   * 加载 HTML 任务列表
+   */
+  loadHtmlTasks: function () {
+    try {
+      var stored = localStorage.getItem(this.taskKey);
+      if (stored) this.htmlTasks = JSON.parse(stored);
+    } catch (e) { this.htmlTasks = []; }
+  },
+
+  /**
+   * 保存 HTML 任务列表
+   */
+  saveHtmlTasks: function () {
+    try {
+      localStorage.setItem(this.taskKey, JSON.stringify(this.htmlTasks));
+    } catch (e) {}
+  },
+
+  /**
+   * 创建 HTML 任务
+   */
+  _createHtmlTask: function (status) {
+    var task = {
+      id: 'task-' + Date.now(),
+      title: 'HTML 页面',
+      status: status, // 'generating' | 'completed'
+      html: '',
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    this.htmlTasks.unshift(task); // 新任务放最前面
+    this.saveHtmlTasks();
+    return task.id;
+  },
+
+  /**
+   * 更新任务状态
+   */
+  _updateTask: function (taskId, updates) {
+    for (var i = 0; i < this.htmlTasks.length; i++) {
+      if (this.htmlTasks[i].id === taskId) {
+        for (var key in updates) {
+          this.htmlTasks[i][key] = updates[key];
+        }
+        this.htmlTasks[i].updatedAt = Date.now();
+        break;
+      }
+    }
+    this.saveHtmlTasks();
+    this._updateTaskBadge();
+  },
+
+  /**
+   * 更新任务按钮角标
+   */
+  _updateTaskBadge: function () {
+    var btn = document.querySelector('.agent-top-btn[data-panel="tasks"]');
+    if (!btn) return;
+
+    // 移除旧角标
+    var oldBadge = btn.querySelector('.task-badge');
+    if (oldBadge) oldBadge.remove();
+
+    var generatingCount = 0;
+    for (var i = 0; i < this.htmlTasks.length; i++) {
+      if (this.htmlTasks[i].status === 'generating') generatingCount++;
+    }
+
+    if (generatingCount > 0) {
+      var badge = document.createElement('span');
+      badge.className = 'task-badge';
+      badge.textContent = generatingCount;
+      btn.style.position = 'relative';
+      btn.appendChild(badge);
+    }
+  },
+
+  /**
+   * 触发 HTML 生成工作流
+   */
+  _triggerHtmlGeneration: function (rawContent, taskId) {
+    var self = this;
+    AIService.generateHtml(rawContent, function (event) {
+      if (event.type === 'result') {
+        self._updateTask(taskId, { html: event.content, status: 'completed' });
+      } else if (event.type === 'done') {
+        self._updateTaskBadge();
+      }
+    });
+  },
+
+  /**
+   * 显示任务列表面板
+   */
+  showTaskPanel: function () {
+    var existing = document.getElementById('task-panel');
+    if (existing) existing.remove();
+
+    // 加载最新任务
+    this.loadHtmlTasks();
+
+    var panel = document.createElement('div');
+    panel.id = 'task-panel';
+    panel.className = 'task-panel-overlay';
+
+    var listHtml = '';
+    if (this.htmlTasks.length === 0) {
+      listHtml = '<div class="task-panel-empty">暂无任务</div>';
+    } else {
+      var tasks = this.htmlTasks; // 已经按时间倒序（最新的在前面）
+      listHtml = tasks.map(function (t) {
+        var statusIcon = '';
+        var statusClass = '';
+        if (t.status === 'generating') { statusIcon = '<span class="task-status-dot generating"></span>'; statusClass = 'generating'; }
+        else if (t.status === 'completed') { statusIcon = '<span class="task-status-dot completed"></span>'; }
+
+        var time = '';
+        if (t.createdAt) {
+          var d = new Date(t.createdAt);
+          time = (d.getMonth() + 1) + '/' + d.getDate() + ' ' + d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+        }
+
+        return '<div class="task-panel-item ' + statusClass + '" data-task-id="' + t.id + '">' +
+          statusIcon +
+          '<div class="task-panel-content">' +
+            '<div class="task-title">' + t.title + '</div>' +
+            '<div class="task-time">' + time + '</div>' +
+          '</div>' +
+          '<span class="task-arrow">›</span>' +
+        '</div>';
+      }).join('');
+    }
+
+    panel.innerHTML =
+      '<div class="task-panel">' +
+        '<div class="task-panel-header">' +
+          '<h3>任务列表</h3>' +
+          '<span class="task-panel-close" id="task-panel-close">✕</span>' +
+        '</div>' +
+        '<div class="task-panel-list">' + listHtml + '</div>' +
+      '</div>';
+
+    document.body.appendChild(panel);
+
+    var self = this;
+
+    // 关闭按钮
+    document.getElementById('task-panel-close').addEventListener('click', function () { panel.remove(); });
+    panel.addEventListener('click', function (e) { if (e.target === panel) panel.remove(); });
+
+    // 点击任务项
+    panel.querySelectorAll('.task-panel-item').forEach(function (item) {
+      item.addEventListener('click', function () {
+        var taskId = item.getAttribute('data-task-id');
+        var task = null;
+        for (var i = 0; i < self.htmlTasks.length; i++) {
+          if (self.htmlTasks[i].id === taskId) { task = self.htmlTasks[i]; break; }
+        }
+        if (task && task.status === 'completed' && task.html) {
+          panel.remove();
+          self._showHtmlViewer(task);
+        }
+      });
+    });
+  },
+
+  /**
+   * 全屏 HTML 查看器
+   */
+  _showHtmlViewer: function (task) {
+    var existing = document.getElementById('html-viewer-overlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'html-viewer-overlay';
+    overlay.className = 'html-viewer-overlay';
+    overlay.innerHTML =
+      '<div class="html-viewer-header">' +
+        '<h3>' + task.title + '</h3>' +
+        '<span class="html-viewer-close" id="html-viewer-close">✕</span>' +
+      '</div>' +
+      '<div class="html-viewer-body">' +
+        '<iframe srcdoc="' + task.html.replace(/"/g, '&quot;') + '" sandbox="allow-scripts allow-same-origin allow-forms" class="html-viewer-iframe"></iframe>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+
+    var self = this;
+    document.getElementById('html-viewer-close').addEventListener('click', function () { overlay.remove(); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
   },
 
   // ===== 内容类型检测与富内容渲染 =====
