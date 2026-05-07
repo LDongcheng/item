@@ -21,6 +21,9 @@ var AgentPage = {
   maxHistoryCount: 20,
   historyKey: 'fsj_chat_history',
 
+  // 当前用户输入（用于判断是否需要生成 HTML）
+  _lastUserInput: '',
+
   // HTML 任务管理
   htmlTasks: [],
   taskKey: 'fsj_html_tasks',
@@ -539,10 +542,16 @@ var AgentPage = {
       // 流式输出完成后，判断是否需要生成 HTML
       if (self._contentType === 'text' && self._contentRaw) {
         console.log('[AgentPage] _contentRaw 前100字符:', self._contentRaw.substring(0, 100));
+        console.log('[AgentPage] _lastUserInput:', self._lastUserInput);
         var donePrefix = self._detectFormatPrefix(self._contentRaw);
         console.log('[AgentPage] 检测到的前缀:', donePrefix);
 
-        var shouldGen = donePrefix === '1' || self._shouldGenHtml(self._contentRaw);
+        // 检查用户输入和 AI 回复是否包含 HTML 关键词
+        var userInputHas = self._shouldGenHtml(self._lastUserInput || '');
+        var aiResponseHas = self._shouldGenHtml(self._contentRaw);
+        console.log('[AgentPage] 用户输入含HTML关键词:', userInputHas, '| AI回复含HTML关键词:', aiResponseHas);
+
+        var shouldGen = donePrefix === '1' || userInputHas || aiResponseHas;
         console.log('[AgentPage] 是否生成 HTML:', shouldGen);
 
         if (shouldGen) {
@@ -553,6 +562,8 @@ var AgentPage = {
           self._triggerHtmlGeneration(taskId);
           console.log('[AgentPage] 触发 HTML 生成，任务 ID:', taskId);
         }
+      } else {
+        console.log('[AgentPage] done 事件触发但未进入判断: _contentType=', self._contentType, ' _contentRaw=', self._contentRaw ? '有' : '无');
       }
 
       // 重置类型状态
@@ -772,6 +783,8 @@ var AgentPage = {
     var mode = localStorage.getItem('fsj_agent_mode') || '0';
     if (mode === '1') this.addImmersiveUserMessage(text); else this.addMessage('user', text);
 
+    this._lastUserInput = text;
+
     var self = this;
     self.createStreamingBubble();
     if (mode !== '1') self.updateStreamingBubble('正在处理...');
@@ -871,6 +884,7 @@ var AgentPage = {
     var mode = localStorage.getItem('fsj_agent_mode') || '0';
     if (mode === '1') this.addImmersiveUserMessage(text); else this.addMessage('user', text);
 
+    this._lastUserInput = text;
     input.value = '';
     this.inputText = '';
     document.getElementById('chat-send-btn').classList.remove('active');
@@ -1172,8 +1186,10 @@ var AgentPage = {
     if (!content) return false;
     var htmlKeywords = [
       'html', 'HTML', '<html', '<body', '<div', 'DOCTYPE', 'srcdoc',
-      '生成一个页面', '生成页面', '生成html', '生成HTML',
-      '页面生成', '制作一个页面', '制作页面', '制作html'
+      '生成页面', '生成html', '生成HTML', '制作页面',
+      '页面生成', '制作html', '制作HTML', '为你生成',
+      '我来生成', '这是html', '这是HTML', 'html代码', 'HTML代码',
+      '以下是html', '以下是HTML', '下面是html', '下面是HTML'
     ];
     for (var i = 0; i < htmlKeywords.length; i++) {
       if (content.indexOf(htmlKeywords[i]) !== -1) return true;

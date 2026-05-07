@@ -4,6 +4,7 @@
 var AIService = {
   config: {
     deepApiUrl: 'https://api.coze.cn/v1/workflow/stream_run',
+    htmlApiUrl: 'https://api.coze.cn/v1/workflow/run',
     deepToken: 'sat_PsqZd6JJl9qOPZoT30rPv2gLKAVIMXGMmIp38VzXXIRU77nzgzk09yvcFwNT8Z4h',
     hapWorkflowId: '7634531869195796499',
     immersiveWorkflowId: '7635274334010196020',
@@ -140,19 +141,18 @@ var AIService = {
   },
 
   /**
-   * HTML 生成工作流（独立调用）
+   * HTML 生成工作流（非流式，直接返回完整 HTML）
    */
   generateHtml: async function (content, onChunk) {
     var workflowId = this.config.htmlWorkflowId;
     if (!workflowId) {
       console.warn('[AIService] htmlWorkflowId 未配置，跳过 HTML 生成');
-      // 任务保持 generating 状态，等配置好后再调用
       if (onChunk) onChunk({ type: 'done' });
       return;
     }
 
     try {
-      var res = await fetch(this.config.deepApiUrl, {
+      var res = await fetch(this.config.htmlApiUrl, {
         method: 'POST',
         cache: 'no-store',
         headers: {
@@ -172,35 +172,13 @@ var AIService = {
         return;
       }
 
-      var reader = res.body.getReader();
-      var decoder = new TextDecoder();
-      var buffer = '';
+      var data = await res.json();
       var htmlContent = '';
-
-      while (true) {
-        var chunk = await reader.read();
-        if (chunk.done) break;
-
-        buffer += decoder.decode(chunk.value, { stream: true });
-        var lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (var i = 0; i < lines.length; i++) {
-          var line = lines[i].trim();
-          if (line.indexOf('data: ') === 0) {
-            try {
-              var data = JSON.parse(line.slice(6));
-              if (data.node_type === 'End' && data.content) {
-                htmlContent += data.content;
-              }
-              if (data.debug_url !== undefined) {
-                if (onChunk) onChunk({ type: 'result', content: htmlContent });
-                if (onChunk) onChunk({ type: 'done' });
-              }
-            } catch (e) {}
-          }
-        }
+      if (data.data && data.data.output) {
+        htmlContent = data.data.output;
       }
+      if (onChunk) onChunk({ type: 'result', content: htmlContent });
+      if (onChunk) onChunk({ type: 'done' });
     } catch (e) {
       console.error('[AIService] generateHtml error:', e);
       if (onChunk) onChunk({ type: 'result', content: '' });
