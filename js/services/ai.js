@@ -7,7 +7,7 @@ var AIService = {
     deepToken: 'sat_PsqZd6JJl9qOPZoT30rPv2gLKAVIMXGMmIp38VzXXIRU77nzgzk09yvcFwNT8Z4h',
     hapWorkflowId: '7634531869195796499',
     immersiveWorkflowId: '7635274334010196020',
-    htmlWorkflowId: '' // HTML 生成工作流 ID，待配置
+    htmlWorkflowId: '7637130289924145188' // HTML 生成工作流
   },
 
   angerKeywords: ['生气', '愤怒', '气死', '垃圾', '废物', '没用', '傻', '蠢', '太差', '太慢', '不行', '会不会', '到底会不会', '你是不是', '你行不行'],
@@ -191,15 +191,10 @@ var AIService = {
             try {
               var data = JSON.parse(line.slice(6));
               if (data.node_type === 'End' && data.content) {
-                var output = data.content;
-                try {
-                  var parsed = JSON.parse(data.content);
-                  output = parsed.output || parsed.content || data.content;
-                } catch (e) {}
-                htmlContent = output;
-                if (onChunk) onChunk({ type: 'result', content: output });
+                htmlContent += data.content;
               }
               if (data.debug_url !== undefined) {
+                if (onChunk) onChunk({ type: 'result', content: htmlContent });
                 if (onChunk) onChunk({ type: 'done' });
               }
             } catch (e) {}

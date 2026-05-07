@@ -543,7 +543,7 @@ var AgentPage = {
           var taskId = self._createHtmlTask('generating');
           self._currentTaskId = taskId;
           self._updateTaskBadge();
-          self._triggerHtmlGeneration(self._contentRaw, taskId);
+          self._triggerHtmlGeneration(taskId);
           console.log('[AgentPage] done 事件检测到 [1] 前缀，触发 HTML 生成，任务 ID:', taskId);
         }
       }
@@ -1239,9 +1239,15 @@ var AgentPage = {
   /**
    * 触发 HTML 生成工作流
    */
-  _triggerHtmlGeneration: function (rawContent, taskId) {
+  _triggerHtmlGeneration: function (taskId) {
     var self = this;
-    AIService.generateHtml(rawContent, function (event) {
+    // 把聊天历史记录拼接成字符串传给 HTML 工作流
+    var chatHistoryStr = this.chatHistory.map(function (msg) {
+      var role = msg.role === 'user' ? '用户' : '助手';
+      return role + '：' + msg.content;
+    }).join('\n\n');
+
+    AIService.generateHtml(chatHistoryStr, function (event) {
       if (event.type === 'result') {
         self._updateTask(taskId, { html: event.content, status: 'completed' });
       } else if (event.type === 'done') {
