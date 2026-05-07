@@ -490,6 +490,9 @@ var AgentPage = {
     var isImmersive = mode === '1';
 
     if (event.type === 'progress') {
+      // HTML 任务不渲染 AI 文字
+      if (self._currentTaskId && self._shouldGenHtml(self._lastUserInput || '')) return;
+
       if (isImmersive) {
         if (event.content) self.streamTts(event.content);
       } else {
@@ -501,6 +504,9 @@ var AgentPage = {
         }
       }
     } else if (event.type === 'delta') {
+      // HTML 任务不渲染 AI 文字
+      if (self._currentTaskId && self._shouldGenHtml(self._lastUserInput || '')) return;
+
       if (isImmersive) {
         var strippedDelta = self._stripFormatTag(event.delta);
         if (strippedDelta === null) return; // 标签不完整，跳过
@@ -519,11 +525,16 @@ var AgentPage = {
       var cleanContent = self._stripFormatTag(event.content || '');
       if (cleanContent === null) return; // 标签不完整，跳过渲染
 
+      // 用户输入含HTML意图时，跳过AI文字渲染
+      var isHtmlTask = self._currentTaskId && self._shouldGenHtml(self._lastUserInput || '');
+
       // 保存 AI 回复到历史（保存纯净内容）
       if (cleanContent) {
         self.addMessageToHistory('assistant', cleanContent);
-        console.log('[AgentPage] AI 回复已入库，当前历史总条数:', self.chatHistory.length);
       }
+
+      if (isHtmlTask) return; // HTML 任务不需要显示文字回复
+
       if (isImmersive) {
         // 沉浸模式：渲染富内容
         if (self._contentType !== 'text') {
