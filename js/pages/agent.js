@@ -536,18 +536,22 @@ var AgentPage = {
         self.finalizeStreamingBubble();
       }
 
-      // 流式输出完成后，根据原始内容判断是否需要生成 HTML
+      // 流式输出完成后，判断是否需要生成 HTML
       if (self._contentType === 'text' && self._contentRaw) {
         console.log('[AgentPage] _contentRaw 前100字符:', self._contentRaw.substring(0, 100));
         var donePrefix = self._detectFormatPrefix(self._contentRaw);
         console.log('[AgentPage] 检测到的前缀:', donePrefix);
-        if (donePrefix === '1') {
+
+        var shouldGen = donePrefix === '1' || self._shouldGenHtml(self._contentRaw);
+        console.log('[AgentPage] 是否生成 HTML:', shouldGen);
+
+        if (shouldGen) {
           var taskId = self._createHtmlTask('generating');
           self._currentTaskId = taskId;
           self._updateTaskBadge();
           self._insertHtmlCard(taskId);
           self._triggerHtmlGeneration(taskId);
-          console.log('[AgentPage] done 事件检测到 [1] 前缀，触发 HTML 生成，任务 ID:', taskId);
+          console.log('[AgentPage] 触发 HTML 生成，任务 ID:', taskId);
         }
       }
 
@@ -1162,6 +1166,22 @@ var AgentPage = {
   },
 
   /**
+   * 判断是否需要生成 HTML（关键词兜底）
+   */
+  _shouldGenHtml: function (content) {
+    if (!content) return false;
+    var htmlKeywords = [
+      'html', 'HTML', '<html', '<body', '<div', 'DOCTYPE', 'srcdoc',
+      '生成一个页面', '生成页面', '生成html', '生成HTML',
+      '页面生成', '制作一个页面', '制作页面', '制作html'
+    ];
+    for (var i = 0; i < htmlKeywords.length; i++) {
+      if (content.indexOf(htmlKeywords[i]) !== -1) return true;
+    }
+    return false;
+  },
+
+  /**
    * 加载 HTML 任务列表
    */
   loadHtmlTasks: function () {
@@ -1221,38 +1241,63 @@ var AgentPage = {
    */
   _insertHtmlCard: function (taskId) {
     var list = document.getElementById('chat-message-list');
-    if (!list) return;
+    if (!list) {
+      console.warn('[AgentPage] chat-message-list 不存在，无法插入卡片');
+      return;
+    }
 
+    var self = this;
     var cardEl = document.createElement('div');
     cardEl.id = 'html-card-' + taskId;
     cardEl.className = 'message-item ai';
-    cardEl.setAttribute('data-task-id', taskId);
-    cardEl.innerHTML =
-      '<div class="message-avatar">🤖</div>' +
-      '<div class="message-content">' +
-        '<div class="html-task-card generating" data-task-id="' + taskId + '">' +
-          '<div class="html-card-icon">🌐</div>' +
-          '<div class="html-card-body">' +
-            '<div class="html-card-title">HTML 页面生成中</div>' +
-            '<div class="html-card-status">正在生成，请稍后...</div>' +
-          '</div>' +
-          '<div class="html-card-spinner">' +
-            '<span class="spinner-dot"></span>' +
-            '<span class="spinner-dot"></span>' +
-            '<span class="spinner-dot"></span>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
 
+    var cardInner = document.createElement('div');
+    cardInner.className = 'html-task-card generating';
+    cardInner.dataset.taskId = taskId;
+
+    var icon = document.createElement('div');
+    icon.className = 'html-card-icon';
+    icon.textContent = '🌐';
+
+    var body = document.createElement('div');
+    body.className = 'html-card-body';
+
+    var title = document.createElement('div');
+    title.className = 'html-card-title';
+    title.id = 'html-card-title-' + taskId;
+    title.textContent = 'HTML 页面';
+
+    var status = document.createElement('div');
+    status.className = 'html-card-status';
+    status.id = 'html-card-status-' + taskId;
+    status.textContent = 'HTML 正在生成中...';
+
+    body.appendChild(title);
+    body.appendChild(status);
+
+    var spinner = document.createElement('div');
+    spinner.className = 'html-card-spinner';
+    spinner.id = 'html-card-spinner-' + taskId;
+    for (var i = 0; i < 3; i++) {
+      var dot = document.createElement('span');
+      dot.className = 'spinner-dot';
+      spinner.appendChild(dot);
+    }
+
+    cardInner.appendChild(icon);
+    cardInner.appendChild(body);
+    cardInner.appendChild(spinner);
+
+    cardEl.appendChild(cardInner);
     list.appendChild(cardEl);
     this.scrollToBottom();
+    console.log('[AgentPage] HTML 卡片已插入列表');
 
-    // 绑定点击事件
-    var self = this;
-    cardEl.querySelector('.html-task-card').addEventListener('click', function () {
+    // 点击事件
+    cardInner.addEventListener('click', function () {
       var task = null;
-      for (var i = 0; i < self.htmlTasks.length; i++) {
-        if (self.htmlTasks[i].id === taskId) { task = self.htmlTasks[i]; break; }
+      for (var j = 0; j < self.htmlTasks.length; j++) {
+        if (self.htmlTasks[j].id === taskId) { task = self.htmlTasks[j]; break; }
       }
       if (task && task.status === 'completed' && task.html) {
         self._showHtmlViewer(task);
@@ -1270,19 +1315,21 @@ var AgentPage = {
     }
     if (!task) return;
 
+    var titleEl = document.getElementById('html-card-title-' + taskId);
+    var statusEl = document.getElementById('html-card-status-' + taskId);
+    var spinnerEl = document.getElementById('html-card-spinner-' + taskId);
     var cardEl = document.getElementById('html-card-' + taskId);
-    if (!cardEl) return;
-
-    var card = cardEl.querySelector('.html-task-card');
-    if (!card) return;
 
     if (task.status === 'completed') {
-      card.classList.remove('generating');
-      card.classList.add('completed');
-      card.querySelector('.html-card-title').textContent = 'HTML 页面';
-      card.querySelector('.html-card-status').textContent = '点击打开预览';
-      var spinner = cardEl.querySelector('.html-card-spinner');
-      if (spinner) spinner.remove();
+      if (cardEl) {
+        var card = cardEl.querySelector('.html-task-card');
+        if (card) card.classList.remove('generating');
+        if (card) card.classList.add('completed');
+      }
+      if (titleEl) titleEl.textContent = 'HTML 页面';
+      if (statusEl) statusEl.textContent = '生成完成，点击预览';
+      if (spinnerEl) spinnerEl.remove();
+      console.log('[AgentPage] HTML 卡片已更新为完成状态');
     }
   },
 
