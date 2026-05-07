@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML卡片完整测试</title>
+    <!-- 加载实际项目的CSS -->
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/pages.css">
+    <style>
+        body { margin: 0; background: #f0f2f5; }
+        .test-controls {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+            background: #1a1a2e; color: #fff; padding: 12px;
+            display: flex; flex-wrap: wrap; gap: 8px;
+        }
+        .test-controls button {
+            padding: 8px 14px; border: none; border-radius: 6px;
+            background: #2563EB; color: #fff; cursor: pointer; font-size: 13px;
+        }
+        .test-controls button:hover { background: #1d4ed8; }
+        .test-controls button.danger { background: #EF4444; }
+        #test-log {
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 999;
+            background: #0a0a1a; color: #0f0; padding: 10px; font-size: 11px;
+            font-family: monospace; max-height: 180px; overflow-y: auto;
+        }
+        .app-frame {
+            margin-top: 56px; margin-bottom: 180px;
+            max-width: 420px; margin-left: auto; margin-right: auto;
+            background: #fff; min-height: 600px; box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+<!-- 测试控制面板 -->
+<div class="test-controls">
+    <button onclick="sendTestMsg()">模拟发送: 写个html雷达图</button>
+    <button onclick="sendTestMsg2()">模拟发送: 帮我做数学题</button>
+    <button onclick="sendTestMsg3()">模拟发送: [1]生成页面</button>
+    <button onclick="simulateAiDone()">模拟AI回复完成(result+done)</button>
+    <button onclick="simulateHtmlComplete()">模拟HTML生成完成</button>
+    <button class="danger" onclick="clearAll()">清空</button>
+</div>
+
+<!-- 模拟 app 的 DOM 结构 -->
+<div class="app-frame">
+    <div id="page-agent" class="page">
+        <main class="page-content page-agent-content" id="chat-container">
+            <div id="chat-messages">
+                <div class="welcome-area" id="chat-welcome">
+                    <div class="welcome-logo"></div>
+                    <div class="welcome-text">童小智</div>
+                </div>
+                <div id="chat-message-list"></div>
+                <div id="anchor-bottom"></div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- 日志面板 -->
+<div id="test-log"><div style="color:#888;">等待操作...</div></div>
+
+<script>
+// ===== 日志工具 =====
+var logEl = document.getElementById('test-log');
+function log(msg) {
+    var d = document.createElement('div');
+    d.style.color = msg.indexOf('ERROR') >= 0 ? '#ff4444' : '#00ff88';
+    d.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    logEl.appendChild(d);
+    logEl.scrollTop = logEl.scrollHeight;
+    console.log('[TEST]', msg);
+}
+
+// ===== 复制 AgentPage 完整关键代码 =====
+var Agent = {
+    messages: [],
+    htmlTasks: [],
+    _lastUserInput: '',
+    _currentTaskId: null,
+    _contentType: 'text',
+    _contentRaw: '',
+
+    // --- 核心方法 ---
+    _shouldGenHtml: function (content) {
+        if (!content) return false;
+        var htmlKeywords = [
+            'html', 'HTML', '<html', '<body', '<div', 'DOCTYPE', 'srcdoc',
+            '生成页面', '生成html', '生成HTML', '制作页面',
+            '页面生成', '制作html', '制作HTML', '为你生成',
+            '我来生成', '这是html', '这是HTML', 'html代码', 'HTML代码',
+            '以下是html', '以下是HTML', '下面是html', '下面是HTML'
+        ];
+        for (var i = 0; i < htmlKeywords.length; i++) {
+            if (content.indexOf(htmlKeywords[i]) !== -1) return true;
+        }
+        return false;
+    },
+
+    _detectFormatPrefix: function (text) {
+        if (!text) return null;
+        var match = text.match(/^[\s]*\[\s*([01])\s*\]/);
+        return match ? match[1] : null;
+    },
+
+    _stripFormatTag: function (text) {
+        if (!text) return text;
+        var match = text.match(/^[\s]*\[\s*([01])\s*\]\s*/);
+        if (match) return text.substring(match[0].length);
+        if (/^[\s]*\[/.test(text)) return null;
+        return text;
+    },
+
+    _createHtmlTask: function (status) {
+        var task = {
+            id: 'task-' + Date.now(),
+            title: 'HTML 页面',
+            status: status,
+            html: '',
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+        this.htmlTasks.unshift(task);
+        log('创建任务: ' + task.id + ' (状态: ' + status + ')');
+        return task.id;
+    },
+
+    _updateTask: function (taskId, updates) {
+        for (var i = 0; i < this.htmlTasks.length; i++) {
+            if (this.htmlTasks[i].id === taskId) {
+                for (var key in updates) this.htmlTasks[i][key] = updates[key];
+                this.htmlTasks[i].updatedAt = Date.now();
+                break;
+            }
+        }
+        this._updateHtmlCard(taskId);
+        log('更新任务: ' + taskId + ' -> ' + JSON.stringify(updates));
+    },
+
+    _updateTaskBadge: function () {
+        var c = 0;
+        for (var i = 0; i < this.htmlTasks.length; i++) {
+            if (this.htmlTasks[i].status === 'generating') c++;
+        }
+        log('任务角标: ' + c);
+    },
+
+    _insertHtmlCard: function (taskId) {
+        var list = document.getElementById('chat-message-list');
+        if (!list) { log('ERROR: chat-message-list 不存在!'); return; }
+
+        var self = this;
+        var cardEl = document.createElement('div');
+        cardEl.id = 'html-card-' + taskId;
+        cardEl.className = 'message-item ai';
+
+        var cardInner = document.createElement('div');
+        cardInner.className = 'html-task-card generating';
+        cardInner.dataset.taskId = taskId;
+
+        var icon = document.createElement('div');
+        icon.className = 'html-card-icon';
+        icon.textContent = '🌐';
+
+        var body = document.createElement('div');
+        body.className = 'html-card-body';
+
+        var title = document.createElement('div');
+        title.className = 'html-card-title';
+        title.id = 'html-card-title-' + taskId;
+        title.textContent = 'HTML 页面';
+
+        var status = document.createElement('div');
+        status.className = 'html-card-status';
+        status.id = 'html-card-status-' + taskId;
+        status.textContent = 'HTML 正在生成中...';
+
+        body.appendChild(title);
+        body.appendChild(status);
+
+        var spinner = document.createElement('div');
+        spinner.className = 'html-card-spinner';
+        spinner.id = 'html-card-spinner-' + taskId;
+        for (var i = 0; i < 3; i++) {
+            var dot = document.createElement('span');
+            dot.className = 'spinner-dot';
+            spinner.appendChild(dot);
+        }
+
+        cardInner.appendChild(icon);
+        cardInner.appendChild(body);
+        cardInner.appendChild(spinner);
+        cardEl.appendChild(cardInner);
+        list.appendChild(cardEl);
+        log('卡片已插入 DOM, id=' + cardEl.id + ', 父元素=' + list.id);
+        log('  -> chat-message-list 当前子元素数: ' + list.children.length);
+
+        cardInner.addEventListener('click', function () {
+            log('点击卡片 (taskId=' + taskId + ')');
+        });
+    },
+
+    _updateHtmlCard: function (taskId) {
+        var task = null;
+        for (var i = 0; i < this.htmlTasks.length; i++) {
+            if (this.htmlTasks[i].id === taskId) { task = this.htmlTasks[i]; break; }
+        }
+        if (!task) return;
+
+        var titleEl = document.getElementById('html-card-title-' + taskId);
+        var statusEl = document.getElementById('html-card-status-' + taskId);
+        var spinnerEl = document.getElementById('html-card-spinner-' + taskId);
+        var cardEl = document.getElementById('html-card-' + taskId);
+
+        if (task.status === 'completed') {
+            if (cardEl) {
+                var card = cardEl.querySelector('.html-task-card');
+                if (card) card.classList.remove('generating');
+                if (card) card.classList.add('completed');
+            }
+            if (titleEl) titleEl.textContent = 'HTML 页面';
+            if (statusEl) statusEl.textContent = '生成完成，点击预览';
+            if (spinnerEl) spinnerEl.remove();
+            log('卡片已更新为完成状态');
+        }
+    },
+
+    _triggerHtmlGeneration: function (taskId) {
+        log('触发 HTML 生成工作流, taskId=' + taskId);
+    },
+
+    // --- sendText 模拟 ---
+    sendText: function (text) {
+        log('>>> sendText: "' + text.substring(0, 40) + '..."');
+
+        // 隐藏欢迎消息
+        var welcome = document.getElementById('chat-welcome');
+        if (welcome) welcome.style.display = 'none';
+
+        // 添加用户消息气泡
+        this.addMessage('user', text);
+
+        this._lastUserInput = text;
+
+        var self = this;
+
+        // 显示 AI 正在输入
+        this.createStreamingBubble();
+
+        // 【关键】用户输入含 HTML 意图，立即创建卡片
+        if (self._shouldGenHtml(text)) {
+            var taskId = self._createHtmlTask('generating');
+            self._currentTaskId = taskId;
+            self._updateTaskBadge();
+            self._insertHtmlCard(taskId);
+            log('>>> 用户输入含HTML，已创建卡片');
+        } else {
+            log('>>> 用户输入不含HTML关键词，跳过卡片创建');
+        }
+    },
+
+    addMessage: function (type, content) {
+        var list = document.getElementById('chat-message-list');
+        if (!list) return;
+
+        var msgEl = document.createElement('div');
+        msgEl.className = 'message-item ' + type;
+        msgEl.id = 'msg-' + Date.now();
+
+        if (type === 'user') {
+            msgEl.innerHTML = '<div class="message-avatar">👤</div>' +
+                '<div class="message-content"><div class="message-bubble"><text>' + content + '</text></div>' +
+                '<div class="message-time">' + this.getTime() + '</div></div>';
+        } else {
+            msgEl.innerHTML = '<div class="message-avatar">🤖</div>' +
+                '<div class="message-content"><div class="message-bubble streaming">' +
+                '<div class="rich-text"></div><span class="streaming-cursor">▌</span></div>' +
+                '<div class="message-time">' + this.getTime() + '</div></div>';
+        }
+
+        list.appendChild(msgEl);
+    },
+
+    createStreamingBubble: function () {
+        var list = document.getElementById('chat-message-list');
+        if (!list) return;
+        var aiMsgId = Date.now();
+        this._currentMsgId = aiMsgId;
+
+        var msgEl = document.createElement('div');
+        msgEl.className = 'message-item ai';
+        msgEl.id = 'msg-' + aiMsgId;
+        msgEl.innerHTML =
+            '<div class="message-avatar">🤖</div>' +
+            '<div class="message-content">' +
+                '<div class="message-bubble streaming">' +
+                    '<div class="rich-text"></div>' +
+                    '<span class="streaming-cursor">▌</span>' +
+                '</div>' +
+                '<div class="message-time">' + this.getTime() + '</div>' +
+            '</div>';
+        list.appendChild(msgEl);
+    },
+
+    updateStreamingBubble: function (text) {
+        var msgEl = document.getElementById('msg-' + this._currentMsgId);
+        if (!msgEl) return;
+        var bubble = msgEl.querySelector('.rich-text');
+        if (bubble) bubble.innerHTML = text;
+    },
+
+    finalizeStreamingBubble: function () {
+        var msgEl = document.getElementById('msg-' + this._currentMsgId);
+        if (!msgEl) return;
+        var bubble = msgEl.querySelector('.message-bubble');
+        var cursor = msgEl.querySelector('.streaming-cursor');
+        if (bubble) bubble.classList.remove('streaming');
+        if (cursor) cursor.style.display = 'none';
+    },
+
+    _resetContentType: function () {
+        this._contentType = 'text';
+        this._contentRaw = '';
+    },
+
+    getTime: function () {
+        var d = new Date();
+        return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+    },
+
+    // --- _handleAiEvent 模拟 ---
+    simulateAiResult: function (aiContent) {
+        log('>>> AI result 事件: "' + aiContent.substring(0, 50) + '..."');
+        this._contentRaw = aiContent;
+        var clean = this._stripFormatTag(aiContent) || aiContent;
+        this.updateStreamingBubble(clean);
+        this.finalizeStreamingBubble();
+    },
+
+    simulateAiDone: function () {
+        log('>>> AI done 事件');
+        var self = this;
+
+        if (self._contentType === 'text' && self._contentRaw) {
+            var donePrefix = self._detectFormatPrefix(self._contentRaw);
+            var userInputHas = self._shouldGenHtml(self._lastUserInput || '');
+            var aiResponseHas = self._shouldGenHtml(self._contentRaw);
+            var shouldGen = donePrefix === '1' || userInputHas || aiResponseHas;
+
+            log('  前缀=' + donePrefix + ', 用户匹配=' + userInputHas + ', AI匹配=' + aiResponseHas);
+            log('  shouldGen=' + shouldGen);
+
+            if (shouldGen) {
+                if (self._currentTaskId) {
+                    self._triggerHtmlGeneration(self._currentTaskId);
+                    log('>>> 使用已有卡片触发 HTML 生成');
+                } else {
+                    var taskId = self._createHtmlTask('generating');
+                    self._currentTaskId = taskId;
+                    self._updateTaskBadge();
+                    self._insertHtmlCard(taskId);
+                    self._triggerHtmlGeneration(taskId);
+                    log('>>> 创建新卡片并触发生成');
+                }
+            }
+        }
+        self._resetContentType();
+    },
+
+    simulateHtmlComplete: function () {
+        if (this._currentTaskId) {
+            log('>>> HTML 工作流返回完成');
+            this._updateTask(this._currentTaskId, {
+                html: '<h1>测试 HTML 页面</h1><p>这是生成的内容</p>',
+                status: 'completed'
+            });
+        } else {
+            log('ERROR: 没有当前任务 ID');
+        }
+    }
+};
+
+// ===== 测试按钮 =====
+function sendTestMsg() {
+    clearAll();
+    Agent.sendText('你能写个html体现学生各个学科能力的雷达图吗');
+}
+
+function sendTestMsg2() {
+    clearAll();
+    Agent.sendText('帮我做数学题');
+}
+
+function sendTestMsg3() {
+    clearAll();
+    Agent.sendText('生成一个页面');
+}
+
+function simulateAiDone() {
+    // 先模拟 result
+    Agent.simulateAiResult('[1]\n好的，我来为你生成一个HTML页面。\n\n<!DOCTYPE html>\n<html><body><h1>Hello</h1></body></html>');
+    // 再模拟 done
+    setTimeout(function () { Agent.simulateAiDone(); }, 100);
+}
+
+function simulateHtmlComplete() {
+    Agent.simulateHtmlComplete();
+}
+
+function clearAll() {
+    var list = document.getElementById('chat-message-list');
+    if (list) list.innerHTML = '';
+    var welcome = document.getElementById('chat-welcome');
+    if (welcome) welcome.style.display = '';
+    Agent.messages = [];
+    Agent.htmlTasks = [];
+    Agent._lastUserInput = '';
+    Agent._currentTaskId = null;
+    Agent._contentType = 'text';
+    Agent._contentRaw = '';
+    log('--- 已清空 ---');
+}
+</script>
+
+</body>
+</html>

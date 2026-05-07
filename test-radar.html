@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学科能力雷达图</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #f0f9ff 0%, #faf5ff 100%);
+            padding: 20px;
+            min-height: 100vh;
+            color: #1f2937;
+        }
+        .container { max-width: 500px; margin: 0 auto; }
+
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+            padding: 24px 20px;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.08);
+            border-left: 5px solid #2563EB;
+        }
+        .header h1 { font-size: 1.6rem; color: #2563EB; margin-bottom: 8px; }
+        .header p { font-size: 0.9rem; color: #6b7280; }
+
+        .radar-wrap {
+            background: #fff;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        .radar-svg { width: 100%; max-width: 360px; margin: 0 auto; display: block; }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: #4b5563;
+        }
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .subject-list {
+            background: #fff;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+        }
+        .subject-list h2 {
+            font-size: 1.1rem;
+            color: #2563EB;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        .subject-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .subject-item:last-child { border-bottom: none; }
+        .subject-name { width: 60px; font-weight: 600; font-size: 0.9rem; }
+        .subject-bar-wrap {
+            flex: 1;
+            margin: 0 12px;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .subject-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1s ease;
+        }
+        .subject-score {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #2563EB;
+            width: 36px;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>学科能力雷达图</h1>
+        <p>各学科综合能力可视化分析</p>
+    </div>
+
+    <div class="radar-wrap">
+        <svg class="radar-svg" viewBox="0 0 400 400" id="radar"></svg>
+        <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#2563EB"></div>当前水平</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#10B981"></div>目标水平</div>
+        </div>
+    </div>
+
+    <div class="subject-list">
+        <h2>学科详情</h2>
+        <div id="subject-details"></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var subjects = [
+        { name: '数学', score: 92, target: 98, color: '#10B981' },
+        { name: '语文', score: 85, target: 92, color: '#3B82F6' },
+        { name: '英语', score: 78, target: 88, color: '#EF4444' },
+        { name: '物理', score: 80, target: 90, color: '#F59E0B' },
+        { name: '化学', score: 75, target: 85, color: '#8B5CF6' },
+        { name: '生物', score: 88, target: 95, color: '#EC4899' }
+    ];
+
+    var cx = 200, cy = 200, maxR = 150;
+    var n = subjects.length;
+    var svg = document.getElementById('radar');
+    var html = '';
+
+    // 背景网格
+    for (var level = 1; level <= 5; level++) {
+        var r = (maxR / 5) * level;
+        var pts = [];
+        for (var i = 0; i < n; i++) {
+            var angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+            pts.push((cx + r * Math.cos(angle)) + ',' + (cy + r * Math.sin(angle)));
+        }
+        html += '<polygon points="' + pts.join(' ') + '" fill="none" stroke="#e5e7eb" stroke-width="1"/>';
+    }
+
+    // 轴线和标签
+    for (var i = 0; i < n; i++) {
+        var angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+        var ex = cx + maxR * Math.cos(angle);
+        var ey = cy + maxR * Math.sin(angle);
+        html += '<line x1="' + cx + '" y1="' + cy + '" x2="' + ex + '" y2="' + ey + '" stroke="#d1d5db" stroke-width="1"/>';
+
+        var lx = cx + (maxR + 25) * Math.cos(angle);
+        var ly = cy + (maxR + 25) * Math.sin(angle);
+        html += '<text x="' + lx + '" y="' + ly + '" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#374151" font-weight="600">' + subjects[i].name + '</text>';
+    }
+
+    // 当前水平多边形
+    var curPts = [];
+    var tgtPts = [];
+    for (var i = 0; i < n; i++) {
+        var angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+        var cr = (subjects[i].score / 100) * maxR;
+        var tr = (subjects[i].target / 100) * maxR;
+        curPts.push((cx + cr * Math.cos(angle)) + ',' + (cy + cr * Math.sin(angle)));
+        tgtPts.push((cx + tr * Math.cos(angle)) + ',' + (cy + tr * Math.sin(angle)));
+    }
+
+    html += '<polygon points="' + tgtPts.join(' ') + '" fill="rgba(16,185,129,0.1)" stroke="#10B981" stroke-width="1.5"/>';
+    html += '<polygon points="' + curPts.join(' ') + '" fill="rgba(37,99,235,0.2)" stroke="#2563EB" stroke-width="2"/>';
+
+    // 数据点
+    for (var i = 0; i < n; i++) {
+        var angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+        var cr = (subjects[i].score / 100) * maxR;
+        var px = cx + cr * Math.cos(angle);
+        var py = cy + cr * Math.sin(angle);
+        html += '<circle cx="' + px + '" cy="' + py + '" r="4" fill="#2563EB"/>';
+    }
+
+    svg.innerHTML = html;
+
+    // 学科详情
+    var details = document.getElementById('subject-details');
+    var detailHtml = '';
+    for (var i = 0; i < subjects.length; i++) {
+        var s = subjects[i];
+        detailHtml += '<div class="subject-item">' +
+            '<div class="subject-name" style="color:' + s.color + '">' + s.name + '</div>' +
+            '<div class="subject-bar-wrap"><div class="subject-bar" style="width:' + s.score + '%;background:' + s.color + '"></div></div>' +
+            '<div class="subject-score">' + s.score + '</div>' +
+        '</div>';
+    }
+    details.innerHTML = detailHtml;
+})();
+</script>
+</body>
+</html>

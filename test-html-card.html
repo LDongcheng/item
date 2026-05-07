@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML卡片测试</title>
+    <style>
+        /* 从 pages.css 提取的相关样式 */
+        .message-item {
+            display: flex;
+            margin: 12px 16px;
+            gap: 10px;
+        }
+        .message-item.ai {
+            flex-direction: row;
+        }
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #2563EB;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .message-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* HTML Task Card 样式 */
+        .html-task-card {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid #e5e7eb;
+        }
+        .html-task-card.generating {
+            border-left: 3px solid #2563EB;
+            animation: generatingPulse 2s ease-in-out infinite;
+        }
+        .html-task-card.completed {
+            border-left: 3px solid #10B981;
+        }
+        @keyframes generatingPulse {
+            0%, 100% { box-shadow: 0 2px 8px rgba(37,99,235,0.08); }
+            50% { box-shadow: 0 4px 16px rgba(37,99,235,0.15); }
+        }
+        .html-card-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #2563EB, #3B82F6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        .html-card-body {
+            flex: 1;
+            min-width: 0;
+        }
+        .html-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .html-card-status {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+        .html-card-spinner {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .spinner-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #2563EB;
+            animation: spinnerDot 1.4s ease-in-out infinite;
+        }
+        .spinner-dot:nth-child(2) { animation-delay: 0.2s; }
+        .spinner-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes spinnerDot {
+            0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+            40% { opacity: 1; transform: scale(1); }
+        }
+
+        /* 测试面板 */
+        body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+        #chat-messages { background: #fff; border-radius: 12px; padding: 16px; min-height: 200px; margin-top: 20px; }
+        .test-panel { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .test-panel button { padding: 8px 16px; margin: 4px; border: none; border-radius: 6px; background: #2563EB; color: #fff; cursor: pointer; }
+        .test-panel button:hover { background: #1d4ed8; }
+        .log { font-family: monospace; font-size: 12px; background: #1a1a2e; color: #0f0; padding: 12px; border-radius: 8px; margin-top: 16px; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+
+<div class="test-panel">
+    <h2>HTML卡片生成测试</h2>
+    <div>
+        <button onclick="test1()">测试1: 用户输入含html关键词</button>
+        <button onclick="test2()">测试2: AI回复含HTML关键词</button>
+        <button onclick="test3()">测试3: [1]前缀触发</button>
+        <button onclick="test4()">测试4: 都不含HTML关键词（不应触发）</button>
+        <button onclick="test5()">测试5: 模拟完整流程（含HTML生成）</button>
+    </div>
+    <div id="status" style="margin-top: 12px; font-weight: bold; color: #333;"></div>
+</div>
+
+<div id="chat-messages">
+    <div id="chat-welcome" style="text-align:center;padding:40px;color:#999;">欢迎消息区域</div>
+    <div id="chat-message-list"></div>
+    <div id="anchor-bottom"></div>
+</div>
+
+<div class="log" id="log"></div>
+
+<script>
+// 日志工具
+function log(msg) {
+    var el = document.getElementById('log');
+    el.innerHTML += '<div>[' + new Date().toLocaleTimeString() + '] ' + msg + '</div>';
+    el.scrollTop = el.scrollHeight;
+    console.log('[TEST]', msg);
+}
+
+// ===== 复制 AgentPage 的关键代码 =====
+var TestAgent = {
+    chatHistory: [],
+    htmlTasks: [],
+    _lastUserInput: '',
+    _contentType: 'text',
+    _contentRaw: '',
+
+    _detectFormatPrefix: function (text) {
+        if (!text) return null;
+        var match = text.match(/^[\s]*\[\s*([01])\s*\]/);
+        return match ? match[1] : null;
+    },
+
+    _shouldGenHtml: function (content) {
+        if (!content) return false;
+        var htmlKeywords = [
+            'html', 'HTML', '<html', '<body', '<div', 'DOCTYPE', 'srcdoc',
+            '生成页面', '生成html', '生成HTML', '制作页面',
+            '页面生成', '制作html', '制作HTML', '为你生成',
+            '我来生成', '这是html', '这是HTML', 'html代码', 'HTML代码',
+            '以下是html', '以下是HTML', '下面是html', '下面是HTML'
+        ];
+        for (var i = 0; i < htmlKeywords.length; i++) {
+            if (content.indexOf(htmlKeywords[i]) !== -1) return true;
+        }
+        return false;
+    },
+
+    loadHtmlTasks: function () {
+        try {
+            var stored = localStorage.getItem('fsj_html_tasks');
+            if (stored) this.htmlTasks = JSON.parse(stored);
+        } catch (e) { this.htmlTasks = []; }
+    },
+
+    saveHtmlTasks: function () {
+        try {
+            localStorage.setItem('fsj_html_tasks', JSON.stringify(this.htmlTasks));
+        } catch (e) {}
+    },
+
+    _createHtmlTask: function (status) {
+        var task = {
+            id: 'task-' + Date.now(),
+            title: 'HTML 页面',
+            status: status,
+            html: '',
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+        this.htmlTasks.unshift(task);
+        this.saveHtmlTasks();
+        return task.id;
+    },
+
+    _updateTaskBadge: function () {
+        var generatingCount = 0;
+        for (var i = 0; i < this.htmlTasks.length; i++) {
+            if (this.htmlTasks[i].status === 'generating') generatingCount++;
+        }
+        log('任务角标: ' + generatingCount + ' 个生成中任务');
+    },
+
+    _insertHtmlCard: function (taskId) {
+        var list = document.getElementById('chat-message-list');
+        if (!list) {
+            log('ERROR: chat-message-list 不存在');
+            return;
+        }
+
+        var self = this;
+        var cardEl = document.createElement('div');
+        cardEl.id = 'html-card-' + taskId;
+        cardEl.className = 'message-item ai';
+
+        var cardInner = document.createElement('div');
+        cardInner.className = 'html-task-card generating';
+        cardInner.dataset.taskId = taskId;
+
+        var icon = document.createElement('div');
+        icon.className = 'html-card-icon';
+        icon.textContent = '🌐';
+
+        var body = document.createElement('div');
+        body.className = 'html-card-body';
+
+        var title = document.createElement('div');
+        title.className = 'html-card-title';
+        title.id = 'html-card-title-' + taskId;
+        title.textContent = 'HTML 页面';
+
+        var status = document.createElement('div');
+        status.className = 'html-card-status';
+        status.id = 'html-card-status-' + taskId;
+        status.textContent = 'HTML 正在生成中...';
+
+        body.appendChild(title);
+        body.appendChild(status);
+
+        var spinner = document.createElement('div');
+        spinner.className = 'html-card-spinner';
+        spinner.id = 'html-card-spinner-' + taskId;
+        for (var i = 0; i < 3; i++) {
+            var dot = document.createElement('span');
+            dot.className = 'spinner-dot';
+            spinner.appendChild(dot);
+        }
+
+        cardInner.appendChild(icon);
+        cardInner.appendChild(body);
+        cardInner.appendChild(spinner);
+        cardEl.appendChild(cardInner);
+        list.appendChild(cardEl);
+        log('HTML 卡片已插入 DOM, id=' + cardEl.id);
+
+        cardInner.addEventListener('click', function () {
+            var task = null;
+            for (var j = 0; j < self.htmlTasks.length; j++) {
+                if (self.htmlTasks[j].id === taskId) { task = self.htmlTasks[j]; break; }
+            }
+            if (task && task.status === 'completed' && task.html) {
+                log('点击卡片: 打开 HTML 查看器');
+            } else {
+                log('点击卡片: 任务未完成 或 无 HTML 内容');
+            }
+        });
+    },
+
+    _updateHtmlCard: function (taskId) {
+        var task = null;
+        for (var i = 0; i < this.htmlTasks.length; i++) {
+            if (this.htmlTasks[i].id === taskId) { task = this.htmlTasks[i]; break; }
+        }
+        if (!task) return;
+
+        var titleEl = document.getElementById('html-card-title-' + taskId);
+        var statusEl = document.getElementById('html-card-status-' + taskId);
+        var spinnerEl = document.getElementById('html-card-spinner-' + taskId);
+        var cardEl = document.getElementById('html-card-' + taskId);
+
+        if (task.status === 'completed') {
+            if (cardEl) {
+                var card = cardEl.querySelector('.html-task-card');
+                if (card) card.classList.remove('generating');
+                if (card) card.classList.add('completed');
+            }
+            if (titleEl) titleEl.textContent = 'HTML 页面';
+            if (statusEl) statusEl.textContent = '生成完成，点击预览';
+            if (spinnerEl) spinnerEl.remove();
+            log('HTML 卡片已更新为完成状态');
+        }
+    },
+
+    _updateTask: function (taskId, updates) {
+        for (var i = 0; i < this.htmlTasks.length; i++) {
+            if (this.htmlTasks[i].id === taskId) {
+                for (var key in updates) {
+                    this.htmlTasks[i][key] = updates[key];
+                }
+                this.htmlTasks[i].updatedAt = Date.now();
+                break;
+            }
+        }
+        this.saveHtmlTasks();
+        this._updateTaskBadge();
+        this._updateHtmlCard(taskId);
+    },
+
+    _resetContentType: function () {
+        this._contentType = 'text';
+        this._contentRaw = '';
+    },
+
+    /**
+     * 核心: 模拟 _handleAiEvent 的 done 事件处理
+     */
+    _handleAiEvent_done: function () {
+        var self = this;
+
+        log('=== done 事件触发 ===');
+        log('_contentType = ' + self._contentType);
+        log('_contentRaw 长度 = ' + (self._contentRaw ? self._contentRaw.length : 0));
+        log('_contentRaw 前100字符: ' + (self._contentRaw ? self._contentRaw.substring(0, 100) : 'null'));
+        log('_lastUserInput = ' + (self._lastUserInput || '空'));
+
+        if (self._contentType === 'text' && self._contentRaw) {
+            var donePrefix = self._detectFormatPrefix(self._contentRaw);
+            log('检测到的前缀: ' + donePrefix);
+
+            var userInputHas = self._shouldGenHtml(self._lastUserInput || '');
+            var aiResponseHas = self._shouldGenHtml(self._contentRaw);
+            log('用户输入含HTML关键词: ' + userInputHas);
+            log('AI回复含HTML关键词: ' + aiResponseHas);
+
+            var shouldGen = donePrefix === '1' || userInputHas || aiResponseHas;
+            log('是否生成 HTML: ' + shouldGen);
+
+            if (shouldGen) {
+                var taskId = self._createHtmlTask('generating');
+                self._updateTaskBadge();
+                self._insertHtmlCard(taskId);
+                log('>>> 触发 HTML 生成，任务 ID: ' + taskId);
+
+                // 模拟 HTML 生成完成
+                setTimeout(function () {
+                    self._updateTask(taskId, { html: '<h1>Test HTML</h1>', status: 'completed' });
+                }, 1500);
+            } else {
+                log('>>> 不满足 HTML 生成条件，跳过');
+            }
+        } else {
+            log('>>> done 事件触发但未进入判断: _contentType=' + self._contentType + ' _contentRaw=' + (self._contentRaw ? '有' : '无'));
+        }
+
+        self._resetContentType();
+    }
+};
+
+// 初始化
+TestAgent.loadHtmlTasks();
+
+// ===== 测试用例 =====
+function setStatus(msg) {
+    document.getElementById('status').textContent = msg;
+}
+
+function test1() {
+    document.getElementById('chat-message-list').innerHTML = '';
+    TestAgent._resetContentType();
+
+    // 模拟: 用户输入含html关键词，AI回复是普通文本
+    TestAgent._lastUserInput = '你能写个html体现学生各个学科能力的雷达图吗';
+    TestAgent._contentRaw = '好的，我来为你生成一个雷达图页面。';
+
+    log('--- 测试1: 用户输入含html关键词 ---');
+    setStatus('测试1: 用户输入含html关键词');
+    TestAgent._handleAiEvent_done();
+}
+
+function test2() {
+    document.getElementById('chat-message-list').innerHTML = '';
+    TestAgent._resetContentType();
+
+    // 模拟: 用户输入不含html关键词，但AI回复包含HTML
+    TestAgent._lastUserInput = '帮我做一个数学题目';
+    TestAgent._contentRaw = '好的，以下是HTML代码：\n<!DOCTYPE html>\n<html>...</html>';
+
+    log('--- 测试2: AI回复含HTML关键词 ---');
+    setStatus('测试2: AI回复含HTML关键词');
+    TestAgent._handleAiEvent_done();
+}
+
+function test3() {
+    document.getElementById('chat-message-list').innerHTML = '';
+    TestAgent._resetContentType();
+
+    // 模拟: AI回复以[1]开头
+    TestAgent._lastUserInput = '帮我做个页面';
+    TestAgent._contentRaw = '[1]好的，这是一个HTML页面。';
+
+    log('--- 测试3: [1]前缀触发 ---');
+    setStatus('测试3: [1]前缀触发');
+    TestAgent._handleAiEvent_done();
+}
+
+function test4() {
+    document.getElementById('chat-message-list').innerHTML = '';
+    TestAgent._resetContentType();
+
+    // 模拟: 都不含HTML关键词
+    TestAgent._lastUserInput = '今天天气怎么样';
+    TestAgent._contentRaw = '今天天气晴朗，适合出门散步。';
+
+    log('--- 测试4: 都不含HTML关键词（不应触发） ---');
+    setStatus('测试4: 都不含HTML关键词');
+    TestAgent._handleAiEvent_done();
+}
+
+function test5() {
+    document.getElementById('chat-message-list').innerHTML = '';
+    TestAgent._resetContentType();
+
+    // 模拟完整流程
+    TestAgent._lastUserInput = '你能写个html体现学生各个学科能力的雷达图吗';
+    TestAgent._contentRaw = '[1]\n好的，我来为你生成一个学科能力雷达图的HTML页面。\n\n<!DOCTYPE html>\n<html>\n<head><title>雷达图</title></head>\n<body><h1>学科能力雷达图</h1></body>\n</html>';
+
+    log('--- 测试5: 模拟完整流程 ---');
+    setStatus('测试5: 模拟完整流程');
+    TestAgent._handleAiEvent_done();
+}
+</script>
+
+</body>
+</html>
