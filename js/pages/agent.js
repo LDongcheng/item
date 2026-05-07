@@ -538,11 +538,14 @@ var AgentPage = {
 
       // 流式输出完成后，根据原始内容判断是否需要生成 HTML
       if (self._contentType === 'text' && self._contentRaw) {
+        console.log('[AgentPage] _contentRaw 前100字符:', self._contentRaw.substring(0, 100));
         var donePrefix = self._detectFormatPrefix(self._contentRaw);
+        console.log('[AgentPage] 检测到的前缀:', donePrefix);
         if (donePrefix === '1') {
           var taskId = self._createHtmlTask('generating');
           self._currentTaskId = taskId;
           self._updateTaskBadge();
+          self._insertHtmlCard(taskId);
           self._triggerHtmlGeneration(taskId);
           console.log('[AgentPage] done 事件检测到 [1] 前缀，触发 HTML 生成，任务 ID:', taskId);
         }
@@ -1209,6 +1212,78 @@ var AgentPage = {
     }
     this.saveHtmlTasks();
     this._updateTaskBadge();
+    // 同步更新聊天列表中的 HTML 卡片
+    this._updateHtmlCard(taskId);
+  },
+
+  /**
+   * 在聊天消息列表中插入 HTML 任务卡片
+   */
+  _insertHtmlCard: function (taskId) {
+    var list = document.getElementById('chat-message-list');
+    if (!list) return;
+
+    var cardEl = document.createElement('div');
+    cardEl.id = 'html-card-' + taskId;
+    cardEl.className = 'message-item ai';
+    cardEl.setAttribute('data-task-id', taskId);
+    cardEl.innerHTML =
+      '<div class="message-avatar">🤖</div>' +
+      '<div class="message-content">' +
+        '<div class="html-task-card generating" data-task-id="' + taskId + '">' +
+          '<div class="html-card-icon">🌐</div>' +
+          '<div class="html-card-body">' +
+            '<div class="html-card-title">HTML 页面生成中</div>' +
+            '<div class="html-card-status">正在生成，请稍后...</div>' +
+          '</div>' +
+          '<div class="html-card-spinner">' +
+            '<span class="spinner-dot"></span>' +
+            '<span class="spinner-dot"></span>' +
+            '<span class="spinner-dot"></span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    list.appendChild(cardEl);
+    this.scrollToBottom();
+
+    // 绑定点击事件
+    var self = this;
+    cardEl.querySelector('.html-task-card').addEventListener('click', function () {
+      var task = null;
+      for (var i = 0; i < self.htmlTasks.length; i++) {
+        if (self.htmlTasks[i].id === taskId) { task = self.htmlTasks[i]; break; }
+      }
+      if (task && task.status === 'completed' && task.html) {
+        self._showHtmlViewer(task);
+      }
+    });
+  },
+
+  /**
+   * 更新聊天列表中的 HTML 卡片
+   */
+  _updateHtmlCard: function (taskId) {
+    var task = null;
+    for (var i = 0; i < this.htmlTasks.length; i++) {
+      if (this.htmlTasks[i].id === taskId) { task = this.htmlTasks[i]; break; }
+    }
+    if (!task) return;
+
+    var cardEl = document.getElementById('html-card-' + taskId);
+    if (!cardEl) return;
+
+    var card = cardEl.querySelector('.html-task-card');
+    if (!card) return;
+
+    if (task.status === 'completed') {
+      card.classList.remove('generating');
+      card.classList.add('completed');
+      card.querySelector('.html-card-title').textContent = 'HTML 页面';
+      card.querySelector('.html-card-status').textContent = '点击打开预览';
+      var spinner = cardEl.querySelector('.html-card-spinner');
+      if (spinner) spinner.remove();
+    }
   },
 
   /**
