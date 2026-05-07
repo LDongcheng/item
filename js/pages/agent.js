@@ -1301,44 +1301,11 @@ var AgentPage = {
     var cardInner = document.createElement('div');
     cardInner.className = 'html-task-card generating';
     cardInner.dataset.taskId = taskId;
-
-    var icon = document.createElement('div');
-    icon.className = 'html-card-icon';
-    icon.textContent = '🌐';
-
-    var body = document.createElement('div');
-    body.className = 'html-card-body';
-
-    var title = document.createElement('div');
-    title.className = 'html-card-title';
-    title.id = 'html-card-title-' + taskId;
-    title.textContent = 'HTML 页面';
-
-    var status = document.createElement('div');
-    status.className = 'html-card-status';
-    status.id = 'html-card-status-' + taskId;
-    status.textContent = 'HTML 正在生成中...';
-
-    body.appendChild(title);
-    body.appendChild(status);
-
-    var spinner = document.createElement('div');
-    spinner.className = 'html-card-spinner';
-    spinner.id = 'html-card-spinner-' + taskId;
-    for (var i = 0; i < 3; i++) {
-      var dot = document.createElement('span');
-      dot.className = 'spinner-dot';
-      spinner.appendChild(dot);
-    }
-
-    cardInner.appendChild(icon);
-    cardInner.appendChild(body);
-    cardInner.appendChild(spinner);
+    cardInner.textContent = '正在生成 HTML';
 
     cardEl.appendChild(cardInner);
     list.appendChild(cardEl);
     this.scrollToBottom();
-    console.log('[AgentPage] HTML 卡片已插入列表');
 
     // 点击事件
     cardInner.addEventListener('click', function () {
@@ -1362,21 +1329,15 @@ var AgentPage = {
     }
     if (!task) return;
 
-    var titleEl = document.getElementById('html-card-title-' + taskId);
-    var statusEl = document.getElementById('html-card-status-' + taskId);
-    var spinnerEl = document.getElementById('html-card-spinner-' + taskId);
     var cardEl = document.getElementById('html-card-' + taskId);
+    if (!cardEl) return;
+    var card = cardEl.querySelector('.html-task-card');
+    if (!card) return;
 
     if (task.status === 'completed') {
-      if (cardEl) {
-        var card = cardEl.querySelector('.html-task-card');
-        if (card) card.classList.remove('generating');
-        if (card) card.classList.add('completed');
-      }
-      if (titleEl) titleEl.textContent = 'HTML 页面';
-      if (statusEl) statusEl.textContent = '生成完成，点击预览';
-      if (spinnerEl) spinnerEl.remove();
-      console.log('[AgentPage] HTML 卡片已更新为完成状态');
+      card.classList.remove('generating');
+      card.classList.add('completed');
+      card.textContent = '生成完成，点击预览';
     }
   },
 

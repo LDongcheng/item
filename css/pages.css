@@ -1221,20 +1221,29 @@
 .html-task-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 12px;
-  padding: 12px 16px;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+  justify-content: center;
+  background: #fff;
+  border-radius: 8px;
+  padding: 10px 20px;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.08);
   border: 1px solid var(--color-border);
-  max-width: 280px;
+  font-size: var(--font-md);
+  color: var(--color-primary);
+  font-weight: 500;
   cursor: default;
   transition: all 0.2s;
+  min-width: 140px;
+  text-align: center;
+}
+
+.html-task-card.generating {
+  animation: cardPulse 2s ease-in-out infinite;
 }
 
 .html-task-card.completed {
   cursor: pointer;
-  border-color: var(--color-primary);
+  border-color: var(--color-success);
+  color: var(--color-success);
 }
 
 .html-task-card.completed:active {
@@ -1242,48 +1251,9 @@
   transform: scale(0.98);
 }
 
-.html-card-icon {
-  font-size: 24px;
-  flex-shrink: 0;
-}
-
-.html-card-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.html-card-title {
-  font-size: var(--font-md);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.html-card-status {
-  font-size: var(--font-xs);
-  color: var(--color-text-weak);
-  margin-top: 2px;
-}
-
-.html-card-spinner {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.spinner-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  animation: spinnerDot 1.2s ease-in-out infinite;
-}
-
-.spinner-dot:nth-child(2) { animation-delay: 0.2s; }
-.spinner-dot:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes spinnerDot {
-  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
-  40% { opacity: 1; transform: scale(1.2); }
+@keyframes cardPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 /* ========== 顶部任务按钮角标 ========== */
