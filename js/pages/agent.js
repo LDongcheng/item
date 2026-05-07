@@ -490,9 +490,6 @@ var AgentPage = {
     var isImmersive = mode === '1';
 
     if (event.type === 'progress') {
-      // HTML 任务不渲染 AI 文字
-      if (self._currentTaskId && self._shouldGenHtml(self._lastUserInput || '')) return;
-
       if (isImmersive) {
         if (event.content) self.streamTts(event.content);
       } else {
@@ -504,9 +501,6 @@ var AgentPage = {
         }
       }
     } else if (event.type === 'delta') {
-      // HTML 任务不渲染 AI 文字
-      if (self._currentTaskId && self._shouldGenHtml(self._lastUserInput || '')) return;
-
       if (isImmersive) {
         var strippedDelta = self._stripFormatTag(event.delta);
         if (strippedDelta === null) return; // 标签不完整，跳过
@@ -525,15 +519,10 @@ var AgentPage = {
       var cleanContent = self._stripFormatTag(event.content || '');
       if (cleanContent === null) return; // 标签不完整，跳过渲染
 
-      // 用户输入含HTML意图时，跳过AI文字渲染
-      var isHtmlTask = self._currentTaskId && self._shouldGenHtml(self._lastUserInput || '');
-
       // 保存 AI 回复到历史（保存纯净内容）
       if (cleanContent) {
         self.addMessageToHistory('assistant', cleanContent);
       }
-
-      if (isHtmlTask) return; // HTML 任务不需要显示文字回复
 
       if (isImmersive) {
         // 沉浸模式：渲染富内容
@@ -566,18 +555,14 @@ var AgentPage = {
         var shouldGen = donePrefix === '1' || userInputHas || aiResponseHas;
 
         if (shouldGen) {
-          // HTML 任务不需要显示文字回复，移除 AI 气泡
-          if (!isImmersive) {
-            var msgEl = document.getElementById('msg-' + self._currentMsgId);
-            if (msgEl) msgEl.remove();
-          }
-
-          // 如果卡片已经存在（用户输入触发），触发 HTML 生成
+          // 如果任务已存在（用户输入触发），插入卡片并触发 HTML 生成
           if (self._currentTaskId) {
+            self._updateTaskBadge();
+            self._insertHtmlCard(self._currentTaskId);
             self._triggerHtmlGeneration(self._currentTaskId);
-            console.log('[AgentPage] 触发已有卡片 HTML 生成, taskId:', self._currentTaskId);
+            console.log('[AgentPage] 流式输出完成，插入 HTML 卡片, taskId:', self._currentTaskId);
           } else {
-            // 兼容：AI 回复才含 HTML 意图但用户输入没有，创建新卡片
+            // AI 回复才含 HTML 意图但用户输入没有，创建新卡片
             var taskId = self._createHtmlTask('generating');
             self._currentTaskId = taskId;
             self._updateTaskBadge();
@@ -919,13 +904,11 @@ var AgentPage = {
     // 保存用户消息到历史
     self.addMessageToHistory('user', text);
 
-    // 用户输入含 HTML 意图，立即创建卡片
+    // 用户输入含 HTML 意图，提前创建任务（不插入卡片，等AI回复完再插入）
     if (self._shouldGenHtml(text)) {
       var taskId = self._createHtmlTask('generating');
       self._currentTaskId = taskId;
-      self._updateTaskBadge();
-      self._insertHtmlCard(taskId);
-      console.log('[AgentPage] 用户输入含HTML意图，立即创建卡片, taskId:', taskId);
+      console.log('[AgentPage] 用户输入含HTML意图，已创建任务, taskId:', taskId);
     }
 
     AIService.execute(
